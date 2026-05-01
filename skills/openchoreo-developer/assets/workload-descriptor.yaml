@@ -1,0 +1,40 @@
+apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: <COMPONENT_NAME>
+
+endpoints:
+  - name: http
+    visibility:
+      - external
+    port: 8080
+    type: HTTP
+    basePath: /api
+    schemaFile: docs/openapi.yaml
+
+configurations:
+  env:
+    - name: LOG_LEVEL
+      value: info
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: password
+  files:
+    - name: app.json
+      mountPath: /etc/config
+      value: |
+        {"feature_flags": {"new_feature": true}}
+    - name: tls.conf
+      mountPath: /etc/app
+      valueFrom:
+        path: configs/tls.conf
+
+dependencies:
+  endpoints:
+    - component: postgres-db
+      name: api
+      visibility: project
+      envBindings:
+        host: DB_HOST
+        port: DB_PORT
