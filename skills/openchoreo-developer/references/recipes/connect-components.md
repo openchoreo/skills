@@ -70,7 +70,10 @@ OpenChoreo injects `USER_SERVICE_URL` (and any other env vars in `envBindings`) 
 
 ### 3. Verify after redeploy
 
-Once the redeploy is `Ready`, fetch runtime logs and confirm the env var resolves. Find the pod name first, then read its container logs:
+Once the redeploy is `Ready`, **don't trust Ready by itself** — a perfectly stable pod can be Ready and entirely broken if the env var name your app reads doesn't match what's bound (silent `nil` connects, no crash, no restart). Verify functionally:
+
+1. **Exercise the actual endpoint** — curl an `external` URL from `get_release_binding` → `status.endpoints[*].externalURLs`, or for internal-only services hit it from a sibling pod / port-forward. A 200 with the expected body is the only proof the wiring works.
+2. **Then** confirm the env var resolved by reading container logs:
 
 ```yaml
 get_resource_events
@@ -211,6 +214,7 @@ The right side of each `envBindings` entry is the env var name in the consumer.
 
 ## Gotchas
 
+- **Always wire connections through `dependencies.endpoints[]` with an `envBindings` entry — even when the value the app actually reads is supplied elsewhere.** The dependency declaration is what makes the link visible in the cell topology UI and tells the platform which components talk to which; an env var the app sets via `workloadOverrides.env` (or anywhere outside the dependency) does *not* show up as a connection. If the natural envBindings injection doesn't match what the app reads — wrong env var name, wrong value shape, or you need a stitched DSN handled in `workloadOverrides.env` — bind to a **dummy env var name the app does not read** (e.g. `_DEP_USER_SERVICE_URL`). The dummy keeps the dependency visible without colliding with the real env var the app actually consumes. *Why this matters:* if the app's expected env var is `REDIS_SERVER_ENDPOINT` but you skip envBindings entirely and only set it via overrides, the topology view shows no link, and the next person debugging connectivity has no signal that the wiring is intentional.
 - **Dependencies live at `spec.dependencies.endpoints[]`, not flat `spec.dependencies[]` or `spec.connections[]`.** The pre-v1.0.0 flat shape is gone. Each entry uses `name` for the target endpoint name — not `endpoint`.
 - **`update_workload` sends the full spec** — read first, append the dependency, send back. See `recipes/configure-workload.md` for the same gotcha.
 - **Visibility mismatch is silent until reconcile.** `update_workload` accepts a dependency whose target visibility is too narrow, but the ReleaseBinding fails to bind. Check `status.conditions` on the ReleaseBinding for the actual error.

@@ -1,9 +1,9 @@
 ---
 name: openchoreo-developer
 description: |
-  Use for application-level work on OpenChoreo: deploying and updating Components / Workloads / ReleaseBindings, triggering builds with available CI workflows, connecting components via endpoint dependencies, configuring env vars and secret references, promoting across Environments with per-environment overrides, and inspecting status / events / pod logs for troubleshooting.
+  Use for application-level work on OpenChoreo: deploying, updating, and deleting Components / Workloads / ReleaseBindings (plus the Projects, ComponentReleases, and SecretReferences that support them), triggering builds with available CI workflows, attaching platform-authored Traits, connecting components via endpoint dependencies, configuring env vars and secret references, promoting across Environments with per-environment overrides, and inspecting status / events / pod logs for troubleshooting.
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # OpenChoreo Developer Guide
@@ -34,20 +34,30 @@ For each task you take on, also load the matching reference _before_ acting on t
 - **Working with existing Components / Projects** (change image, update parameters, rebuild from source, modify workload, promote, troubleshoot) → skip getting-started; go directly to the matching recipe. To pick between the BYO and source-build recipes for an existing Component, call `get_component` and check the `workflow` field: present and non-empty → source-build ([`build-from-source.md`](./references/recipes/build-from-source.md)); absent or empty → BYO image ([`deploy-prebuilt-image.md`](./references/recipes/deploy-prebuilt-image.md)).
 - A specific recipe — see _What this skill can do_ below; each task points at its recipe.
 
+## Step 2 — If the task is platform-side, load the PE skill alongside this one
+
+Before going further, triage the request against the platform/app boundary. If the user's task involves **authoring** `ComponentType`, `Trait`, `Workflow`, or any of their cluster-scoped variants — or any other platform-side task listed in _What this skill cannot do_ below — **load the platform-engineer skill at `../openchoreo-platform-engineer/SKILL.md` alongside this one** (if it exists) before proceeding. This skill stays loaded; the PE skill comes in next to it, not in place of it. Many real OpenChoreo problems straddle the boundary, and running both together is the right move.
+
+This applies **even when the request is phrased in app-developer terms** ("add a componenttype for my service to use", "define a trait so my workload can opt into X"). Authoring those resources is platform engineering work regardless of phrasing — running on them with only the developer skill loaded leads to wrong-shape resources, missing schema discovery (`get_component_type_creation_schema` etc.), and wasted MCP calls.
+
+If `../openchoreo-platform-engineer/SKILL.md` isn't present (the user installed only this skill, or doesn't have platform permissions), escalate per _What this skill cannot do_ — don't try to do the platform work from this skill alone.
+
 ## What this skill can do
 
 These are the application-developer tasks this skill supports through the OpenChoreo control-plane MCP server. Each entry points to its recipe where applicable.
 
 - **Create and update Projects** — the organizational unit grouping related Components (becomes a Cell at runtime).
-- **Create and update Components** — pick a ComponentType, set parameters.
+- **Create and update Components** — pick a ComponentType, set parameters; modify post-creation via `patch_component` (`auto_deploy`, `parameters`, `traits`, `workflow`, `display_name`, `description`).
   - BYO image: Component + Workload → [`deploy-prebuilt-image.md`](./references/recipes/deploy-prebuilt-image.md)
   - Source-build: Component referencing an available CI Workflow; trigger builds via `trigger_workflow_run` and follow the WorkflowRun → [`build-from-source.md`](./references/recipes/build-from-source.md)
 - **Define and update Workloads** — container image, ports, endpoints, env vars, config files, file mounts, replicas → [`configure-workload.md`](./references/recipes/configure-workload.md)
+- **Attach available Traits** — compose platform-authored capabilities (alerts, ingress, storage, etc.) onto a Component via `patch_component traits: [...]`. See [`configure-workload.md`](./references/recipes/configure-workload.md).
 - **Connect components** — declare endpoint dependencies between components (same-project or cross-project within the namespace); the platform injects connection details as env vars → [`connect-components.md`](./references/recipes/connect-components.md)
-- **Consume secret references** — wire `SecretReference`s into env vars and files → [`manage-secrets.md`](./references/recipes/manage-secrets.md)
+- **Manage SecretReferences** — create, update, get, delete (`create_secret_reference` / `update_secret_reference` / `get_secret_reference` / `delete_secret_reference`) and consume via `secretKeyRef` in env vars and files → [`manage-secrets.md`](./references/recipes/manage-secrets.md). The underlying `ClusterSecretStore` is PE-owned.
 - **Deploy and promote across Environments** — bind a `ComponentRelease` to an Environment, then promote along the DeploymentPipeline → [`deploy-and-promote.md`](./references/recipes/deploy-and-promote.md)
 - **Apply per-environment overrides** — replicas, resources, env vars, and trait config overrides on a ReleaseBinding → [`override-per-environment.md`](./references/recipes/override-per-environment.md)
-- **Soft-undeploy and rollback** — flip a ReleaseBinding to `Undeploy`, or bind a prior `ComponentRelease` to roll back.
+- **Soft-undeploy and rollback** — flip a ReleaseBinding via `update_release_binding release_state: Undeploy`, or bind a prior `ComponentRelease` to roll back.
+- **Hard-delete developer resources** — `delete_component`, `delete_workload`, `delete_release_binding`, `delete_project`, `delete_component_release`. Destructive; confirm with the user first. **No `delete_namespace`** — that's PE-side (cascades all OpenChoreo resources via K8s GC).
 - **Check build status, logs, and events** — inspect a WorkflowRun's conditions, live logs, and per-task pod events.
 - **Check deployment status and endpoints** — inspect a Component / ReleaseBinding's `status.conditions[]` and `status.endpoints[]`.
 - **Check pod events and logs** under a ReleaseBinding for runtime debugging → [`inspect-and-debug.md`](./references/recipes/inspect-and-debug.md)
@@ -114,6 +124,6 @@ Keep these because they are durable and routinely useful:
 - Treating a platform-side failure as an app-only problem after MCP evidence (status conditions, resource events, logs) points elsewhere.
 - Creating source-build components (with `workflow`) for third-party apps that have pre-built images — this produces failed builds and clutters the UI; always check for pre-built images first.
 - Omitting env vars from official manifests when deploying third-party apps — always fetch and apply the exact env vars the upstream manifests specify (`PORT`, feature flags, vendor SDK disable flags).
-- Assuming a deployment is healthy because `status: Ready` without checking pod evidence — a crash-looping container can briefly appear Ready. Confirm with `get_resource_events` (restart counts, OOM kills, scheduling failures) and `get_resource_logs` (current container output) under the ReleaseBinding.
+- Assuming a deployment is healthy because `status: Ready` — Ready means reconciled, not working. Two failure modes hide behind it: (a) a crash-looping container can briefly flap to Ready before crashing again, and (b) a perfectly stable, never-restarting container can be Ready while entirely misconfigured — env vars bound to names the app doesn't read, dependencies resolving to nowhere, silent connect-failures to downstreams. Confirm functionally: hit an actual endpoint (curl an `external` URL) and check `get_resource_events` (restarts, OOM, scheduling) plus `get_resource_logs` under the ReleaseBinding before declaring the deploy done.
 - Setting `visibility: external` on a service-to-service dependency between components in the same project — `project` is the right default. `external` is for public-internet ingress, not for internal wiring.
 - Assuming dependency-injected service addresses are the only env vars needed — many apps also require `PORT`, telemetry disable flags, and optional service placeholders to start cleanly.
