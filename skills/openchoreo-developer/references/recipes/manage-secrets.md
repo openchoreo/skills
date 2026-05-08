@@ -52,16 +52,53 @@ Each entry maps one field in the remote secret to one key in the local Secret.
 
 ### 2. Apply via MCP
 
-Send the spec through the SecretReference create MCP path. For an existing reference, use the corresponding update path (read current spec via `list_secret_references` / `get_secret_reference`, modify, write back).
+Create:
+
+```yaml
+create_secret_reference
+  namespace_name: default
+  name: db-secret
+  spec:
+    refreshInterval: 1h
+    template:
+      type: Opaque
+    data:
+      - secretKey: password
+        remoteRef:
+          key: db/credentials
+          property: password
+```
+
+Update an existing reference (full-spec replacement — read first, modify, write back):
+
+```yaml
+get_secret_reference
+  namespace_name: default
+  name: db-secret
+# ...edit the returned spec locally...
+update_secret_reference
+  namespace_name: default
+  name: db-secret
+  spec: <full updated spec>
+```
+
+Delete (destructive — Workloads referencing this `secretKeyRef.name` will start failing on next reconcile; confirm with the user):
+
+```yaml
+delete_secret_reference
+  namespace_name: default
+  name: db-secret
+```
 
 ### 3. Verify it synced
 
 ```yaml
-list_secret_references
+get_secret_reference
   namespace_name: default
+  name: db-secret
 ```
 
-If `status` on the returned resource shows it's not synced, the cause is usually a wrong `remoteRef.key`/`property` or the ClusterSecretStore being misconfigured (PE side).
+Check `status.conditions[]` and `status.lastRefreshTime`. If it's not synced, the cause is usually a wrong `remoteRef.key` / `property` or the ClusterSecretStore being misconfigured (PE side).
 
 ## Recipe — consume a secret in a Workload
 

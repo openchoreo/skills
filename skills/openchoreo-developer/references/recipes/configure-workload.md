@@ -172,8 +172,13 @@ For per-environment differences (more replicas in prod), override at the Release
 
 ### Traits
 
+Traits live on the Component, not the Workload. Attach (or replace the trait list) via `patch_component`:
+
 ```yaml
-spec:
+patch_component
+  namespace_name: default
+  project_name: default
+  component_name: greeter
   traits:
     - kind: ClusterTrait                            # required — defaults to namespace-scoped Trait
       name: observability-alert-rule
@@ -184,7 +189,7 @@ spec:
         condition: {window: 5m, operator: gt, threshold: 50}
 ```
 
-Discover available traits via `list_cluster_traits`. Get a trait's parameter schema via `get_cluster_trait_schema`.
+`traits` on `patch_component` is **whole-list replace at the slice level** — pass every trait you want the Component to keep. An empty array clears all traits; omitting `traits` leaves the existing list unchanged. Discover available traits via `list_cluster_traits`; get a trait's parameter schema via `get_cluster_trait_schema`.
 
 ## Gotchas
 

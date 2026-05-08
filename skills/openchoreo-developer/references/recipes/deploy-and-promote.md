@@ -137,26 +137,30 @@ get_resource_logs
 Take a binding offline without deleting it. Config (overrides, release pointer) stays intact for a future redeploy.
 
 ```yaml
-update_release_binding_state
+update_release_binding
   namespace_name: default
   binding_name: my-service-staging
   release_state: Undeploy
 ```
 
-Valid `release_state` values: `Active`, `Undeploy`.
+Valid `release_state` values: `Active`, `Undeploy`. `update_release_binding` is a partial update — only the field(s) you pass change, so this leaves overrides and `release_name` untouched.
 
 The Deployment, Service, and HTTPRoute in the data plane disappear; the ReleaseBinding resource itself stays. Re-activating restores them with the same config.
 
 ## Variant — redeploy an undeployed binding
 
 ```yaml
-update_release_binding_state
+update_release_binding
   namespace_name: default
   binding_name: my-service-staging
   release_state: Active
 ```
 
-The Deployment / Service / HTTPRoute come back with the binding's existing release and overrides. To redeploy with a *different* release at the same time, do this first then `update_release_binding release_name: <new>`.
+The Deployment / Service / HTTPRoute come back with the binding's existing release and overrides. To redeploy with a *different* release at the same time, pass both fields in one call: `update_release_binding release_state: Active, release_name: <new>`.
+
+## Variant — hard-delete a binding
+
+When the binding is no longer needed (not just temporarily down), `delete_release_binding namespace_name: <ns>, binding_name: <name>` removes the ReleaseBinding resource itself. Config and overrides are gone — destructive, no automatic redeploy path. Confirm with the user before running. For reversible removal, prefer `release_state: Undeploy` above.
 
 ## Gotchas
 

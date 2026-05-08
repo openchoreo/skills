@@ -1,9 +1,9 @@
 ---
 name: openchoreo-platform-engineer
 description: |
-  Use for OpenChoreo platform-level work: authoring ComponentTypes / Traits / Workflows (and cluster-scoped variants), creating Environments and DeploymentPipelines, registering DataPlanes / WorkflowPlanes / ObservabilityPlanes, configuring secret stores, identity, authorization roles, API gateway, alert notification channels, and Helm install / upgrade.
+  Use for OpenChoreo platform-level work: authoring ComponentTypes / Traits / Workflows (and cluster-scoped variants), creating Environments and DeploymentPipelines, registering DataPlanes / WorkflowPlanes / ObservabilityPlanes, configuring secret stores (`ClusterSecretStore` / `SecretStore`), identity, authorization roles, API gateway, alert notification channels, and Helm install / upgrade. Pair with `openchoreo-developer` whenever an app-side concern is touched alongside platform work.
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # OpenChoreo Platform Engineer Guide
@@ -55,7 +55,7 @@ These are the platform-engineering tasks this skill supports.
 
 ## What this skill cannot do
 
-- **Application-level work — `openchoreo-developer` owns this.** Authoring `Component` / `Workload` / `ReleaseBinding`, editing `workload.yaml`, attaching PE-authored Traits to a Component (`spec.traits[]`), tracing a runtime crash, deploying or promoting an app, debugging a developer-shape problem. **Pair this skill with `openchoreo-developer`** when the task crosses the boundary — many "this app fails to deploy" problems turn out to be a missing `ClusterTrait` or a misconfigured `DeploymentPipeline`. If both skills are available, run them together immediately.
+- **Application-level work — `openchoreo-developer` owns this.** Authoring `Component` / `Workload` / `ReleaseBinding`, editing `workload.yaml`, attaching PE-authored Traits to a Component via `patch_component traits: [...]`, managing `SecretReference` CRUD (`create_secret_reference` / `update_secret_reference` / `delete_secret_reference` — the underlying `ClusterSecretStore` is still PE-owned), hard-deleting developer-side resources (`delete_component` / `delete_workload` / `delete_release_binding` / `delete_project` / `delete_component_release` — but **`delete_namespace` is PE-side**, not exposed via MCP), tracing a runtime crash, deploying or promoting an app, debugging a developer-shape problem. **Pair this skill with `openchoreo-developer`** when the task crosses the boundary — many "this app fails to deploy" problems turn out to be a missing `ClusterTrait` or a misconfigured `DeploymentPipeline`. If both skills are available, run them together immediately.
 - **GitOps workflows** — repo layout (`platform-shared/`, `namespaces/<ns>/platform/`), Flux CD setup, bulk promotion via Git, the `occ` file-system mode (`componentrelease generate`, `releasebinding generate`). A dedicated GitOps skill owns this; do not pull those flows into this skill.
 - **Initial OpenChoreo install from scratch** — Helm install for a fresh control plane and first plane, Colima / k3d / GCP / multi-cluster bootstrap walkthroughs. **`openchoreo-install`** owns this. Once OpenChoreo is running, day-2 platform work comes back here.
 - **Aggregated runtime log / metric / trace queries** — log search across replicas, metric queries, trace lookups, alert and incident queries. For pod-level evidence under a binding use `get_resource_events` / `get_resource_logs`; for longer-horizon history, fall back to `kubectl logs` against the relevant plane, or query the observability backend (Loki / Prometheus / Tempo) via its own UI / API when configured.
