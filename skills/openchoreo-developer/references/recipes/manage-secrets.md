@@ -2,12 +2,6 @@
 
 Create a `SecretReference` that pulls a secret from the platform's external secret store (ESO-backed: Vault, AWS Secrets Manager, OpenBao, …) and consume it in a Workload — as an env var, as a mounted file, or as Git auth for a source build.
 
-## When to use
-
-- The Workload needs a credential (DB password, API key, token, TLS cert, vendor secret) that should not live in Git
-- Pulling from a private Git repo (use `kubernetes.io/basic-auth` or `kubernetes.io/ssh-auth`) — see `recipes/build-from-source.md`
-- Pulling from a private container registry (use `kubernetes.io/dockerconfigjson`) — usually a PE-side ClusterComponentType concern; see `recipes/deploy-prebuilt-image.md`
-
 ## Prerequisites
 
 A `ClusterSecretStore` exists in the workflow plane and points at the external backend. **This is PE-owned** — if `list_secret_references` returns the resources you expect to see but they're stuck in error, or if the store doesn't exist at all, escalate to `openchoreo-platform-engineer`.

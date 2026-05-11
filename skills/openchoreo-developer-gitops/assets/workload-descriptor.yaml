@@ -1,0 +1,73 @@
+# OpenChoreo workload descriptor — place at <src-repo>/<appPath>/workload.yaml
+# Read by the build pipeline's generate-workload step to build the Workload CR.
+#
+# Field-name reminder (descriptor → CR):
+#   configurations.env[].name      → container.env[].key
+#   configurations.files[].name    → container.files[].key
+#   endpoints[] (list with name)   → endpoints (map)
+#
+# The build always overrides metadata.name with <component>-workload.
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: <component>                                # overridden by the build
+spec:
+  owner:
+    componentName: <component>
+    projectName: <project>
+
+  # Endpoints — list with `name` (descriptor shape).
+  endpoints:
+    - name: http
+      type: HTTP                                   # HTTP | GraphQL | Websocket | gRPC | TCP | UDP
+      port: 8080
+      # targetPort: 8080                           # defaults to port
+      # basePath: /api/v1                          # HTTP only
+      visibility: [external]                       # project (implicit) | namespace | internal | external
+      # schema:
+      #   type: REST
+      #   content: |
+      #     openapi: 3.0.0
+      #     …
+
+  # Env vars / files / secrets — descriptor uses "configurations" (CR uses "container.env" / "container.files").
+  configurations:
+    env:
+      - name: LOG_LEVEL
+        value: info
+      - name: PORT
+        value: "8080"
+    files:
+      - name: /etc/app/config.json
+        mountPath: /etc/app/config.json
+        value: |
+          {"feature_x": false}
+    secrets:
+      envs:
+        - name: DB_PASSWORD
+          remoteRef:
+            key: db-credentials
+            property: DB_PASSWORD
+      files:
+        - name: /etc/app/secret.json
+          mountPath: /etc/app/secret.json
+          remoteRef:
+            key: api-keys
+            property: STRIPE_KEY
+
+  # Dependencies — automatic service-discovery injection.
+  # visibility must be `project` or `namespace`; target visibility must be ≥ this.
+  dependencies:
+    endpoints:
+      - component: postgres
+        name: tcp
+        visibility: project
+        envBindings:
+          host: DB_HOST
+          port: DB_PORT
+      - component: nats
+        name: tcp
+        visibility: project
+        envBindings:
+          address: NATS_URL

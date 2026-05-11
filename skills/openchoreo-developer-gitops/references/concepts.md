@@ -1,0 +1,304 @@
+# Concepts
+
+Read once per session before authoring. OpenChoreo abstracts away K8s for developers; in GitOps mode you commit OpenChoreo CRs to Git and Flux reconciles them onto the cluster, where OpenChoreo controllers render them into actual K8s objects (`Deployment`, `Service`, `HTTPRoute`, `NetworkPolicy`, …) on the DataPlane.
+
+## Resource hierarchy
+
+```
+Namespace (tenant boundary)
+└── Project (bounded context — becomes a Cell at runtime)
+    ├── Component                     (deployable unit; references a ComponentType)
+    │   ├── Workload                  (runtime contract: image, ports, env, deps, files)
+    │   ├── ComponentRelease          (immutable snapshot of Component+Workload+Type+Traits)
+    │   ├── WorkflowRun               (build executions — IMPERATIVE; NEVER in Git)
+    │   └── ReleaseBinding            (binds a release to an Environment, with per-env overrides)
+    ├── Environment                   (PE-authored; pick from existing)
+    ├── DeploymentPipeline            (PE-authored; pick from existing)
+    └── SecretReference               (PE-authored; consume via valueFrom.secretKeyRef)
+```
+
+Application-level (this skill owns): Project, Component, Workload, ComponentRelease, ReleaseBinding.
+
+Read-only for developers (PE-authored): Environment, DeploymentPipeline, ComponentType / Trait / Workflow (and Cluster variants), DataPlane / WorkflowPlane / ObservabilityPlane, SecretReference, AuthzRole. **Discover live with `occ <kind> list`; don't author them in this skill.**
+
+## Repo layout
+
+Per `gitops/overview.md`:
+
+```
+namespaces/<ns>/projects/
+└── <project>/
+    ├── project.yaml
+    └── components/
+        └── <component>/
+            ├── component.yaml
+            ├── workload.yaml                       # BYO: hand-authored; source-build: optional source-descriptor mirror
+            ├── releases/
+            │   └── <component>-<date>-<revision>.yaml
+            └── release-bindings/
+                ├── <component>-development.yaml
+                ├── <component>-staging.yaml
+                └── <component>-production.yaml
+```
+
+Application resources go under `namespaces/<ns>/projects/<project>/...`. Per-component layout under `components/<component>/` is the documented convention; `occ` file-mode generators (`componentrelease generate`, `releasebinding generate`) write to this layout by default. Repo-wide overrides live in `release-config.yaml` at the repo root.
+
+> Cluster-scoped and namespace-scoped platform resources live under `platform-shared/` and `namespaces/<ns>/platform/`, respectively, and are owned by the PE skill. The developer skill does not write there.
+
+## Two-resource deployment model
+
+The platform splits "what to deploy" from "where to deploy it":
+
+| Resource              | Role                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| **`ComponentRelease`** | Immutable snapshot of `{Component, Workload, ComponentType, Traits}` at a point in time.            |
+| **`ReleaseBinding`**  | Binds a `ComponentRelease` to an `Environment`. Carries per-environment overrides.                  |
+
+Same `ComponentRelease` can be bound to multiple Environments via separate `ReleaseBinding`s — promote by creating a new binding, not a new release. Roll back by repointing a binding's `spec.releaseName` to a previous release. The release file itself never changes.
+
+## Project
+
+A **Project** is a bounded context (DDD) — a cohesive set of Components implementing one business capability. Each Project becomes a runtime **Cell**: its own namespace on the DataPlane, automatic network policies (Cilium), and directional gateways (north / south / east / west). Components inside a Cell talk freely; cross-Cell traffic flows through gateways the platform configures.
+
+Key fields:
+
+- `metadata.name`, `metadata.namespace`
+- `spec.deploymentPipelineRef: { name, kind? }` — links to a PE-authored DeploymentPipeline. **Object, not a plain string** (since v1.0.0). `kind` defaults to `DeploymentPipeline`.
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  name: doclet
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Doclet
+    openchoreo.dev/description: Anonymous collaborative editor
+spec:
+  deploymentPipelineRef:
+    name: standard
+```
+
+## Component
+
+A **Component** is one deployable unit — a microservice, web app, scheduled task. References a ComponentType (PE-authored template that decides how it renders to K8s) and optionally attaches PE-authored Traits.
+
+Key fields:
+
+- `metadata.name`, `metadata.namespace`
+- `spec.owner.projectName` — parent Project.
+- `spec.componentType: { kind, name }` — `kind` is `ClusterComponentType` or `ComponentType` (defaults to `ClusterComponentType` for the shipped defaults; set `kind: ComponentType` explicitly when referencing a namespace-scoped variant). `name` is `workloadType/typeName` (e.g. `deployment/service`).
+- `spec.parameters` — values matching the ComponentType's `parameters` schema. Frozen into `ComponentRelease`; same across environments.
+- `spec.traits[]` — list of `{ kind, name, instanceName, parameters }`. Unique `instanceName` per attachment. `kind` defaults to `ClusterTrait`; set explicitly for namespace-scoped.
+- `spec.workflow: { kind, name, parameters }` — **presence puts the Component in source-build mode.** `kind` defaults to `ClusterWorkflow`. Omit to stay BYO.
+- `spec.autoDeploy` — when `true`, the controller creates a new `ComponentRelease` automatically whenever the Workload changes. In GitOps mode you usually generate releases deliberately (`occ componentrelease generate`); `autoDeploy: true` is still useful for source-build flows where the build emits a new Workload per push.
+- `spec.autoBuild` — when `true` and a workflow is set, the platform triggers `WorkflowRun`s on Git push via webhook. Off by default.
+
+```yaml
+# BYO example
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+  componentType:
+    name: database
+    kind: ComponentType
+  parameters:
+    port: 5432
+  traits:
+    - kind: Trait
+      name: persistent-volume
+      instanceName: data-storage
+      parameters:
+        volumeName: pg-data
+        mountPath: /var/lib/postgresql/data
+        containerName: main
+```
+
+## Workload
+
+A **Workload** is the runtime contract for a Component. **One Workload per Component.** Environment-agnostic — anything per-environment belongs on the `ReleaseBinding`.
+
+Key fields:
+
+- `metadata.name`, `metadata.namespace`
+- `spec.owner: { projectName, componentName }` — **immutable after creation**.
+- `spec.container.image` — OCI image. Required.
+- `spec.container.command`, `spec.container.args` — optional, K8s semantics.
+- `spec.container.env[]` — each `{ key, value }` or `{ key, valueFrom.secretKeyRef: { name, key } }`. **Field is `key`, not K8s's `name`.** Exactly one of `value` or `valueFrom`.
+- `spec.container.files[]` — `{ key, mountPath, value | valueFrom.secretKeyRef }`. Literal or secret-backed file.
+- `spec.endpoints` — **map keyed by endpoint name** (not a list). See *Endpoint visibility*.
+- `spec.dependencies.endpoints[]` — wiring to other Components. See *Dependencies*.
+
+**Two ways Workloads get into Git:**
+
+- **BYO** — Component has no `spec.workflow`. Author the Workload CR directly. Use `occ workload create --mode file-system` to synthesise from a descriptor + image.
+- **Source-build** — Component has `spec.workflow`. The build's `generate-workload` step auto-creates the Workload from a `workload.yaml` descriptor in the source repo plus the built image. **Don't commit a Workload CR for source-build Components** unless you understand the migration semantics (see [`recipes/onboard-component-source-build.md`](./recipes/onboard-component-source-build.md)).
+
+### Workload Descriptor (`workload.yaml` in source repo)
+
+A file at the source repo's `appPath` root that the build reads to assemble the Workload. Same conceptual shape as `Workload.spec` (endpoints, dependencies, env, files), but **field names differ slightly**:
+
+| Field        | Workload CR                | `workload.yaml` descriptor    |
+| ------------ | -------------------------- | ----------------------------- |
+| Env vars     | `container.env[].key`      | `configurations.env[].name`   |
+| File mounts  | `container.files[].key`    | `configurations.files[].name` |
+| Endpoints    | `endpoints` (map)          | `endpoints[]` (list with `name` field) |
+
+Without `workload.yaml`, the auto-generated Workload only carries `container.image` — endpoints / env / deps missing. The descriptor is the developer's source of those fields.
+
+## Endpoint visibility
+
+Every endpoint **implicitly carries `project` visibility**. The `visibility` array adds more scopes.
+
+| Visibility   | Reachable from                                          | Notes                                          |
+| ------------ | ------------------------------------------------------- | ---------------------------------------------- |
+| `project`    | Same Project + same Environment (implicit, always)      | Replaces ClusterIP `Service` in-Cell.          |
+| `namespace`  | All Projects in same namespace + same env               | Needs westbound gateway (PE-configured).       |
+| `internal`   | All namespaces in the deployment                        | Needs westbound gateway.                       |
+| `external`   | Public internet                                         | Needs northbound gateway (typical).            |
+
+A single endpoint can carry multiple visibilities (e.g. `[namespace, external]`). `visibility: [external]` implies both `project` (implicit) and `external`.
+
+**Dependency entries are different.** When a Component declares a *dependency* on another component's endpoint (`dependencies.endpoints[*].visibility`), only `project` and `namespace` are valid — the API rejects `internal` and `external` there. Cross-namespace dependencies are not supported via this mechanism.
+
+## Dependencies
+
+A Component declares what it consumes from other Components via `Workload.spec.dependencies.endpoints[]`. The platform resolves the target endpoint's address and injects it as an env var on the consumer's container.
+
+```yaml
+dependencies:
+  endpoints:
+    - component: backend-api
+      name: api                       # name of the target endpoint
+      visibility: project
+      envBindings:
+        address: BACKEND_URL
+```
+
+Each entry:
+
+- `component` — target Component name (required).
+- `name` — target endpoint name on that Component (required).
+- `visibility` — only `project` or `namespace`. Target endpoint must declare at least this level (target's visibility ≥ dependency's).
+- `project` — optional; defaults to the consumer's Project. Set explicitly for cross-Project (then `visibility` must be `namespace`).
+- `envBindings` — maps connection pieces to env-var names. Keys: `address` (full string — `scheme://host:port/basePath` for HTTP-style, `host:port` for gRPC/TCP/UDP), `host`, `port`, `basePath`. Any combination; `address` is most common.
+
+Up to 50 dependencies per Workload.
+
+## ComponentRelease
+
+A **ComponentRelease** is an immutable snapshot of `{ Component, Workload, ComponentType, Traits }` at a point in time — the "lock file" for deployments.
+
+In GitOps mode:
+
+- **Generate, don't hand-edit.** Use `occ componentrelease generate --mode file-system --root-dir <repo> --project <p> --component <c>` to produce the YAML. Hand-editing breaks the snapshot invariant.
+- Each release commits a single, versioned file. Promotion across environments is another `ReleaseBinding` referencing the same `ComponentRelease`, not a new release.
+- With `Component.spec.autoDeploy: true`, the controller can create releases automatically — useful in source-build flows. In strict GitOps you usually generate them deliberately so Git remains the source of truth.
+
+## ReleaseBinding
+
+A **ReleaseBinding** is the deploy-this-here resource. Binds a ComponentRelease to an Environment and carries per-environment overrides.
+
+Key fields:
+
+- `metadata.name`, `metadata.namespace`
+- `spec.owner: { projectName, componentName }`
+- `spec.environment` — required; one of the existing Environment names.
+- `spec.releaseName` — the specific ComponentRelease to bind. **Set explicitly in GitOps** so promotion is deterministic.
+- `spec.state` — `Active` (deployed) or `Undeploy` (removed). Reversible.
+- `spec.componentTypeEnvironmentConfigs` — values matching the ComponentType's `environmentConfigs` schema (replicas, resources, imagePullPolicy, …).
+- `spec.traitEnvironmentConfigs` — keyed by each trait's `instanceName`, values matching the Trait's `environmentConfigs` schema (HPA bounds, PVC size, alert thresholds, …).
+- `spec.workloadOverrides` — Workload-shape per-env overrides (env vars, files differing per env).
+
+Generate with `occ releasebinding generate`. Promotion across environments = additional ReleaseBinding files pointing at the same `releaseName`, one per target environment.
+
+## Workflow & WorkflowRun
+
+A **ClusterWorkflow** / **Workflow** is a build template (PE-authored). A Component opts into source-build by setting `spec.workflow`:
+
+```yaml
+workflow:
+  kind: ClusterWorkflow
+  name: docker-gitops-release       # whatever workflow is installed on the cluster
+  parameters:
+    componentName: "<component>"
+    projectName: "<project>"
+    repository:
+      url: "https://github.com/<org>/<repo>"
+      revision:
+        branch: main
+      appPath: /<app-path>
+    docker:
+      context: /<app-path>
+      filePath: /<app-path>/Dockerfile
+    workloadDescriptorPath: workload.yaml
+```
+
+A **WorkflowRun** is one execution of a Workflow. **`WorkflowRun` is imperative — never in Git.** Trigger via webhook (when `autoBuild: true`), the UI, `occ component workflow run`, or `kubectl apply -f` of a standalone WorkflowRun manifest. Build-and-release workflows produce a PR against the GitOps repo with the generated Workload / ComponentRelease / ReleaseBinding manifests.
+
+## Deploy flow
+
+```
+Component + Workload (in Git) → Flux reconciles →
+  → ComponentRelease (generated, committed) → Flux reconciles →
+    → ReleaseBinding (generated per env, committed) → Flux reconciles →
+      → RenderedRelease (on DataPlane) → actual K8s objects
+```
+
+For the build-and-release workflow path:
+
+```
+Source push → WorkflowRun → build container image →
+  → PR against GitOps repo (Workload + ComponentRelease + ReleaseBinding) →
+    → merge → Flux reconciles → deploy
+```
+
+The authoring path commits the *inputs*; the platform produces the K8s *outputs*.
+
+## API version
+
+Every OpenChoreo CR: `apiVersion: openchoreo.dev/v1alpha1`.
+
+## Verification ladder
+
+After a PR merges:
+
+1. **Flux pulled the new commit** — `flux get sources git -A`. Look for the post-merge SHA prefix; `READY=True`.
+2. **The `projects` Kustomization applied** — `flux get kustomizations -A`. `READY=True` and `REVISION` matches the post-merge SHA. To skip the 5m interval: `flux reconcile kustomization <name> --with-source`.
+3. **OpenChoreo controllers reconciled the application resources**:
+   ```bash
+   occ component get <component> -n <ns>                          # Component
+   occ workload get <component>-workload -n <ns>                  # Workload (source-build naming) or whatever was authored
+   occ releasebinding get <component>-<env> -n <ns>               # ReleaseSynced → ResourcesReady → Ready
+   ```
+4. **Functional check** — `Ready=True` means reconciled, not necessarily working. For public services, curl one of `status.endpoints[]` to confirm.
+
+`Ready=True` does not mean working. Two failure modes hide behind it:
+
+- A crash-looping container can briefly flap to Ready before crashing again — check restart counts via `kubectl get pod -A | grep <component>` against the data plane.
+- A stable container can be Ready while entirely misconfigured — env vars bound to names the app doesn't read, dependencies resolving to nowhere, silent connect-failures. Hit the actual endpoint or read logs.
+
+## When stuck
+
+- **`GitRepository` not advancing** — branch protection, push problem, or wrong `ref`. `flux events --for gitrepository/<name>`.
+- **`Kustomization` failing** — usually malformed manifest, or upstream Kustomization (platform / namespaces) not ready yet. `flux events --for kustomization/<name>`.
+- **`ReleaseBinding.Ready=False` with `ReleaseSynced=True`** — DataPlane runtime issue (container failing, missing secret, missing dependency). Drop to `kubectl describe` / `kubectl logs` against the data plane for pod-level evidence — see [`recipes/verify-and-debug.md`](./recipes/verify-and-debug.md).
+- **Cluster diverged from Git after a clean reconcile** — drift recovery below.
+
+## Drift recovery
+
+Drift = cluster spec ≠ Git spec for a GitOps-managed resource. Resolve by moving one side to match the other; never `kubectl apply` against a GitOps-managed resource — Flux will revert it on the next reconcile.
+
+1. **Compare** — `git -C <repo> show HEAD:<path>` vs `occ <kind> get <name>`.
+2. **If Git is right** (cluster got hand-edited or stale), force Flux: `flux reconcile kustomization <name> --with-source`.
+3. **If the cluster is right** (out-of-band change is the desired state but was never committed), codify back to Git:
+   ```bash
+   occ <kind> get <name> [-n <ns>] > /tmp/cluster.yaml
+   # strip status: and metadata.managedFields:, save to <repo>/<path>, commit, PR
+   ```
+4. **`ComponentRelease` is immutable** — if a release file in Git differs from the cluster, regenerate with `occ componentrelease generate` rather than hand-editing.

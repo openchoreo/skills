@@ -1,0 +1,8 @@
+# OpenChoreo platform-shared CODEOWNERS
+# Copy/merge into <repo-root>/CODEOWNERS or <repo-root>/.github/CODEOWNERS.
+# Replace the placeholder team handle with the platform team's GitHub team / GitLab group.
+#
+# Cluster-scoped resources affect every namespace — require platform-team review.
+
+/platform-shared/                     @<your-org>/platform-team
+/namespaces/*/platform/               @<your-org>/platform-team

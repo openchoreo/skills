@@ -2,20 +2,9 @@
 
 Wire one Component to another's endpoint so OpenChoreo injects the resolved service address as an env var. Uses `spec.dependencies.endpoints[]` on the consuming Workload.
 
-## When to use
-
-- One component needs to call another component's endpoint
-- The user is hardcoding hostnames or guessing service DNS — replace with a dependency
-- Cross-project dependencies (e.g. an app calling a shared `auth-service` in a `platform-services` project)
-- For attaching plain env vars or secrets unrelated to other components, use `recipes/configure-workload.md` / `recipes/manage-secrets.md`
-
 ## Prerequisites
 
-> **The dependency entry's `visibility` is constrained to `project` or `namespace` only.** The API rejects `internal` and `external` on `dependencies.endpoints[*].visibility` — those two levels exist for *target endpoint declarations* (ingress) and for non-dependency consumers, not for service-to-service dependency wiring. **Cross-namespace dependencies are not supported** via this mechanism; if you need one, escalate to `openchoreo-platform-engineer` (a gateway / network-policy approach).
->
-> **Default `visibility: project`.** Same-project, same-environment is the baseline — that's what a Project's Cell is for, and it does not require any gateway routing. Pick `namespace` only when the consumer and target are actually in different projects of the same namespace. Confirm both components' projects via `get_component` before deciding.
-
-1. Both Components exist and the **target's endpoint visibility is broad enough** for the consumer. Pick the dependency entry's `visibility` field from this table:
+Both Components exist; the target's endpoint visibility is broad enough for the consumer. Dependency-side `visibility` is `project` or `namespace` only — `internal` / `external` are rejected, and cross-namespace dependencies aren't supported via this mechanism.
 
 | Consumer / target relationship | Set `visibility:` to | Target endpoint must declare at least |
 |---|---|---|
@@ -23,17 +12,15 @@ Wire one Component to another's endpoint so OpenChoreo injects the resolved serv
 | different project, same namespace | `namespace` | `namespace` |
 | different namespace | *not supported* | — |
 
-1. Visibility on the target endpoint is a *list*, so a target can have e.g. `[namespace, external]` and serve both same-project and cross-project consumers. The four target-side visibility levels are `project`, `namespace`, `internal`, `external`. The two dependency-side options are a strict subset (`project`, `namespace`).
-
-2. **The dependency entry uses `name:` (the target endpoint name on the dependency component), not `endpoint:`.** The pre-v1.0.0 `endpoint:` field is gone. Discover the target's endpoint names via `get_workload` first.
-
-To inspect a target's endpoint visibility:
+Visibility on the target endpoint is a *list*, so a target can have `[namespace, external]` and serve both same-project and cross-project consumers. Discover target endpoint names via `get_workload`:
 
 ```yaml
 get_workload
   namespace_name: default
   workload_name: <target>-workload
 ```
+
+The dependency entry uses `name:` for the target endpoint, not the pre-v1.0.0 `endpoint:`.
 
 ## Recipe
 
@@ -73,24 +60,16 @@ OpenChoreo injects `USER_SERVICE_URL` (and any other env vars in `envBindings`) 
 Once the redeploy is `Ready`, **don't trust Ready by itself** — a perfectly stable pod can be Ready and entirely broken if the env var name your app reads doesn't match what's bound (silent `nil` connects, no crash, no restart). Verify functionally:
 
 1. **Exercise the actual endpoint** — curl an `external` URL from `get_release_binding` → `status.endpoints[*].externalURLs`, or for internal-only services hit it from a sibling pod / port-forward. A 200 with the expected body is the only proof the wiring works.
-2. **Then** confirm the env var resolved by reading container logs:
+2. **Then** confirm the env var resolved by reading container logs. Use `get_resource_tree` to find the pod name, then:
 
 ```yaml
-get_resource_events
-  namespace_name: default
-  release_binding_name: frontend-development
-  group: ""
-  version: v1
-  kind: Pod
-  resource_name: frontend            # the workload's pod prefix; events surface concrete pod names
-
 get_resource_logs
   namespace_name: default
   release_binding_name: frontend-development
-  pod_name: <pod from events above>
+  pod_name: <pod-name-from-get_resource_tree>
 ```
 
-Look for `USER_SERVICE_URL` in startup logs or grep against the printed env. For deeper inspection, see `recipes/inspect-and-debug.md`.
+Look for `USER_SERVICE_URL` in startup logs. For deeper inspection, see `recipes/inspect-and-debug.md`.
 
 ## Patterns
 
@@ -214,7 +193,7 @@ The right side of each `envBindings` entry is the env var name in the consumer.
 
 ## Gotchas
 
-- **Always wire connections through `dependencies.endpoints[]` with an `envBindings` entry — even when the value the app actually reads is supplied elsewhere.** The dependency declaration is what makes the link visible in the cell topology UI and tells the platform which components talk to which; an env var the app sets via `workloadOverrides.env` (or anywhere outside the dependency) does *not* show up as a connection. If the natural envBindings injection doesn't match what the app reads — wrong env var name, wrong value shape, or you need a stitched DSN handled in `workloadOverrides.env` — bind to a **dummy env var name the app does not read** (e.g. `_DEP_USER_SERVICE_URL`). The dummy keeps the dependency visible without colliding with the real env var the app actually consumes. *Why this matters:* if the app's expected env var is `REDIS_SERVER_ENDPOINT` but you skip envBindings entirely and only set it via overrides, the topology view shows no link, and the next person debugging connectivity has no signal that the wiring is intentional.
+- **Always wire connections through `dependencies.endpoints[]` even when the actual value comes from elsewhere.** The dependency declaration is what shows the link in the cell topology UI; an env var set only via `workloadOverrides.env` doesn't. If `envBindings` can't produce the value the app reads (wrong name, stitched DSN, etc.), bind to a dummy env var (e.g. `_DEP_USER_SERVICE_URL`) so the dependency stays visible, and set the real env var separately.
 - **Dependencies live at `spec.dependencies.endpoints[]`, not flat `spec.dependencies[]` or `spec.connections[]`.** The pre-v1.0.0 flat shape is gone. Each entry uses `name` for the target endpoint name — not `endpoint`.
 - **`update_workload` sends the full spec** — read first, append the dependency, send back. See `recipes/configure-workload.md` for the same gotcha.
 - **Visibility mismatch is silent until reconcile.** `update_workload` accepts a dependency whose target visibility is too narrow, but the ReleaseBinding fails to bind. Check `status.conditions` on the ReleaseBinding for the actual error.

@@ -18,7 +18,7 @@ For an off-the-shelf builder, OpenChoreo ships `dockerfile-builder`, `gcp-buildp
 2. **`kubectl` access to the WorkflowPlane cluster** (where the Argo `ClusterWorkflowTemplate`s live). For single-cluster installs, this is the same cluster as the control plane; for multi-cluster, switch contexts.
 3. A `WorkflowPlane` (or `ClusterWorkflowPlane`) is registered and healthy. Verify with `list_cluster_workflowplanes` / `get_cluster_workflowplane`.
 4. Familiarity with the doc walkthrough: <https://openchoreo.dev/docs/platform-engineer-guide/workflows/creating-workflows> — it walks through the same 3-step process from a docs angle.
-5. The 4 canonical Argo `ClusterWorkflowTemplate`s for the Dockerfile path ship with this skill at [`../../resources/workflow-templates/`](../../resources/workflow-templates/) — `checkout-source.yaml`, `containerfile-build.yaml`, `publish-image.yaml`, `generate-workload.yaml`. To inspect a real OpenChoreo `Workflow` CRD that wires them together, `get_cluster_workflow cwf_name: dockerfile-builder` (the platform usually ships this).
+5. The 4 canonical Argo `ClusterWorkflowTemplate`s for the Dockerfile path ship with this skill at [`../../resources/workflow-templates/`](../../resources/workflow-templates/) — `checkout-source.yaml`, `containerfile-build.yaml`, `publish-image.yaml`, `generate-workload.yaml`. To inspect a real OpenChoreo `Workflow` CRD that wires them together, `get_cluster_workflow name: dockerfile-builder` (the platform usually ships this).
 
 ## Recipe
 
@@ -157,7 +157,7 @@ metadata:
 
 Pass this through the MCP `create_cluster_workflow` call (the tool accepts a `metadata.labels` field on the resource). Without it, UI / CLI won't categorize the workflow as CI and auto-build won't pick it up. See [`../workflows.md`](../workflows.md) §7.
 
-For the full body — including the registry-push ExternalSecret, the per-step CEL expressions, and the proper `runTemplate.spec.arguments.parameters`-to-CWT-arg wiring — inspect a Workflow already on the cluster: `get_cluster_workflow cwf_name: dockerfile-builder` (the platform usually ships this and the three buildpack alternatives). Adapt the returned spec.
+For the full body — including the registry-push ExternalSecret, the per-step CEL expressions, and the proper `runTemplate.spec.arguments.parameters`-to-CWT-arg wiring — inspect a Workflow already on the cluster: `get_cluster_workflow name: dockerfile-builder` (the platform usually ships this and the three buildpack alternatives). Adapt the returned spec.
 
 ### Step 4 — Allow the workflow on at least one ComponentType
 
@@ -167,7 +167,7 @@ A CI workflow is unusable until a ComponentType lists it in `allowedWorkflows`. 
 
 ```yaml
 get_cluster_workflow
-  cwf_name: my-custom-builder
+  name: my-custom-builder
 ```
 
 Then trigger a real build from the developer side:
@@ -191,7 +191,7 @@ For *completed* failed runs, the live-log endpoint returns nothing — fall back
 
 ### Different builder strategies
 
-Default OpenChoreo platform setups usually ship four `ClusterWorkflow`s — inspect each with `get_cluster_workflow cwf_name: <name>`:
+Default OpenChoreo platform setups usually ship four `ClusterWorkflow`s — inspect each with `get_cluster_workflow name: <name>`:
 
 | Workflow name | Builder |
 |---|---|
@@ -223,7 +223,7 @@ A namespace-scoped `Workflow` may only be referenced from a `ComponentType` (nam
 - **`ClusterWorkflowTemplate` lives in the WorkflowPlane cluster, not the control plane.** Apply against the WorkflowPlane context.
 - **`runTemplate` is an *inline* Argo Workflow spec, not a reference.** The CEL-templated `runTemplate` becomes the actual `argoproj.io/v1alpha1 Workflow` at run time. `metadata.name: ${metadata.workflowRunName}` and `metadata.namespace: ${metadata.namespace}` are required so each run lands in the workflow plane correctly.
 - **`externalRefs[]` resolve external CRs (today only `SecretReference`) before the run starts.** Pair with `includeWhen` on `resources[]` that depend on them — if `parameters.repository.secretRef` is empty, the `git-secret` ExternalSecret should be skipped.
-- **Each `WorkflowRun` is imperative.** Don't commit `WorkflowRun` YAML to GitOps — it'll trigger duplicate builds on reconcile. Trigger via MCP (`trigger_workflow_run` / `create_workflow_run`), webhook, or one-shot `kubectl apply`.
+- **Each `WorkflowRun` is imperative.** Trigger via MCP (`trigger_workflow_run` / `create_workflow_run`), webhook, or one-shot `kubectl apply`.
 - **`WorkflowPlane` must exist and be healthy.** A workflow with `workflowPlaneRef` pointing at a non-existent / unhealthy plane stays stuck — `get_workflow_run.status.conditions` will show `WorkflowPlaneNotFound`.
 - **The `workflow` field on a `WorkflowRun` is immutable.** Once a run exists, you can't re-target it to a different workflow — create a new run.
 - **Don't bake registry credentials into the runTemplate.** Use `externalRefs` + `resources[].template` to materialize an ExternalSecret at run time. The push secret is typically a `SecretReference` named `registry-push-secret` (or similar) — reference it via the workflow plane's configured `ClusterSecretStore`.

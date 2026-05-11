@@ -244,7 +244,8 @@ Drop to `kubectl logs` only when MCP can't reach what you need — controller po
 Before writing a `spec` body for a `create_*` call, fetch the relevant schema:
 
 - `get_component_type_creation_schema` / `get_cluster_component_type_creation_schema`
-- `get_trait_creation_schema`
+- `get_trait_creation_schema` / `get_cluster_trait_creation_schema`
+- `get_workflow_creation_schema` / `get_cluster_workflow_creation_schema`
 - `get_workload_schema`, `get_cluster_component_type_schema`, `get_cluster_trait_schema`, `get_cluster_workflow_schema` for inspecting existing-resource shape
 
 For existing resources, read the current spec via `get_*` before sending an `update_*`. **`update_component_type`, `update_trait`, `update_workflow` (and cluster variants) are full-spec replacement** — read first, modify locally, send the complete spec back. Omitting a field deletes it. For one-line CEL or template tweaks, `kubectl apply -f` against an edited YAML is often easier; both paths produce the same end state.

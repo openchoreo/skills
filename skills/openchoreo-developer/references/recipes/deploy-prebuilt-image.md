@@ -2,13 +2,6 @@
 
 Deploy an existing container image — built elsewhere or pulled from a public registry — as a Component on OpenChoreo. No source build, no workflow.
 
-## When to use
-
-- The user has an image reference (`registry/repo:tag`) and wants it running
-- Deploying a third-party / off-the-shelf service (databases, OSS apps, vendor images)
-- The dev does not want OpenChoreo to build their image
-- For source-build (Component built from a Git repo), see `recipes/build-from-source.md` instead
-
 ## Prerequisites
 
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).

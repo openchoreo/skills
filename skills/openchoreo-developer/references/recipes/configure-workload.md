@@ -2,15 +2,6 @@
 
 Add or change endpoints, environment variables, config files, and traits on a Component / Workload after the initial deploy. Most fields live on the Workload (`spec.container`, `spec.endpoints`); traits attach to the Component (`spec.traits[]`).
 
-## When to use
-
-- The deployed Component needs more env vars, config files, ports, or endpoints
-- A new Trait (autoscaler, alert rule, ingress override) needs to attach to the Component
-- The Workload's `container.image` needs to change to a new tag (BYOI re-deploy)
-- For per-environment overrides (different replicas in prod vs dev), use `recipes/override-per-environment.md` — those don't touch the base Workload
-- For service-to-service connections, use `recipes/connect-components.md`
-- For secrets specifically, use `recipes/manage-secrets.md`
-
 ## Prerequisites
 
 A Component and Workload already exist. If not, see `recipes/deploy-prebuilt-image.md` or `recipes/build-from-source.md` first.
@@ -84,7 +75,7 @@ get_release_binding
   binding_name: <name from list_release_bindings>
 ```
 
-Check `status.conditions[]` for `Ready: True`, `Deployed: True`, `Synced: True`. For runtime logs, see `recipes/inspect-and-debug.md`.
+Check `status.conditions[]` for `Ready`, `ReleaseSynced`, `ResourcesReady` all `True`. For runtime logs, see `recipes/inspect-and-debug.md`.
 
 ## Configuration patterns
 
@@ -166,7 +157,7 @@ spec:
       limits:   {cpu: 500m, memory: 512Mi}
 ```
 
-The exact parameter set depends on the ClusterComponentType — discover with `get_cluster_component_type_schema cct_name: deployment/service`.
+The exact parameter set depends on the ClusterComponentType — discover with `get_cluster_component_type_schema name: deployment/service`.
 
 For per-environment differences (more replicas in prod), override at the ReleaseBinding level — see `recipes/override-per-environment.md`.
 
@@ -193,6 +184,7 @@ patch_component
 
 ## Gotchas
 
+- **OpenChoreo containers run as non-root — don't bind to ports below 1024.** The data plane runs each pod under a non-root UID with no `CAP_NET_BIND_SERVICE`, so `listen 80` (default nginx config), `EXPOSE 80`, or any explicit bind to a privileged port fails at startup with `bind: permission denied` and the pod ends up in `CrashLoopBackOff`. Common fixes: switch nginx to `listen 8080`, drop `EXPOSE 80` from the Dockerfile, set the Workload `endpoints[*].port` and `targetPort` to the same non-privileged port, and update any health-check probes. The platform's gateway terminates :80 / :443 externally; containers always speak the unprivileged port. If you absolutely need a privileged port inside the container, that's a PE-side capability change, not a Workload tweak.
 - **`update_workload` sends the full spec, not a partial patch.** Always `get_workload` first, modify locally, send the complete `workload_spec`. Omitting a field deletes it.
 - **`update_workload` only takes `namespace_name`, `workload_name`, `workload_spec`.** It does not accept `project_name` or `component_name`. Use `list_workloads` to find the workload name first.
 - **File mount `mountPath` is a directory.** The controller appends the `key` name to `mountPath` to form the final file path. Set `mountPath` to the parent directory (`/usr/share/nginx/html`), not the full file path (`/usr/share/nginx/html/config.json`). Using the full file path doubles the filename: `.../config.json/config.json`.

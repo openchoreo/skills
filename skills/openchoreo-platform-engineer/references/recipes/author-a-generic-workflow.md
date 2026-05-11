@@ -144,7 +144,7 @@ For *completed* failed runs, fall back to `kubectl logs --previous <argo-pod> -n
 
 ```yaml
 get_cluster_workflow
-  cwf_name: terraform-runner
+  name: terraform-runner
 # Modify locally
 update_cluster_workflow
   name: terraform-runner
@@ -177,7 +177,7 @@ Namespace-scoped Workflows are invoked via `create_workflow_run namespace_name: 
 - **Service-account permissions.** The default `workflow-sa` in the workflow plane has narrow permissions. For workflows that need broader access (e.g. Terraform creating cloud resources via mounted credentials, or jobs that call back to the control plane), grant the service account the right ClusterRoles via `kubectl apply -f` in the workflow plane.
 - **`update_*` is full-spec replacement.** Always `get_*` first.
 - **`ClusterWorkflowTemplate` lives in the workflow plane.** Apply via `kubectl apply -f` against the WorkflowPlane context.
-- **Imperative runs.** Don't commit `WorkflowRun` YAML to GitOps — it'll trigger duplicate runs on reconcile.
+- **Imperative runs.** Trigger via `create_workflow_run`, webhook, or one-shot `kubectl apply`.
 
 ## Related
 

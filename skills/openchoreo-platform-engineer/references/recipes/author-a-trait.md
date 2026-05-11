@@ -15,7 +15,7 @@ For per-environment differences (e.g. larger PVC in prod), set `environmentConfi
 1. The control-plane MCP server is configured (`list_namespaces` returns).
 2. You've decided cluster-scoped vs namespace-scoped (see **Variants**). Default is `ClusterTrait`.
 3. You know which ComponentTypes will list the trait in `allowedTraits` — the trait is unusable until at least one type allows it. Cross-scope rules apply: a `ClusterComponentType` may only allow `ClusterTrait`s.
-4. To learn real-world patterns (parameter schemas, environment-config overrides, `creates[]` vs `patches[]`, CEL in templates), inspect an existing trait on the cluster: `get_cluster_trait ct_name: observability-alert-rule` (or whichever traits the platform ships). The returned spec shows production patterns to adapt.
+4. To learn real-world patterns (parameter schemas, environment-config overrides, `creates[]` vs `patches[]`, CEL in templates), inspect an existing trait on the cluster: `get_cluster_trait name: observability-alert-rule` (or whichever traits the platform ships). The returned spec shows production patterns to adapt.
 
 ## Recipe
 
@@ -114,7 +114,7 @@ A trait is unusable until some ComponentType lists it in `allowedTraits`. Either
 
 ```yaml
 get_cluster_trait
-  ct_name: persistent-volume
+  name: persistent-volume
 ```
 
 Then attach it to a test component and check rendering:
@@ -137,7 +137,7 @@ get_component
 
 ```yaml
 get_cluster_trait
-  ct_name: persistent-volume
+  name: persistent-volume
 # Modify locally
 update_cluster_trait
   name: persistent-volume

@@ -1,0 +1,33 @@
+# Optional file at the GitOps repo root. Tells `occ componentrelease generate`
+# and `occ releasebinding generate` where to write their output.
+#
+# Resolution priority for a given (project, component) pair:
+#   1. componentReleaseDefaults.projects[<project>].components[<component>]
+#   2. componentReleaseDefaults.projects[<project>].defaultOutputDir
+#   3. componentReleaseDefaults.defaultOutputDir
+#   4. (no config) — `occ` falls back to its repo-index resolver, which uses the
+#      documented `namespaces/<ns>/projects/<project>/components/<component>/releases/`
+#      and `release-bindings/` paths.
+#
+# The same applies to releaseBindingDefaults.
+#
+# `--all` and `--project` modes for both generators REQUIRE this file.
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseConfig
+
+componentReleaseDefaults:
+  defaultOutputDir: namespaces/default/projects/<project>/components/<component>/releases
+  projects:
+    online-store:
+      defaultOutputDir: namespaces/default/projects/online-store/releases
+      components:
+        product-catalog: namespaces/default/projects/online-store/components/product-catalog/releases
+
+releaseBindingDefaults:
+  defaultOutputDir: namespaces/default/projects/<project>/components/<component>/release-bindings
+  projects:
+    online-store:
+      defaultOutputDir: namespaces/default/projects/online-store/release-bindings
+      components:
+        product-catalog: namespaces/default/projects/online-store/components/product-catalog/release-bindings
