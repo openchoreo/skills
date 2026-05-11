@@ -15,7 +15,7 @@ For **tweaking** an existing type (CEL fix, one new validation rule), prefer `ku
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
 2. You've decided cluster-scoped vs namespace-scoped (see **Variants** below). Default is `ClusterComponentType` — use namespace-scoped only when an org tenancy boundary requires it.
 3. You've picked a `workloadType` from `deployment` / `statefulset` / `cronjob` / `job` / `proxy`. **Immutable after creation**, so pick deliberately.
-4. To learn real-world patterns (CEL templates, HTTPRoute fan-out, ExternalSecret patches) without authoring from scratch, inspect an existing ClusterComponentType on the cluster: `get_cluster_component_type cct_name: deployment/service` (or whichever the platform already ships). The returned `spec.resources[*].template` shows production patterns directly.
+4. To learn real-world patterns (CEL templates, HTTPRoute fan-out, ExternalSecret patches) without authoring from scratch, inspect an existing ClusterComponentType on the cluster: `get_cluster_component_type name: deployment/service` (or whichever the platform already ships). The returned `spec.resources[*].template` shows production patterns directly.
 
 ## Recipe
 
@@ -93,13 +93,13 @@ create_cluster_component_type
         template: { ... }
 ```
 
-For the full `resources[]` body — including HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patterns — inspect what the platform already ships: `get_cluster_component_type cct_name: deployment/service` (or `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`). The returned spec shows production patterns to adapt.
+For the full `resources[]` body — including HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patterns — inspect what the platform already ships: `get_cluster_component_type name: deployment/service` (or `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`). The returned spec shows production patterns to adapt.
 
 ### 5. Confirm and exercise
 
 ```yaml
 get_cluster_component_type
-  cct_name: backend-service
+  name: backend-service
 ```
 
 Check `status.conditions[]` for any rendering / validation errors. Then try a Component against it from the developer side:
@@ -120,7 +120,7 @@ A `WorkflowNotAllowed` / `TraitNotAllowed` failure on the component means your `
 
 ```yaml
 get_cluster_component_type
-  cct_name: backend-service
+  name: backend-service
 # Modify the spec locally (e.g. add a validation rule, tighten allowedWorkflows)
 update_cluster_component_type
   name: backend-service

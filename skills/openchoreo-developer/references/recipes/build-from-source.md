@@ -2,12 +2,6 @@
 
 Build a container image from a Git repository using a CI workflow, then deploy it as a Component. The workflow clones the repo, runs the configured builder (Dockerfile / buildpacks / Ballerina), pushes the image, and auto-generates a Workload from the build output.
 
-## When to use
-
-- The user wants OpenChoreo to build their image from source
-- The repo has a Dockerfile, buildpack-compatible source, or Ballerina code
-- For deploying an already-built image, see `recipes/deploy-prebuilt-image.md` instead
-
 ## Prerequisites
 
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
@@ -38,7 +32,7 @@ Pick one, then read the parameter schema so you know what fields to pass:
 
 ```yaml
 get_cluster_workflow_schema
-  cwf_name: dockerfile-builder
+  name: dockerfile-builder
 ```
 
 ### 2. Create the Component with `workflow` set
@@ -193,7 +187,7 @@ Persist the iteration command (e.g. "to redeploy: edit code, then ask the agent 
 - **For source-build, never call `create_workload` (MCP) or write a Workload CR.** The Workload is auto-generated as `{component}-workload` from the build output and the optional in-repo `workload.yaml`. Use `update_workload` only after a successful build, when the repo has no `workload.yaml` and you need to enrich the auto-generated minimal Workload.
 - **`workload.yaml` must live at the root of `appPath`**, not at the repo root (unless `appPath` is `.`). Build-time read; commits after the build don't affect already-built releases.
 - **Workflow must be in the ComponentType's `allowedWorkflows`.** If `create_component` fails with `ComponentValidationFailed`, the chosen workflow isn't allowed by the ComponentType — pick a different workflow or ask PE to extend `allowedWorkflows`.
-- **WorkflowRuns are imperative, not declarative.** Each one starts a build. Do not commit WorkflowRun YAML to a GitOps repo — it'll trigger duplicate builds on every reconcile.
+- **WorkflowRuns are imperative, not declarative.** Each one starts a build. Trigger via `trigger_workflow_run`, webhook, or one-shot `kubectl apply`.
 - **Required labels on a manual WorkflowRun YAML:** `openchoreo.dev/project` and `openchoreo.dev/component`. Missing them fails with `ComponentValidationFailed`. (Not an issue when using `trigger_workflow_run` — it sets the labels for you.)
 - **Validation failures are permanent.** `ComponentValidationFailed` won't auto-retry — fix the spec and trigger a new run. `WorkflowPlaneNotFound` is transient and retried automatically.
 - **Buildah builds fail on multi-platform Dockerfiles.** Third-party Dockerfiles using `ARG BUILDPLATFORM` typically exit 125 with a `BUILDPLATFORM` error. For third-party apps, prefer BYOI — see `recipes/deploy-prebuilt-image.md`.

@@ -93,9 +93,10 @@ create_project
 list_namespaces                                          # confirm acme appears
 list_environments namespace_name: acme                   # 3 envs
 list_deployment_pipelines namespace_name: acme           # 1 pipeline
-list_projects namespace_name: acme                       # 1 project
-get_project namespace_name: acme project_name: default   # confirm deploymentPipelineRef wired
+list_projects namespace_name: acme                       # 1 project; check the entry's deploymentPipelineRef
 ```
+
+For deeper inspection (no single-`Project` MCP get): `kubectl get project default -n acme -o yaml`.
 
 Then have a developer create their first component in this namespace to confirm the cluster-scoped types are visible (the cluster-scoped `ClusterComponentType` / `ClusterTrait` / `ClusterWorkflow` resources are automatically inherited — no per-namespace copy needed unless you want isolation).
 

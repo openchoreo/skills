@@ -2,15 +2,6 @@
 
 Customise replicas, resources, env vars, files, and trait parameters per environment without changing the base Component or Workload. Lives in the `ReleaseBinding` for that environment.
 
-## When to use
-
-- Production needs more replicas / CPU / memory than dev
-- Different log level (`debug` in dev, `warn` in prod)
-- Different secret reference per environment (different DB credentials)
-- Disable a trait in some environments, enable in others
-- Different feature-flag config files per environment
-- For changes that should apply to *every* environment, edit the base Workload via `recipes/configure-workload.md` instead
-
 ## Prerequisites
 
 A `ReleaseBinding` already exists for the target environment. Created automatically when:
@@ -59,7 +50,7 @@ The keys under `component_type_environment_configs` come from the ClusterCompone
 
 ```yaml
 get_cluster_component_type_schema
-  cct_name: deployment/service
+  name: deployment/service
 ```
 
 ### Override workload env vars / files
@@ -139,7 +130,7 @@ get_release_binding
   binding_name: my-service-production
 ```
 
-Check `status.conditions[]` for `Ready: True`, `Synced: True`. Then verify runtime behaviour with `recipes/inspect-and-debug.md`.
+Check `status.conditions[]` for `Ready`, `ReleaseSynced`, `ResourcesReady` all `True`. Then verify runtime behaviour with `recipes/inspect-and-debug.md`.
 
 ## Patterns
 
@@ -181,8 +172,8 @@ trait_environment_configs:
 - **`update_release_binding` is partial** — only the fields you pass are changed. Omitting a field is "leave alone," not "delete." To clear an override, set it to the base value explicitly.
 - **`workload_overrides` is merge, not replace.** Existing env vars and files in the base stay; matching keys get overridden; new keys get added. There is no "remove this base env var" semantics.
 - **Trait override keys are `instanceName`, not the trait `name`.** A Component can attach the same trait twice with different `instanceName`s; the override targets one specific instance.
-- **Trait override fields go under `parameters` (or `enabled` at the top level).** Use the trait's parameter schema (`get_cluster_trait_schema cct_name: <trait>`) to know what's overridable.
-- **The override only takes effect after the controller reconciles.** Watch `status.conditions` on the binding for `Synced: True` before assuming the change is live.
+- **Trait override fields go under `parameters` (or `enabled` at the top level).** Use the trait's parameter schema (`get_cluster_trait_schema name: <trait>`) to know what's overridable.
+- **The override only takes effect after the controller reconciles.** Watch `status.conditions` on the binding for `ReleaseSynced: True` before assuming the change is live.
 - **Override priority surprises.** ReleaseBinding > Component `parameters` > ClusterComponentType defaults. If a Component sets `parameters.replicas: 2` and the ReleaseBinding overrides to `replicas: 5`, prod runs 5. If the ReleaseBinding doesn't set replicas, prod inherits the Component's 2.
 - **Promotion does not copy overrides forward.** Each environment's ReleaseBinding has independent overrides. Promoting from dev → staging creates a fresh staging binding with no overrides; you re-apply each env's override deliberately.
 - **Updating a base Workload triggers a new ComponentRelease.** Existing ReleaseBindings keep their overrides but may need a `release_name` bump (via `update_release_binding release_name: <new>`) to pick up the new release. `auto_deploy: true` handles this for the first env only.

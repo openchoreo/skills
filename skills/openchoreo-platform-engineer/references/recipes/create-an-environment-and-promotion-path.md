@@ -51,7 +51,7 @@ list_deployment_pipelines
   namespace_name: default
 get_deployment_pipeline
   namespace_name: default
-  pipeline_name: default
+  name: default
 ```
 
 If a pipeline already exists for this namespace and the new env should sit alongside (e.g. `dev → staging → production` plus a new `dev → sandbox` side path), update the existing pipeline. If this is a fresh namespace with no pipeline yet, create one.
@@ -71,7 +71,7 @@ If a pipeline already exists for this namespace and the new env should sit along
 # Add a side path: development → sandbox (alongside development → staging)
 update_deployment_pipeline
   namespace_name: default
-  pipeline_name: default
+  name: default
   promotion_paths:
     - source_environment_ref: development
       target_environment_refs:
@@ -87,7 +87,7 @@ Or insert a new env in the middle of a linear chain (`development → qa → sta
 ```yaml
 update_deployment_pipeline
   namespace_name: default
-  pipeline_name: default
+  name: default
   promotion_paths:
     - source_environment_ref: development
       target_environment_refs: [{name: qa}]            # was: staging
@@ -116,13 +116,16 @@ The MCP tool sets `kind: Environment` on the source ref automatically; `target_e
 
 ```yaml
 list_environments
-  namespace_name: default
-get_environment
-  namespace_name: default
-  env_name: staging                     # check status.conditions for plane-readiness errors
+  namespace_name: default               # confirm both envs appear
 get_deployment_pipeline
   namespace_name: default
-  pipeline_name: default                # confirm promotion_paths reflects the wiring
+  name: default                # confirm promotion_paths reflects the wiring
+```
+
+For per-Environment status detail (plane-readiness errors etc.) — no single-`Environment` MCP get; fall back to:
+
+```bash
+kubectl get environment staging -n default -o yaml | yq '.status.conditions'
 ```
 
 Then have a developer promote a release into it (see `openchoreo-developer/references/recipes/deploy-and-promote.md`).

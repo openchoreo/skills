@@ -1,0 +1,13 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: openchoreo-gitops
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/<your-org>/<your-repo>
+  ref:
+    branch: main
+  # For private repositories, pre-create a Secret in flux-system and reference it:
+  # secretRef:
+  #   name: git-credentials

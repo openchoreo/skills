@@ -2,14 +2,6 @@
 
 Deploy a Component release to its first environment and promote it through the pipeline (e.g. `development → staging → production`). Also: rollback to an older release, undeploy, and redeploy an undeployed binding.
 
-## When to use
-
-- A new Component release is ready and needs to reach the first environment
-- A working release needs to move from one environment to the next
-- A bad release needs to roll back to an earlier known-good one
-- A binding needs to be temporarily removed (`Undeploy`) without losing its config
-- An undeployed binding needs to be re-activated
-
 ## How releases and bindings relate
 
 ```text
@@ -63,7 +55,7 @@ get_release_binding
   binding_name: my-service-development
 ```
 
-`status.conditions[]` should show `Ready: True`, `Deployed: True`, `Synced: True`. Read the deployed URL from `status.endpoints[]`.
+`status.conditions[]` should show `Ready`, `ReleaseSynced`, `ResourcesReady` all `True`. Read the deployed URL from `status.endpoints[]`.
 
 ## Recipe — promote to next environment
 
@@ -115,22 +107,7 @@ update_release_binding
 
 ### Verify
 
-`status.conditions[]` flips through `Synced: False` while the new release rolls out, then back to `Synced: True`. Watch logs to confirm the older code is running. Find the new pod name via `get_resource_events`, then read its container logs:
-
-```yaml
-get_resource_events
-  namespace_name: default
-  release_binding_name: my-service-production
-  group: ""
-  version: v1
-  kind: Pod
-  resource_name: my-service
-
-get_resource_logs
-  namespace_name: default
-  release_binding_name: my-service-production
-  pod_name: <pod from events above>
-```
+`status.conditions[]` flips through `ReleaseSynced: False` while the new release rolls out, then back to `True`. Use `get_resource_tree` to find the new pod, then `get_resource_logs` to confirm the older code is running. See `recipes/inspect-and-debug.md`.
 
 ## Variant — undeploy
 
@@ -164,7 +141,7 @@ When the binding is no longer needed (not just temporarily down), `delete_releas
 
 ## Gotchas
 
-- **`auto_deploy` only auto-creates the *first* environment's binding.** Promotion to staging/prod is always manual or via GitOps.
+- **`auto_deploy` only auto-creates the *first* environment's binding.** Promotion to staging/prod is always manual via `create_release_binding`.
 - **Releases are immutable.** Once a ComponentRelease exists, its image and Workload spec are frozen. You cannot "edit" a release — make a new ComponentRelease (by updating the Workload) and point the binding at it.
 - **`create_release_binding` fails if a binding already exists for that environment.** To change the release in an existing binding, use `update_release_binding release_name: <new>`. The MCP tool description says this explicitly.
 - **Pipelines gate promotion paths.** If the pipeline only allows `dev → staging → prod`, you cannot skip from `dev → prod` directly. Override at the PE side or change the pipeline.

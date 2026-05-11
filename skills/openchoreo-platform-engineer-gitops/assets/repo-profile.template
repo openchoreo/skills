@@ -1,0 +1,14 @@
+OpenChoreo GitOps repo profile
+Repo path: <abs path>
+Pattern: monorepo | multirepo | project-per-repo
+Cluster-shared dir: platform-shared/
+Namespace dir prefix: namespaces/
+Flux entrypoint: flux-system/  (or clusters/<name>/)
+Default branch: main
+Branch conventions:
+  app: release/{component}-{ts}
+  platform: platform/{scope}-{ts}
+  bulk: bulk-release/{scope}-{ts}
+Push policy: pr-and-wait | direct-push | hybrid
+Upstream: github.com/<org>/<repo> | none
+Reconciliation interval: 5m

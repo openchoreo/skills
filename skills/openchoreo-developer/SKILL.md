@@ -1,129 +1,75 @@
 ---
 name: openchoreo-developer
-description: |
-  Use for application-level work on OpenChoreo: deploying, updating, and deleting Components / Workloads / ReleaseBindings (plus the Projects, ComponentReleases, and SecretReferences that support them), triggering builds with available CI workflows, attaching platform-authored Traits, connecting components via endpoint dependencies, configuring env vars and secret references, promoting across Environments with per-environment overrides, and inspecting status / events / pod logs for troubleshooting.
+description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'promote to staging', 'rollback', or 'why is my pod crashing'.
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # OpenChoreo Developer Guide
 
-Help an application developer ship and operate a service on OpenChoreo through the control-plane MCP server. Keep this file lean, discover the live platform shape via MCP, and read detailed references only when the task actually needs them.
+Help an application developer ship and operate a service on OpenChoreo through the control-plane MCP server. Discover the live platform shape via MCP; read detailed references only when the task needs them.
 
 ## Step 0 — Confirm MCP connectivity
 
-Before reasoning about resources, verify the OpenChoreo control-plane MCP server is wired up. Run a cheap discovery call:
+Run `list_namespaces`. If the tool isn't reachable, tell the user the `openchoreo-cp` MCP server needs configuring per <https://openchoreo.dev/docs/ai/mcp-servers/> and stop.
 
-- `list_namespaces`
+## Step 1 — Load concepts (MANDATORY)
 
-If the call succeeds (with whatever tool prefix your agent uses — see _Tool surface_ below), you're connected. Proceed.
+**Read [`./references/concepts.md`](./references/concepts.md) in full before anything else.** Not optional, even if the task looks simple — you'll get these wrong from memory. Load once per session; if you catch yourself acting without it, stop and load now.
 
-If the call fails with "tool not found" / "server not configured" / similar, the control-plane MCP server isn't reachable. **Stop and tell the user:**
+Then load the matching reference for the task:
 
-> The OpenChoreo control-plane MCP server (`openchoreo-cp`) isn't configured for this session. Add it following the official guide — <https://openchoreo.dev/docs/ai/mcp-servers/> — then re-run the request.
+- **First-time deploy** (no Project yet, or first time touching OpenChoreo) → [`./references/getting-started.md`](./references/getting-started.md)
+- **Working with existing Components** → straight to the matching recipe. To pick between BYO and source-build for an existing Component, `get_component` and check `spec.workflow`: present → [`build-from-source.md`](./references/recipes/build-from-source.md), absent → [`deploy-prebuilt-image.md`](./references/recipes/deploy-prebuilt-image.md).
 
-Do not attempt the rest of the task until MCP connectivity is confirmed; everything below assumes it.
+## Step 2 — Load the PE skill for platform tasks
 
-## Step 1 — Load the concepts reference
-
-Before authoring or modifying any resource, read [`./references/concepts.md`](./references/concepts.md). It covers OpenChoreo's resource hierarchy, the Cell runtime model, endpoint visibility, planes, and the API version OpenChoreo expects — facts the agent will reuse on every task. Memory of these is unreliable; the reference is short.
-
-For each task you take on, also load the matching reference _before_ acting on the task:
-
-- **First-time deploy of a new app or project** on this cluster (no Project yet, or first time the user has touched OpenChoreo) → load [`./references/getting-started.md`](./references/getting-started.md) first; it routes you into the right recipe.
-- **Working with existing Components / Projects** (change image, update parameters, rebuild from source, modify workload, promote, troubleshoot) → skip getting-started; go directly to the matching recipe. To pick between the BYO and source-build recipes for an existing Component, call `get_component` and check the `workflow` field: present and non-empty → source-build ([`build-from-source.md`](./references/recipes/build-from-source.md)); absent or empty → BYO image ([`deploy-prebuilt-image.md`](./references/recipes/deploy-prebuilt-image.md)).
-- A specific recipe — see _What this skill can do_ below; each task points at its recipe.
-
-## Step 2 — If the task is platform-side, load the PE skill alongside this one
-
-Before going further, triage the request against the platform/app boundary. If the user's task involves **authoring** `ComponentType`, `Trait`, `Workflow`, or any of their cluster-scoped variants — or any other platform-side task listed in _What this skill cannot do_ below — **load the platform-engineer skill at `../openchoreo-platform-engineer/SKILL.md` alongside this one** (if it exists) before proceeding. This skill stays loaded; the PE skill comes in next to it, not in place of it. Many real OpenChoreo problems straddle the boundary, and running both together is the right move.
-
-This applies **even when the request is phrased in app-developer terms** ("add a componenttype for my service to use", "define a trait so my workload can opt into X"). Authoring those resources is platform engineering work regardless of phrasing — running on them with only the developer skill loaded leads to wrong-shape resources, missing schema discovery (`get_component_type_creation_schema` etc.), and wasted MCP calls.
-
-If `../openchoreo-platform-engineer/SKILL.md` isn't present (the user installed only this skill, or doesn't have platform permissions), escalate per _What this skill cannot do_ — don't try to do the platform work from this skill alone.
+If the request touches `ComponentType` / `Trait` / `Workflow` (or cluster variants) or anything under *What this skill cannot do*, also load [`../openchoreo-platform-engineer/SKILL.md`](../openchoreo-platform-engineer/SKILL.md). If the PE skill isn't installed, escalate.
 
 ## What this skill can do
 
-These are the application-developer tasks this skill supports through the OpenChoreo control-plane MCP server. Each entry points to its recipe where applicable.
-
-- **Create and update Projects** — the organizational unit grouping related Components (becomes a Cell at runtime).
-- **Create and update Components** — pick a ComponentType, set parameters; modify post-creation via `patch_component` (`auto_deploy`, `parameters`, `traits`, `workflow`, `display_name`, `description`).
-  - BYO image: Component + Workload → [`deploy-prebuilt-image.md`](./references/recipes/deploy-prebuilt-image.md)
-  - Source-build: Component referencing an available CI Workflow; trigger builds via `trigger_workflow_run` and follow the WorkflowRun → [`build-from-source.md`](./references/recipes/build-from-source.md)
-- **Define and update Workloads** — container image, ports, endpoints, env vars, config files, file mounts, replicas → [`configure-workload.md`](./references/recipes/configure-workload.md)
-- **Attach available Traits** — compose platform-authored capabilities (alerts, ingress, storage, etc.) onto a Component via `patch_component traits: [...]`. See [`configure-workload.md`](./references/recipes/configure-workload.md).
-- **Connect components** — declare endpoint dependencies between components (same-project or cross-project within the namespace); the platform injects connection details as env vars → [`connect-components.md`](./references/recipes/connect-components.md)
-- **Manage SecretReferences** — create, update, get, delete (`create_secret_reference` / `update_secret_reference` / `get_secret_reference` / `delete_secret_reference`) and consume via `secretKeyRef` in env vars and files → [`manage-secrets.md`](./references/recipes/manage-secrets.md). The underlying `ClusterSecretStore` is PE-owned.
-- **Deploy and promote across Environments** — bind a `ComponentRelease` to an Environment, then promote along the DeploymentPipeline → [`deploy-and-promote.md`](./references/recipes/deploy-and-promote.md)
-- **Apply per-environment overrides** — replicas, resources, env vars, and trait config overrides on a ReleaseBinding → [`override-per-environment.md`](./references/recipes/override-per-environment.md)
-- **Soft-undeploy and rollback** — flip a ReleaseBinding via `update_release_binding release_state: Undeploy`, or bind a prior `ComponentRelease` to roll back.
-- **Hard-delete developer resources** — `delete_component`, `delete_workload`, `delete_release_binding`, `delete_project`, `delete_component_release`. Destructive; confirm with the user first. **No `delete_namespace`** — that's PE-side (cascades all OpenChoreo resources via K8s GC).
-- **Check build status, logs, and events** — inspect a WorkflowRun's conditions, live logs, and per-task pod events.
-- **Check deployment status and endpoints** — inspect a Component / ReleaseBinding's `status.conditions[]` and `status.endpoints[]`.
-- **Check pod events and logs** under a ReleaseBinding for runtime debugging → [`inspect-and-debug.md`](./references/recipes/inspect-and-debug.md)
-- **Discover available platform resources** — read ComponentTypes, Traits, Workflows, Environments, DeploymentPipelines, planes, SecretReferences. The developer sees what the platform has provisioned but does not author these.
+- **Projects** — create, update.
+- **Components** — create, update, `patch_component` for `auto_deploy` / `parameters` / `traits` / `workflow` / metadata.
+  - BYO image → [`deploy-prebuilt-image.md`](./references/recipes/deploy-prebuilt-image.md)
+  - Source-build → [`build-from-source.md`](./references/recipes/build-from-source.md)
+- **Workloads** — image, ports, endpoints, env vars, files → [`configure-workload.md`](./references/recipes/configure-workload.md)
+- **Attach Traits** — pick from the platform's catalog → [`configure-workload.md`](./references/recipes/configure-workload.md)
+- **Connect components** — endpoint dependencies; platform injects env vars → [`connect-components.md`](./references/recipes/connect-components.md)
+- **SecretReferences** — CRUD + `secretKeyRef` consumption → [`manage-secrets.md`](./references/recipes/manage-secrets.md). The `ClusterSecretStore` is PE-owned.
+- **Deploy and promote** — bind a `ComponentRelease` to an Environment, promote along the DeploymentPipeline → [`deploy-and-promote.md`](./references/recipes/deploy-and-promote.md)
+- **Per-environment overrides** — replicas, resources, env vars, trait config on the ReleaseBinding → [`override-per-environment.md`](./references/recipes/override-per-environment.md)
+- **Soft-undeploy / rollback** — `update_release_binding release_state: Undeploy`, or rebind to a prior `ComponentRelease`.
+- **Hard-delete developer resources** — `delete_component`, `delete_workload`, `delete_release_binding`, `delete_project`, `delete_component_release`. Destructive; confirm first. **No `delete_namespace`** — PE-side.
+- **Inspect runtime** — Component / ReleaseBinding `status.conditions[]` and `status.endpoints[]`; `get_resource_tree` to map a binding to its rendered K8s resources; `get_resource_events` / `get_resource_logs` for pod-level evidence; WorkflowRun logs and events → [`inspect-and-debug.md`](./references/recipes/inspect-and-debug.md)
+- **Discover platform resources** (read-only) — ComponentTypes, Traits, Workflows, Environments, DeploymentPipelines, planes.
 
 ## What this skill cannot do
 
-These are platform-side tasks. When you hit one:
+Platform-side work: authoring ComponentTypes / Traits / Workflows, Environments, DeploymentPipelines, planes, authorization, gateway / secret-store / IdP config, observability setup, longer-horizon log / metric / trace queries (pod-level events and current logs *are* covered via `get_resource_events` / `get_resource_logs`).
 
-1. **Try to load the platform-engineer skill at `../openchoreo-platform-engineer/SKILL.md`** (relative to this skill's directory). If that file exists, read it and continue with both skills active — many real OpenChoreo problems straddle the boundary, and running both together is the right move.
-2. **If the file isn't there** (the user installed only this skill, or doesn't have platform permissions), state the issue plainly and ask the user to escalate to a platform engineer who has the cluster access and tooling to do it.
-
-Platform-side scope at a glance:
-
-- Authoring or editing platform extensions — `ComponentType`, `Trait`, `Workflow` (and cluster variants).
-- Environments, DeploymentPipelines, plane registration (DataPlane / WorkflowPlane / ObservabilityPlane), Helm install / upgrade.
-- Authorization, gateway, secret store, registry, identity / IdP configuration.
-- Observability platform setup (alert channels, alert rules, metric / trace / longer-horizon log queries).
-- Runtime metrics, traces, alert/incident queries, and historical log search across replicas. Pod-level events and current container logs are still covered here via `get_resource_events` / `get_resource_logs`.
-
-For the canonical platform-engineer scope and task catalog, see <https://openchoreo.dev/docs/platform-engineer-guide/>.
+Load `../openchoreo-platform-engineer/SKILL.md` if it's installed; otherwise tell the user to escalate to a platform engineer. PE scope catalog: <https://openchoreo.dev/docs/platform-engineer-guide/>.
 
 ## Tool surface
 
-This skill uses **one** MCP server: the OpenChoreo control plane.
-
-| Server                          | Purpose                                                                            |
-| ------------------------------- | ---------------------------------------------------------------------------------- |
-| `openchoreo-cp` (control plane) | Resource CRUD, schema discovery, build triggers, deployment, pod-level events/logs |
-
-> **Tool naming.** Throughout this skill, MCP tools are referenced by their bare name (e.g. `get_component`). The actual callable name carries an agent-specific prefix wrapping the server name — Claude Code uses `mcp__openchoreo-cp__<tool>`. Other coding agents use different prefixes. Apply whatever your agent expects.
+One MCP server: `openchoreo-cp`. Throughout this skill, tools are referenced by bare name (e.g. `get_component`); your agent wraps with its prefix (Claude Code uses `mcp__openchoreo-cp__<tool>`).
 
 ## Working style
 
-The full per-task discovery flow is in `concepts.md` (loaded at _Step 1_). Two durable principles to keep in mind:
-
-- **Live cluster output beats memory.** Don't assume available ComponentTypes, Traits, Workflows, Environments, or field names — discover via MCP first.
-- **Schema-first authoring.** Before writing a spec from scratch, fetch the schema (`get_workload_schema`, `get_cluster_component_type_schema`, `get_cluster_trait_schema`) or use a repo sample. MCP tools take structured spec payloads, not YAML files — but the same schema applies.
-
-## Reference routing
-
-Foundational references:
-
-- [`./references/concepts.md`](./references/concepts.md) — resource hierarchy, Cell architecture, endpoint visibility, planes, API version, and the per-task discovery-first workflow. **Read before authoring anything** (per _Step 1_).
-- [`./references/getting-started.md`](./references/getting-started.md) — load **only when deploying an app or project to OpenChoreo for the first time**: pre-flight namespace check, BYO vs source-build decision, picking a ComponentType, repo conventions for source-build, `autoDeploy` choice, and pointers to the right recipe. Skip this when working with existing Components.
-
-Recipes are linked inline from _What this skill can do_ above — load the matching one before acting on its task. The recipes live under `./references/recipes/`.
-
-The only file in `./assets/` is `workload-descriptor.yaml` — a starter template for the `workload.yaml` descriptor that source-build components keep at the root of their `appPath` in the source repo. It's a real artifact the user commits to their repo, not an input to MCP. Resource specs sent to MCP `create_*` / `update_*` calls are composed from schema discovery, not from asset files.
+- **Live cluster output beats memory.** Discover via MCP first; don't guess available ComponentTypes / Traits / Workflows / Environments / field names.
+- **Schema-first authoring.** `get_workload_schema` / `get_cluster_component_type_schema` / `get_cluster_trait_schema` before writing a spec from scratch.
 
 ## Stable guardrails
 
-Keep these because they are durable and routinely useful:
-
-- All work goes through the control-plane MCP server. If a task can't be done with MCP, it crosses the platform/app boundary — hand off per _What this skill cannot do_.
-- **For third-party / public apps: default to pre-built images (BYO), not source builds.** Source builds commonly fail because third-party Dockerfiles use multi-platform syntax (`ARG BUILDPLATFORM`) that OpenChoreo's buildah builder does not support. If a build exits 125 with a `BUILDPLATFORM` error, switch to BYO immediately.
-- **Before deploying any third-party app: fetch the official Kubernetes or Helm manifests** and extract every required env var per service — dependencies inject service addresses but do not provide `PORT`, feature flags, or vendor SDK disable flags.
+- All work goes through the control-plane MCP server. If a task can't be done via MCP, it's platform-side — hand off.
+- **Third-party / public apps: default to BYO image.** Source builds commonly fail on third-party Dockerfiles using `ARG BUILDPLATFORM` (exit 125). Switch to BYO immediately if you see it.
+- **Before deploying any third-party app:** fetch the official manifests and extract every required env var — dependencies inject service addresses but not `PORT`, feature flags, or vendor SDK disable flags.
 
 ## Anti-patterns
 
 - Running every discovery call before checking the resource already implicated.
-- Writing Components or overrides from memory when `get_*_schema` and `get_*` MCP calls can reveal the current shape.
-- Guessing deployed URLs or route formats instead of reading `ReleaseBinding.status.endpoints[]`.
-- Treating a platform-side failure as an app-only problem after MCP evidence (status conditions, resource events, logs) points elsewhere.
-- Creating source-build components (with `workflow`) for third-party apps that have pre-built images — this produces failed builds and clutters the UI; always check for pre-built images first.
-- Omitting env vars from official manifests when deploying third-party apps — always fetch and apply the exact env vars the upstream manifests specify (`PORT`, feature flags, vendor SDK disable flags).
-- Assuming a deployment is healthy because `status: Ready` — Ready means reconciled, not working. Two failure modes hide behind it: (a) a crash-looping container can briefly flap to Ready before crashing again, and (b) a perfectly stable, never-restarting container can be Ready while entirely misconfigured — env vars bound to names the app doesn't read, dependencies resolving to nowhere, silent connect-failures to downstreams. Confirm functionally: hit an actual endpoint (curl an `external` URL) and check `get_resource_events` (restarts, OOM, scheduling) plus `get_resource_logs` under the ReleaseBinding before declaring the deploy done.
-- Setting `visibility: external` on a service-to-service dependency between components in the same project — `project` is the right default. `external` is for public-internet ingress, not for internal wiring.
-- Assuming dependency-injected service addresses are the only env vars needed — many apps also require `PORT`, telemetry disable flags, and optional service placeholders to start cleanly.
+- Writing specs from memory when `get_*_schema` / `get_*` can reveal the current shape.
+- Guessing deployed URLs instead of reading `ReleaseBinding.status.endpoints[]`.
+- Treating a platform-side failure as an app-only problem after the evidence points elsewhere.
+- Creating source-build components for third-party apps that have pre-built images.
+- Setting `visibility: external` on a service-to-service dependency in the same project — `project` is the default.
+- **Treating `Ready=True` as "working".** Ready means reconciled, not functional. A crash-looping container can flap Ready, and a stable container can be Ready while misconfigured (env vars bound to wrong names, deps resolving to nowhere). Confirm with `get_resource_tree` → `get_resource_events` / `get_resource_logs` and an actual endpoint hit.

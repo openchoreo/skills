@@ -4,16 +4,16 @@ A library of skills for working with OpenChoreo.
 
 ## About
 
-[Skills](https://agentskills.io/) are a lightweight technique for adding relevant context to your agents. This repo contains skills for working with OpenChoreo on different use cases
-
-These skills complement the [OpenChoreo MCP server](https://openchoreo.dev/docs/next/ai/mcp-servers/).
+[Skills](https://agentskills.io/) are a lightweight technique for adding relevant context to your agents. This repo contains skills for working with OpenChoreo. Pick the one that matches your role and how you operate.
 
 ## Skills in this repo
 
-| Skill | Description |
-| :--- | :--- |
-| [`openchoreo-developer`](skills/openchoreo-developer) | Skill for application developers shipping services on OpenChoreo. Covers deploying and updating Components / Workloads / ReleaseBindings, triggering builds, connecting components via endpoint dependencies, configuring env vars and secret references, promoting across Environments, and troubleshooting via status, events, and pod logs. |
-| [`openchoreo-platform-engineer`](skills/openchoreo-platform-engineer) | Skill for platform engineers and operators running the OpenChoreo control plane. Covers authoring ComponentTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering DataPlanes / WorkflowPlanes / ObservabilityPlanes, configuring secret stores, identity, authorization, API gateway, alert channels, and Helm install / upgrade. |
+| Skill | For | Prerequisites |
+| :--- | :--- | :--- |
+| [`openchoreo-developer`](skills/openchoreo-developer) | Application developers shipping services on OpenChoreo. | [OpenChoreo MCP server](https://openchoreo.dev/docs/ai/mcp-servers/) configured. |
+| [`openchoreo-platform-engineer`](skills/openchoreo-platform-engineer) | Platform engineers running OpenChoreo. | [OpenChoreo MCP server](https://openchoreo.dev/docs/ai/mcp-servers/) configured; `kubectl` + Helm available. |
+| [`openchoreo-platform-engineer-gitops`](skills/openchoreo-platform-engineer-gitops) | Platform engineers managing OpenChoreo via Git. | [`occ`](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against the cluster; [Flux CD](https://fluxcd.io/) in the cluster; `git`. |
+| [`openchoreo-developer-gitops`](skills/openchoreo-developer-gitops) | Application developers working from an OpenChoreo GitOps repo. | [`occ`](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against the cluster; the repo already scaffolded; `git`. |
 
 ## Installation
 
@@ -24,16 +24,5 @@ Browse and install skills with the `skills` CLI:
 npx skills add openchoreo/skills --list
 
 # Install a specific skill (e.g., openchoreo-developer).
-npx skills add openchoreo/skills --skill openchoreo-developer --global
+npx skills add openchoreo/skills --skill openchoreo-developer
 ```
-
-## OpenChoreo MCP server
-
-The skills in this repo are designed to be used alongside the OpenChoreo MCP servers, which gives your agent live access to the platform's resource graph.
-
-See the [MCP server setup docs](https://openchoreo.dev/docs/next/ai/mcp-servers/) for instructions on
-configuring it with your coding agent.
-
-## Disclaimer
-
-This is not an officially supported product. Use at your own risk.

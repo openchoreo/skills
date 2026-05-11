@@ -48,7 +48,7 @@ In single-cluster setups, both planes run in the same cluster.
 
 ### `WorkflowRun` is imperative
 
-> **Don't put `WorkflowRun` in GitOps repos.** It triggers an action rather than declaring desired state. Create runs through Git webhooks, the UI, MCP (`trigger_workflow_run` / `create_workflow_run`), or `kubectl apply`.
+> **`WorkflowRun` triggers an action rather than declaring desired state.** Create runs through Git webhooks, the UI, MCP (`trigger_workflow_run` / `create_workflow_run`), or `kubectl apply`.
 >
 > The `workflow` reference (`spec.workflow.kind` and `name`) is **immutable** on a `WorkflowRun` once created — you cannot change which workflow a run targets after it exists. Create a new run for a different workflow.
 
@@ -248,6 +248,8 @@ spec:
 ```
 
 ### Step 3 — the `Workflow` CR
+
+Before authoring, fetch the spec shape via `get_workflow_creation_schema` (or `get_cluster_workflow_creation_schema` for cluster-scoped) — that's the canonical schema source.
 
 The CR has three notable fields:
 

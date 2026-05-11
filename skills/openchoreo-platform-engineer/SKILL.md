@@ -1,9 +1,8 @@
 ---
 name: openchoreo-platform-engineer
-description: |
-  Use for OpenChoreo platform-level work: authoring ComponentTypes / Traits / Workflows (and cluster-scoped variants), creating Environments and DeploymentPipelines, registering DataPlanes / WorkflowPlanes / ObservabilityPlanes, configuring secret stores (`ClusterSecretStore` / `SecretStore`), identity, authorization roles, API gateway, alert notification channels, and Helm install / upgrade. Pair with `openchoreo-developer` whenever an app-side concern is touched alongside platform work.
+description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ComponentTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ComponentType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # OpenChoreo Platform Engineer Guide
@@ -12,17 +11,7 @@ Help with OpenChoreo platform-level work through the control-plane MCP server, w
 
 ## Step 0 — Confirm MCP connectivity
 
-Before reasoning about platform resources, verify the OpenChoreo control-plane MCP server is wired up. Run a cheap discovery call:
-
-- `list_namespaces`
-
-If the call succeeds (with whatever tool prefix your agent uses — see *Tool surface* below), you're connected. Proceed.
-
-If the call fails with "tool not found" / "server not configured" / similar, the control-plane MCP server isn't reachable. **Stop and tell the user:**
-
-> The OpenChoreo control-plane MCP server (`openchoreo-cp`) isn't configured for this session. Add it following the official guide — <https://openchoreo.dev/docs/ai/mcp-servers/> — then re-run the request.
-
-`kubectl` and Helm are still allowed — they're cluster-native and don't go through MCP — but for any OpenChoreo CRD, MCP is the first stop, so connectivity matters.
+Run `list_namespaces`. If the tool isn't reachable, tell the user the `openchoreo-cp` MCP server needs configuring per <https://openchoreo.dev/docs/ai/mcp-servers/> and stop MCP-dependent OpenChoreo actions. `kubectl` and Helm remain usable for cluster-native CRDs.
 
 ## Step 1 — Load the concepts reference
 
@@ -56,7 +45,6 @@ These are the platform-engineering tasks this skill supports.
 ## What this skill cannot do
 
 - **Application-level work — `openchoreo-developer` owns this.** Authoring `Component` / `Workload` / `ReleaseBinding`, editing `workload.yaml`, attaching PE-authored Traits to a Component via `patch_component traits: [...]`, managing `SecretReference` CRUD (`create_secret_reference` / `update_secret_reference` / `delete_secret_reference` — the underlying `ClusterSecretStore` is still PE-owned), hard-deleting developer-side resources (`delete_component` / `delete_workload` / `delete_release_binding` / `delete_project` / `delete_component_release` — but **`delete_namespace` is PE-side**, not exposed via MCP), tracing a runtime crash, deploying or promoting an app, debugging a developer-shape problem. **Pair this skill with `openchoreo-developer`** when the task crosses the boundary — many "this app fails to deploy" problems turn out to be a missing `ClusterTrait` or a misconfigured `DeploymentPipeline`. If both skills are available, run them together immediately.
-- **GitOps workflows** — repo layout (`platform-shared/`, `namespaces/<ns>/platform/`), Flux CD setup, bulk promotion via Git, the `occ` file-system mode (`componentrelease generate`, `releasebinding generate`). A dedicated GitOps skill owns this; do not pull those flows into this skill.
 - **Initial OpenChoreo install from scratch** — Helm install for a fresh control plane and first plane, Colima / k3d / GCP / multi-cluster bootstrap walkthroughs. **`openchoreo-install`** owns this. Once OpenChoreo is running, day-2 platform work comes back here.
 - **Aggregated runtime log / metric / trace queries** — log search across replicas, metric queries, trace lookups, alert and incident queries. For pod-level evidence under a binding use `get_resource_events` / `get_resource_logs`; for longer-horizon history, fall back to `kubectl logs` against the relevant plane, or query the observability backend (Loki / Prometheus / Tempo) via its own UI / API when configured.
 - **External-system operations** — IdP / Thunder / SSO admin work, external secret-backend admin (Vault / AWS Secrets Manager / OpenBao), Git provider configuration (webhooks, deploy keys), commercial WSO2 Choreo cloud resources, and incident state changes (acknowledge / resolve / RCA). When the user asks for one, say so plainly and direct them to the relevant system; explain the OpenChoreo-side pieces this skill *can* set up.
@@ -74,19 +62,9 @@ The full per-task discovery flow is in `concepts.md` (loaded at *Step 1*). Durab
 - **Live cluster output beats memory.** Don't assume available ComponentTypes, Traits, Workflows, Environments, plane status, or field names — discover via MCP first.
 - **Schema-first authoring.** Before writing a spec from scratch, fetch the creation schema (`get_component_type_creation_schema`, `get_trait_creation_schema`) or the resource schema (`get_*_schema`). MCP `create_*` / `update_*` calls take structured spec payloads, not YAML files — but the same schema applies.
 - **`update_*` for ComponentType / Trait / Workflow is full-spec replacement.** `get_*` first, modify locally, send the complete spec back. Omitting a field deletes it.
-- **MCP-first.** Reach for `kubectl` only when the operation is one of the gaps in *MCP write-surface gaps*, or for cluster-native CRDs.
+- **MCP-first.** Reach for `kubectl` only for cluster-native CRDs (Helm, `ClusterSecretStore`, Argo `ClusterWorkflowTemplate`, Kubernetes Gateway API) or when MCP doesn't expose a write path for the operation.
 - **Default to the `default` namespace.** Always ask before creating a new namespace — it's an organisational boundary, not a casual default.
 - **Change one layer at a time** (Helm values → control-plane CRD → remote-plane resource → app-visible outcome). Don't fix an application symptom by guessing at platform internals.
-
-## Reference routing
-
-Foundational reference:
-
-- [`./references/concepts.md`](./references/concepts.md) — resource hierarchy, Cell architecture, endpoint visibility, planes, API version, and the per-task discovery-first workflow. **Read before authoring anything** (per *Step 1*).
-
-PE-specific references are linked inline from *What this skill can do* above — load the matching one before acting on its task. They live under `./references/`.
-
-The 4 canonical Argo `ClusterWorkflowTemplate` YAMLs (`checkout-source`, `containerfile-build`, `publish-image`, `generate-workload`) ship at `./resources/workflow-templates/` and are applied via `kubectl apply -f` against the WorkflowPlane. Everything else is composed via MCP from `get_*_creation_schema` and the per-recipe guidance; no local YAML needed.
 
 ## Stable guardrails
 
@@ -106,5 +84,4 @@ The 4 canonical Argo `ClusterWorkflowTemplate` YAMLs (`checkout-source`, `contai
 - Creating a new namespace without asking the user — default to `default` unless explicitly told otherwise.
 - Reaching for `kubectl` when an MCP tool exists for the operation.
 - Sending a partial `update_component_type` / `update_trait` / `update_workflow` spec — the call replaces the whole spec; missing fields are deleted.
-- Reaching for `occ` — this skill does not use the `occ` CLI. GitOps-style file-mode flows belong in the dedicated GitOps skill.
 - Inventing observability tools that don't exist in this skill (`query_*` log/metric/trace/alert/incident tools). Use `kubectl logs` against the relevant plane, or query the observability backend's own UI.
