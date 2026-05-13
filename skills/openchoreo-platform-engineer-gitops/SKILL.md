@@ -26,7 +26,8 @@ occ namespace list                              # cluster reachable?
 
 Load other references **on-demand** as the task needs them:
 
-- [`references/authoring.md`](./references/authoring.md) — where CRD shapes come from (live cluster / vanilla defaults / sample-gitops / `llms.txt`), repo path conventions, the cluster↔namespace scope swap, the CI-vs-GitOps workflow gotcha, git workflow, DCO.
+- [`references/authoring.md`](./references/authoring.md) — where CRD shapes come from (live cluster / vanilla defaults / sample-gitops / docs via `scripts/fetch-page.sh`), repo path conventions, the cluster↔namespace scope swap, the CI-vs-GitOps workflow gotcha, git workflow, DCO.
+- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields. `./scripts/fetch-page.sh --list` dumps the full index.
 - [`references/cel.md`](./references/cel.md) — only when writing or reviewing CEL inside ComponentType / Trait / Workflow templates.
 
 ## Detect the mode
@@ -46,34 +47,31 @@ If the heuristic doesn't fit the layout (per the docs' *Flexible Repository Stru
 - **Scaffold a GitOps repo + wire Flux** — pristine, platform-only, or active cluster → [`recipes/scaffold.md`](./references/recipes/scaffold.md)
 - **Install the default platform resources** — project / environments / pipeline / ComponentTypes / Traits + GitOps-mode build-and-release Workflows + Argo `ClusterWorkflowTemplate`s → [`recipes/install-defaults.md`](./references/recipes/install-defaults.md)
 - **Install Flux + `git-token` / `gitops-token` secrets** when scaffolding finds them missing → [`recipes/install-flux-and-secrets.md`](./references/recipes/install-flux-and-secrets.md)
-- **Author** a `(Cluster)ComponentType` / `(Cluster)Trait` / `(Cluster)Workflow` / `Environment` / `DeploymentPipeline` / `SecretReference` / `AuthzRole` (and binding) / `ObservabilityAlertRule` / `NotificationChannel` via Git → recipes under [`references/recipes/`](./references/recipes/)
+- **Author platform resources via Git** — pick the right recipe up-front:
+  - `(Cluster)ComponentType` → [`recipes/author-componenttype.md`](./references/recipes/author-componenttype.md)
+  - `(Cluster)Trait` → [`recipes/author-trait.md`](./references/recipes/author-trait.md)
+  - `(Cluster)Workflow` → [`recipes/author-workflow.md`](./references/recipes/author-workflow.md)
+  - `Environment` + `DeploymentPipeline` (+ default `Project`) → [`recipes/author-environment-pipeline.md`](./references/recipes/author-environment-pipeline.md)
+  - `SecretReference` → [`recipes/author-secret-reference.md`](./references/recipes/author-secret-reference.md)
+  - `AuthzRole` / `ClusterAuthzRole` + bindings → [`recipes/author-authz.md`](./references/recipes/author-authz.md)
+  - `ObservabilityAlertRule`, `NotificationChannel`, anything else → [`recipes/author-other-resources.md`](./references/recipes/author-other-resources.md)
 - **Verify reconciliation; recover from drift** → [`recipes/verify-and-recover-drift.md`](./references/recipes/verify-and-recover-drift.md)
 
 ## What this skill cannot do
 
 - **Application-level GitOps** — `Project` / `Component` / `Workload` / `ComponentRelease` / `ReleaseBinding` / workload-descriptor authoring. Out of scope; tell the user when the task crosses into application territory.
-- **Helm install of the OpenChoreo control plane / planes.** Assumes a running control plane. See <https://openchoreo.dev/docs/getting-started/>.
+- **Helm install of the OpenChoreo control plane / planes.** Assumes a running control plane.
 - **Plane management in Git** — `DataPlane` / `ClusterDataPlane` / `WorkflowPlane` / `ClusterWorkflowPlane` / `ObservabilityPlane` / `ClusterObservabilityPlane` are one-time install-side setups with cert management. Out of scope by default; brief note in [`recipes/author-other-resources.md`](./references/recipes/author-other-resources.md) for users who insist.
 - **Imperative ops** — triggering a `WorkflowRun`, `kubectl exec`, runtime log tail, direct CRD edits against the API server. `WorkflowRun` does **not** belong in Git; trigger via the UI, webhook, or `occ component workflow run`.
 - **External-system admin** — Git provider webhooks, IdP / SSO, Vault / AWS Secrets Manager backend setup. The skill wires only the OpenChoreo-side `SecretReference` resources, not the upstream store.
 - **CD tools other than Flux CD.**
 
-## Tool surface
-
-| Tool | Purpose |
-| --- | --- |
-| `occ` | Reads cluster state (`<kind> get`, `<kind> list`), authenticates (`login`, `config`), pre-Flux bootstrap (`apply -f` — single file). |
-| `kubectl` | Context check, `apply -f flux/`, Argo `ClusterWorkflowTemplate` apply (workflow-plane), destructive cleanups after Flux reconciles. |
-| `flux` | Verify `GitRepository` / `Kustomization` status, `flux reconcile`, `flux install`. |
-| `git` + host CLI (`gh` / `glab` / `bb`) | Branch, `commit -s`, push, PR. |
-| `WebFetch` / `git clone --depth 1` | Pull vanilla defaults and GitOps resources from upstream when scaffolding. URLs in [`references/authoring.md`](./references/authoring.md). |
-| `AskUserQuestion` | Recipe-specific — used by scaffolding for repo decisions / per-category capture-or-skip / context confirmation, and by any recipe with destructive steps for before-push / before-Flux-wiring confirmations. |
-
 ## Working style
 
 - **Git is the source of truth.** GitOps-managed resources change only through Git. `occ apply -f` and `kubectl apply -f` are reserved for pre-Flux bootstrap and out-of-Git cluster reads.
 - **Flux prunes on delete.** If a resource was committed and is then removed from Git, the next reconcile deletes it from the cluster. Useful for retiring resources cleanly; dangerous if you commit accidentally.
-- **Always `git commit -s`** (DCO). Default flow is PR + wait-for-merge; direct push only if the repo profile says so.
+- **Always `git commit -s`** (DCO). Every change is a feature branch + PR.
+- **`occ` over `kubectl` for OpenChoreo CRDs.** When reading / writing Project, Component, Workload, ComponentRelease, ReleaseBinding, Environment, DeploymentPipeline, ComponentType, Trait, Workflow, SecretReference, AuthzRole, plane CRDs — use `occ <kind> get/list/delete`. Reach for `kubectl` only for non-OpenChoreo resources (Flux, ESO, Argo CRDs, raw K8s).
 - **Verify, don't assume.** Reconciliation is interval-based (`GitRepository: 1m`, `Kustomization: 5m`); read the result back with `occ <kind> get` after merge.
 - **Don't open a PR or push without explicit user confirmation.** Both are remote-visible.
 
@@ -83,7 +81,7 @@ If the heuristic doesn't fit the layout (per the docs' *Flexible Repository Stru
 - **No plaintext secrets in Git** — use `SecretReference` resources backed by a `ClusterSecretStore`.
 - **Protect `platform-shared/` with CODEOWNERS** — cluster-scoped changes affect every namespace. Sample at [`assets/codeowners-platform-shared`](./assets/codeowners-platform-shared).
 - **Cluster ↔ namespace scope is interchangeable** for ComponentType / Trait / Workflow. Convert by swapping the `kind:` and adding/removing `metadata.namespace:`. Update referrers' `allowedWorkflows[].kind` accordingly. See [`authoring.md`](./references/authoring.md).
-- **Vanilla CI workflows aren't GitOps-compatible.** `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` write the `Workload` CR directly to the cluster — Flux reverts it. Use the GitOps versions from `sample-gitops` instead. See [`authoring.md`](./references/authoring.md).
+- **Vanilla CI workflows aren't GitOps-compatible.** The four `ClusterWorkflow`s shipped by the platform install — `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` — write the `Workload` CR directly to the cluster API, so Flux reverts them. Use the GitOps versions from `sample-gitops` (`docker-gitops-release` etc.) instead. When in doubt about any other Workflow, inspect it (`occ clusterworkflow get <name>` / `occ workflow get <name> -n <ns>`) and check whether the pipeline ends with `git-commit-push-pr` (GitOps-compatible) or `generate-workload-cr` (not). Full write-up in [`authoring.md`](./references/authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
 ## Anti-patterns
 

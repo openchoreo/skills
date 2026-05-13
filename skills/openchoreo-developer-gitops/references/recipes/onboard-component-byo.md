@@ -109,9 +109,15 @@ occ componentrelease generate \
 
 Writes `releases/<release-name>.yaml`. Default name is `<component>-<YYYYMMDD>-<n>`. Pass `--name <name>` to override (rarely needed).
 
-### 4. Generate the ReleaseBinding for the first environment
+### 4. Generate the ReleaseBinding(s)
+
+**Ask the user first**: bind to the first environment only, or generate bindings across the pipeline?
+
+- **First env only (default)** — one ReleaseBinding for the lowest env (typically `development`). Subsequent promotion via [`promote.md`](./promote.md) generates the rest as separate, deliberate commits.
+- **All envs up-front** — only when the user explicitly asks. Useful for non-prod sandboxes, demos, or "deploy this everywhere now". Skip the gating intent of a promotion pipeline.
 
 ```bash
+# First env only:
 occ releasebinding generate \
   --mode file-system --root-dir <repo> \
   --project <project> --component <component> \
@@ -119,28 +125,15 @@ occ releasebinding generate \
   --use-pipeline standard
 ```
 
-Writes `release-bindings/<component>-development.yaml`. The release name is auto-resolved from the latest release in the repo for this component; override with `--component-release <name>` if you want a specific one.
+Writes `release-bindings/<component>-development.yaml`. The release name is auto-resolved from the latest release in the repo; override with `--component-release <name>` for a specific one.
 
-Without `--target-env`, the command requires it (since v1.0.x). Most projects use `development` as the root env.
+`--target-env` is required (since v1.0.x). Discover the root env from the project's pipeline: `occ deploymentpipeline get standard -n <ns>` and look at `spec.promotionPaths[0].sourceEnvironmentRef.name`.
 
-### 5. Commit, PR, wait
+For the all-envs path, loop the same command per env name from the pipeline. Each call writes one binding file.
 
-```bash
-git checkout -b release/<component>-$(date +%Y%m%d-%H%M%S)
-git add "namespaces/<ns>/projects/<project>/components/<component>/"
-git status                                           # show before committing
-git commit -s -m "Component <component>: onboard with release <release-name>"
-git push origin HEAD                                 # only after user confirmation
-gh pr create --fill                                  # only after user confirmation
-```
+### 5. Commit atomically on a feature branch, open a PR
 
-Wait for merge:
-
-```bash
-until gh pr view <number> --json state -q .state | grep -q MERGED; do sleep 30; done
-```
-
-Or, if the repo profile is direct-push: skip the PR and push to `main`.
+Branch `release/<component>-<ts>`. Commit atomically — separate `Component` + `Workload` from `ComponentRelease` from `ReleaseBinding`(s). For multi-Component batches, commit per-Component. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow* (covers branch + push + PR + wait-for-merge).
 
 ### 6. Verify
 
@@ -175,7 +168,6 @@ If the Project doesn't exist yet, author `project.yaml` in the same PR.
 
 ```yaml
 # namespaces/<ns>/projects/<project>/project.yaml
-# shape: https://openchoreo.dev/docs/reference/api/application/project.md (occ v1.0.x)
 apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:

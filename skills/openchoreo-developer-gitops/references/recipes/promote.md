@@ -49,15 +49,7 @@ Writes `release-bindings/<component>-staging.yaml`.
 
 ### 3. Commit, PR, wait
 
-```bash
-git checkout -b release/<component>-promote-staging-$(date +%Y%m%d-%H%M%S)
-git add namespaces/<ns>/projects/<project>/components/<component>/release-bindings/
-git commit -s -m "Promote <component> to staging (release <release-name>)"
-git push origin HEAD                              # only after user confirmation
-gh pr create --fill                               # only after user confirmation
-```
-
-Wait for merge.
+Branch `release/<component>-promote-<env>-<ts>`, paths `namespaces/<ns>/projects/<project>/components/<component>/release-bindings/`, message `"Promote <component> to <env> (release <release-name>)"`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*.
 
 ### 4. Verify
 

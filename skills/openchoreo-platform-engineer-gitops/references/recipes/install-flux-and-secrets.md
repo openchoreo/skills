@@ -134,12 +134,30 @@ The `ExternalSecret`s defined in the Workflow CRs are per-run (created in the wo
 kubectl get externalsecret -A                    # any existing ExternalSecrets healthy?
 ```
 
-## 4. Ask the user for the PAT
+## 4. Obtain the PAT
 
-The agent doesn't generate or hold the user's PAT. Ask the user to:
+Ask the user:
 
-1. Generate a PAT with `repo` scope (GitHub) or equivalent.
-2. Paste it into the agent — the agent uses it for the upstream secret-write commands but **does not commit it to Git**.
+> How should I get the PAT for `git-token` / `gitops-token`?
+> - **Use `gh auth token`** (recipe pipes the existing `gh` token into the secret backend — only when `gh auth status` shows `repo` scope)
+> - **I'll generate a PAT manually** (recipe walks you through the GitHub UI; paste into the agent for the secret-write step)
+> - **I'll create the secret manually** (recipe gives the backend-specific command + expected field name; agent never sees the PAT)
+
+For **`gh auth token`** flow:
+
+```bash
+gh auth status                                   # confirm 'repo' scope is present
+TOKEN=$(gh auth token)
+# Then for the chosen backend in §3b, substitute "$TOKEN" wherever <PAT> appears.
+```
+
+For **manual PAT** flow:
+
+1. Generate a PAT with `repo` scope at <https://github.com/settings/tokens> (classic) or a fine-grained token scoped to the GitOps repo.
+2. Paste into the agent for the single secret-write command in §3b.
+3. Agent does **not** commit the PAT to Git.
+
+For **manual-secret** flow, hand the user the exact backend command from §3b with `<PAT>` left as a placeholder; agent waits for them to run it. Then verify with §3c.
 
 For repos under heavy automation, two separate PATs (one read-only for source, one read/write for GitOps) is the more secure pattern.
 

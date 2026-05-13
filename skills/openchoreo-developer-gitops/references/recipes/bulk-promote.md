@@ -20,6 +20,8 @@ occ releasebinding generate \
 
 Generates one ReleaseBinding per component in the project, each pointing at that component's latest ComponentRelease. Files land under `namespaces/<ns>/projects/<project>/components/*/release-bindings/<component>-staging.yaml`.
 
+`--use-pipeline` is **required** with `--project` (same as `--all`). Without it the command errors.
+
 ### Everything across all projects in the namespace
 
 ```bash
@@ -32,16 +34,7 @@ occ releasebinding generate --all \
 
 ### Commit, PR, wait
 
-```bash
-git checkout -b bulk-release/<scope>-<target-env>-$(date +%Y%m%d-%H%M%S)
-git add namespaces/<ns>/projects/                # may touch many components' release-bindings/
-git status                                       # show the user the full file list before committing
-git commit -s -m "Bulk promote <scope> to <target-env>"
-git push origin HEAD
-gh pr create --fill
-```
-
-`<scope>` = `project-<project>` or `all-projects`. The `bulk-release/` branch prefix matches what the upstream `bulk-gitops-release` workflow uses.
+Branch `bulk-release/<scope>-<target-env>-<ts>`, paths `namespaces/<ns>/projects/`, message `"Bulk promote <scope> to <target-env>"`. `<scope>` = `project-<project>` or `all-projects`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*.
 
 ### Verify after merge
 
@@ -123,7 +116,7 @@ Run the same command with `--component-release` pointing at the previous release
 
 ## Gotchas
 
-- **`--all` requires `--use-pipeline`.** Without it, the command errors.
+- **`--all` and `--project` both require `--use-pipeline`.** Without it, the command errors.
 - **Latest-as-default in bulk mode.** `--component-release` doesn't apply to `--project` / `--all`; each component's binding gets that component's latest release. If a new build lands during the bulk promote, you may capture a mix of release versions across components. For deterministic promotion of a known-good set, freeze releases first (commit-and-merge them) then run the bulk promote.
 - **Big PRs are scary.** Bulk promote of 30 components produces 30 ReleaseBinding file changes. Reviewer attention drops. Consider splitting per project, or pairing with a release notes summary.
 - **WorkflowRun produces a single PR.** All bindings in one diff. Same trade-off as above.

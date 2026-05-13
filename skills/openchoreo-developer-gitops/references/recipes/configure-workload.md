@@ -238,9 +238,7 @@ Same as resources — on the ReleaseBinding, under `componentTypeEnvironmentConf
 Schema-side checks happen at admission. The full Workload schema:
 
 ```bash
-occ workload get <existing-workload> -n <ns>      # template from an existing one
-# Or check the API ref:
-# https://openchoreo.dev/docs/reference/api/application/workload.md
+./scripts/fetch-page.sh --exact --title "Workload"
 ```
 
 Common admission failures:
@@ -256,4 +254,3 @@ Common admission failures:
 - [`connect-components.md`](./connect-components.md) — `dependencies.endpoints[]` in detail
 - [`override-per-environment.md`](./override-per-environment.md) — replicas / resources / per-env env vars
 - [`../concepts.md`](../concepts.md) *Workload*, *Endpoint visibility*, *Dependencies*
-- API ref: <https://openchoreo.dev/docs/reference/api/application/workload.md>

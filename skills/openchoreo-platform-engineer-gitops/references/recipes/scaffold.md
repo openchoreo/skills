@@ -4,16 +4,18 @@ Single recipe for all scaffolding paths: pristine cluster, platform-only cluster
 
 For ongoing platform-resource authoring (after scaffolding), see the `author-*.md` recipes.
 
-## 1. Preconditions
-
-Per [`../../SKILL.md`](../../SKILL.md) Step 0. Run all checks, surface the active contexts to the user, get confirmation:
+## 1. Preconditions — confirm cluster context
 
 ```bash
-occ config context list                         # active occ context
+occ config context list                         # active occ context (URL, namespace)
 kubectl config current-context && kubectl cluster-info | head -2
 ```
 
-`AskUserQuestion`: "Active `occ` context = `<name>` (URL: `<…>`, namespace: `<…>`). Active `kubectl` context = `<name>` (server: `<…>`). Both pointing at the right cluster?"
+**Ask the user — always.** Scaffolding into the wrong cluster's resources is catastrophic; the verification can't be done programmatically (occ talks to a control-plane URL; kubectl could be pointing at the control plane, a data plane, or an unrelated cluster). Surface both contexts side by side and ask:
+
+> Active `occ` context `<name>` (control plane `<url>`, namespace `<ns>`) and `kubectl` context `<name>` (cluster `<api-url>`). Scaffolding GitOps for this cluster — right?
+
+Don't proceed past §1 until confirmed. If the user says "no", stop and ask which contexts they want active.
 
 Detect k3d:
 
@@ -22,6 +24,8 @@ kubectl cluster-info | grep -qE 'k3d|host\.k3d\.internal' && echo "k3d detected"
 ```
 
 Record the result; it drives registry-URL substitution later (§6).
+
+Note: the inventory in §2 surfaces any `ClusterSecretStore` / `SecretStore` already present — pass the backend type (OpenBao / Vault / AWS SM / GCP SM / `external-secrets` operator) to [`install-flux-and-secrets.md`](./install-flux-and-secrets.md) §4 so the right backend section is used when provisioning `git-token` / `gitops-token`.
 
 Check Flux:
 
@@ -49,6 +53,7 @@ occ clusterworkflowplane list
 occ clusterobservabilityplane list
 occ clusterauthzrole list
 occ clusterauthzrolebinding list
+kubectl get clustersecretstore 2>/dev/null     # external-secrets backend (OpenBao / Vault / AWS SM / GCP SM)
 
 # Per-namespace (loop over namespaces labelled openchoreo.dev/control-plane=true)
 occ namespace list
@@ -59,6 +64,7 @@ occ componenttype list -n "$NS"
 occ trait list -n "$NS"
 occ workflow list -n "$NS"
 occ secretreference list -n "$NS"
+kubectl get secretstore -n "$NS" 2>/dev/null
 occ authzrole list -n "$NS"
 occ authzrolebinding list -n "$NS"
 occ observabilityalertrule list -n "$NS" 2>/dev/null
@@ -79,27 +85,27 @@ Show the user the summary grouped by category before §3.
 
 > **CI workflow gotcha.** If the inventory finds `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` (the vanilla CI workflows), flag them explicitly. These build and write the `Workload` CR directly to the cluster — Flux would revert it. Surface a recommendation to **Replace** them with the GitOps versions when the workflow category comes up in §4. See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
-## 3. Repo-structure questions
+## 3. Ask the user upfront
 
-Use `AskUserQuestion` in **two batches** (the tool caps at 4 questions per call): questions 1–4 first, then 5–6. Inventory from §2 informs the defaults — pre-select the suggested default so the user can confirm with a single click.
+Scaffolding is a wizard, not a stream of ad-hoc prompts. Ask **all** of these before §5 (directory stamping), so the user makes their decisions once and you execute uninterrupted afterwards.
 
-| # | Question | Default |
-| --- | --- | --- |
-| 1 | Repo pattern? | **Mono-repo** (single repo for both platform and apps). Multi-repo (platform repo + app repo) if the user explicitly asks. Anything else only on explicit ask. |
-| 2 | First namespace? | If the cluster has one OpenChoreo namespace, default to that. Otherwise `default`. |
-| 3 | Branch? | `main` |
-| 4 | Push policy? | PR + wait-for-merge. Direct push if the user prefers. |
-| 5 | Repo public or private? | (No default — ask. Private repos need `git-credentials` in `flux-system` for the Flux `GitRepository.spec.secretRef`.) |
-| 6 | Workflow scope when scaffolding defaults? | **Cluster-scoped** (`ClusterWorkflow`). Switch to namespace-scoped (`Workflow`) only if asked. See [`../authoring.md`](../authoring.md) *Cluster ↔ namespace scope*. |
+### Critical question — ask, don't default
 
-**Git host: autodetect, don't ask.** Run:
+**Repo visibility** — public or private? Private repos need a `git-credentials` Secret in `flux-system` for the Flux `GitRepository.spec.secretRef`. No safe default.
 
-```bash
-git remote -v                                 # already-configured remotes
-command -v gh; command -v glab; command -v bb # available host CLIs
-```
+### Defaults — surface, let the user redirect if they care
 
-Pick from what's present. If the only signal is the remote URL, infer the host. Confirm with the user.
+| Decision | Default |
+| --- | --- |
+| Repo pattern | Mono-repo. Only deviate if the user mentioned multi-repo / per-project. Non-mono layouts need a `release-config.yaml` at the repo root — schema in [`../../assets/release-config.yaml.example`](../../assets/release-config.yaml.example). |
+| First namespace | If the cluster has exactly one OpenChoreo-labeled namespace, use it. Otherwise `default`. Ask only if `occ namespace list` returns multiple OpenChoreo namespaces. |
+| Branch | `main`. |
+| Workflow scope when scaffolding defaults | `ClusterWorkflow` (cluster-scoped). |
+| Git host | Autodetect from `git remote -v` and `command -v gh / glab / bb`. No question. |
+
+After these answers come back, also ask **per-category Capture / Replace / Skip** (§4) — that one needs the §2 inventory first, so it's naturally the next prompt.
+
+The remaining steps (§5–§10) just execute the user's choices. Brief context-ack at destructive moments (`gh repo create --push`, `flux install`, `kubectl apply -f flux/`) — not new questions.
 
 ## 4. Per-category decisions
 
@@ -155,14 +161,7 @@ EOF
 
 > The `openchoreo.dev/control-plane=true` label is required — the controller filters discovery by it.
 
-Add CODEOWNERS:
-
-```bash
-mkdir -p .github
-cp <skill-dir>/assets/codeowners-platform-shared .github/CODEOWNERS
-```
-
-Edit the placeholder team handle.
+Add CODEOWNERS. Read [`../../assets/codeowners-platform-shared`](../../assets/codeowners-platform-shared) and write it to `.github/CODEOWNERS` in the scaffolded repo, then edit the placeholder team handle.
 
 ## 6. Execute per-category actions
 
@@ -221,43 +220,54 @@ git commit -s -m "Initial OpenChoreo GitOps repo scaffold"
 
 ## 8. Wire the remote
 
-```bash
-git remote -v                                 # any existing remote?
-```
+Visibility is already decided in §3. Confirm the exact remote URL before running — surface it and proceed once acknowledged:
 
-If a remote exists, confirm it. If wrong / missing, use the autodetected host CLI:
+> About to create `gh repo create <org>/<name> --<visibility> --source=. --remote=origin --push`. This pushes immediately. Proceed?
 
 ```bash
-# GitHub examples
-gh repo create <org>/<name> --private --source=. --remote=origin --push    # private per §3
-gh repo create <org>/<name> --public  --source=. --remote=origin --push    # public
+git remote -v                                 # any existing remote already?
 ```
 
-> `gh repo create --push` pushes immediately. Only run after explicit user confirmation of the URL + visibility.
+If a remote already exists, confirm with the user that it's the right one — don't overwrite it. Otherwise:
 
-For GitLab / Bitbucket, use `glab repo create` / `bb repo create`. For self-hosted, the user creates the empty repo first, then `git remote add origin <url>` + `git push -u origin <branch>` after confirmation.
+```bash
+gh repo create <org>/<name> --<visibility> --source=. --remote=origin --push    # <visibility> from §3
+```
+
+For GitLab / Bitbucket, use `glab repo create` / `bb repo create`. For self-hosted, the user creates the empty repo first, then `git remote add origin <url>` + `git push -u origin <branch>`.
 
 ## 9. Install Flux (if needed) + provision secrets
 
-If §1 found Flux missing in the cluster, or if `Replace with defaults` brought in the build-and-release workflows (which require `git-token` / `gitops-token` in a `ClusterSecretStore`), follow [`install-flux-and-secrets.md`](./install-flux-and-secrets.md).
+- **Flux already installed** (per §1 check) → skip the install. No ask.
+- **Flux missing** → install per [`install-flux-and-secrets.md`](./install-flux-and-secrets.md) §1. **Ask the user before running** `flux install` / `kubectl apply -f` — it's cluster-altering. Surface the active `kubectl` context (re-confirm from §1) along with the install command.
 
-If the repo is **private** (§3), pre-create `git-credentials` in `flux-system` so the Flux `GitRepository` can pull — also covered in `install-flux-and-secrets.md`.
+For the build workflows that were brought in via `Replace with defaults`:
+
+- **`ClusterSecretStore` present** (per §2 inventory, surfaced backend type) → resolve `git-token` / `gitops-token` against it. Don't ask "should I set up a secret store?". Use the backend that's there. Only ask the user for the token *source* (gh CLI / manual PAT / manual secret) per `install-flux-and-secrets.md` §4.
+- **No `ClusterSecretStore`** → flag this honestly and ask how to proceed (set one up out of band, or skip the build workflows for now).
+
+If the repo is **private** (§3), pre-create `git-credentials` in `flux-system` so the Flux `GitRepository` can pull — covered in `install-flux-and-secrets.md` §2.
 
 ## 10. Wire Flux
 
-> **Confirm before applying `flux/`.** The active `occ` and `kubectl` contexts, the remote URL, and the first namespace are all about to become Flux-managed.
+**Ask the user before `kubectl apply -f flux/`.** Surface the `kubectl` context, the remote URL, and the namespace one more time — once Flux is bootstrapped it starts reconciling immediately. No way to undo without `kubectl delete -f flux/`.
+
+Copy the five Flux templates from [`../../assets/flux/`](../../assets/flux/) into `flux/` in the scaffolded repo:
+
+- `gitrepository.yaml`
+- `kustomization-namespaces.yaml`
+- `kustomization-platform-shared.yaml`
+- `kustomization-platform.yaml`
+- `kustomization-projects.yaml`
+
+Then edit:
+
+- `gitrepository.yaml` — `spec.url` to the remote URL from §8; `spec.ref.branch` to the branch from §3; uncomment `spec.secretRef.name: git-credentials` if §3 chose private.
+- `kustomization-platform.yaml` + `kustomization-projects.yaml` — replace `<namespace>` with the first namespace from §3.
+
+Commit + push + bootstrap:
 
 ```bash
-cp <skill-dir>/assets/flux/*.yaml flux/
-
-# Edit gitrepository.yaml:
-#   - spec.url: the remote URL from §8
-#   - spec.ref.branch: the branch from §3
-#   - if §3 was private: uncomment spec.secretRef.name: git-credentials
-#
-# Edit kustomization-platform.yaml + kustomization-projects.yaml:
-#   - Replace <namespace> with the first namespace from §3
-
 git add flux/
 git commit -s -m "Wire Flux: GitRepository + Kustomization chain"
 git push origin <branch>                      # only after user confirmation
@@ -266,6 +276,8 @@ kubectl apply -f flux/                        # one-time bootstrap so Flux start
 ```
 
 After this, **edit Flux resources only in Git**.
+
+> The shipped `Kustomization`s set `spec.force: true`. Server-side apply uses field manager `kustomize-controller`; on resources previously created by `kubectl apply` (active-cluster path), this lets Flux take field ownership instead of erroring on conflict. Pre-existing resources are patched in place — no delete-and-recreate.
 
 ## 11. Verify reconciliation
 
@@ -286,13 +298,22 @@ If a Kustomization stays `Reconciling`, give it the documented 5m or force: `flu
 
 For each resource the user chose to **Replace**, after §11 shows a clean reconcile:
 
+Ask the user per-category first. Vanilla CI workflows in particular become inert once every (Cluster)ComponentType's `allowedWorkflows[]` is rewritten — leaving them is fine:
+
+> The four vanilla CI ClusterWorkflows (`dockerfile-builder`, `paketo-buildpacks-builder`, `gcp-buildpacks-builder`, `ballerina-buildpack-builder`) are now unreachable since every ComponentType's `allowedWorkflows[]` points at the GitOps-mode variants. Delete them, or leave them on the cluster?
+> - Delete now (cleaner cluster)
+> - Leave them (inert; can clean up later)
+
+If the user chooses delete:
+
 ```bash
-# Example: vanilla CI workflows that were replaced by GitOps versions
-kubectl delete clusterworkflow dockerfile-builder paketo-buildpacks-builder \
-                                gcp-buildpacks-builder ballerina-buildpack-builder
+occ clusterworkflow delete dockerfile-builder
+occ clusterworkflow delete paketo-buildpacks-builder
+occ clusterworkflow delete gcp-buildpacks-builder
+occ clusterworkflow delete ballerina-buildpack-builder
 ```
 
-Per-resource user confirmation. Once deleted, the originals are gone and Flux's versions own the names.
+Apply the same ask-then-delete pattern to any other Replaced category.
 
 ## 13. Persist the repo profile
 

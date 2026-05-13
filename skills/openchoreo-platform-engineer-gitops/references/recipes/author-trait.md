@@ -1,43 +1,38 @@
 # Recipe — Author a (Cluster)Trait via Git
 
-Add a composable capability that developers can attach to a Component via `spec.traits[]`. Traits can **create** new resources (HPAs, PVCs, ExternalSecrets, etc.) and **patch** existing ones rendered by the ComponentType (e.g. add a volume mount to a Deployment).
+Add a composable capability developers attach to a Component via `spec.traits[]`. Traits can **create** new resources (HPAs, PVCs, ExternalSecrets) and **patch** existing ones rendered by the ComponentType (e.g. add a volume mount to a Deployment).
 
 ## Scope decision
 
-| Scope                 | When                                                                                       | File path                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| `ClusterTrait` (default) | Platform-wide capability.                                                                | `platform-shared/traits/<name>.yaml`                       |
-| `Trait` (namespace-scoped) | Tenant-specific. **Trait validations are namespace-scoped only** — `ClusterTrait` does not support `validations`. | `namespaces/<ns>/platform/traits/<name>.yaml`              |
+| Scope | When | Path |
+| --- | --- | --- |
+| `ClusterTrait` (default) | Platform-wide capability. | `platform-shared/traits/<name>.yaml` |
+| `Trait` (namespace-scoped) | Tenant-specific. Also: `Trait.spec.validations` works; **`ClusterTrait` doesn't support `validations`**. | `namespaces/<ns>/platform/traits/<name>.yaml` |
 
-**Scope rule.** A `ClusterComponentType`'s `allowedTraits` may only reference `ClusterTrait`. A namespace-scoped `ComponentType` may reference either.
+**Scope rule.** A `ClusterComponentType`'s `allowedTraits` may only reference `ClusterTrait`. Namespace-scoped `ComponentType` may reference either.
 
 ## Steps
 
 ### 1. Source the shape
 
-Pick one per the shape-lookup decision table in [`../authoring.md`](../authoring.md):
+- **Full schema** — `./scripts/fetch-page.sh --exact --title "ClusterTrait"` (or `"Trait"`).
+- **Vanilla default** — `observability-alert-rule` (URL in [`../authoring.md`](../authoring.md)).
+- **Extra shape** — `persistent-volume` / `api-management` from `sample-gitops` (URLs in `../authoring.md`).
 
-- **Live cluster** — `occ clustertrait get <name>` or `occ trait get <name> -n <ns>`. Strip status / managed fields.
-- **Vanilla default** — `observability-alert-rule` at `https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/component-traits/alert-rule-trait.yaml`.
-- **Extra shape** — WebFetch from `sample-gitops`:
-  - `persistent-volume`, `api-management` at `https://raw.githubusercontent.com/openchoreo/sample-gitops/main/namespaces/default/platform/traits/<name>.yaml`
-- **API reference** — `https://openchoreo.dev/docs/reference/api/platform/clustertrait.md` (cluster) or `.../trait.md` (namespace).
+Apply the cluster↔namespace swap (in `../authoring.md`) if the source scope doesn't match.
 
-> Apply the cluster↔namespace scope swap per [`../authoring.md`](../authoring.md) if the source scope doesn't match what you need.
+### 2. Compose
 
-### 2. Compose the spec
+Load-bearing fields:
 
-Three load-bearing fields:
+- **`creates[]`** — new resources alongside the primary workload. Each entry has `template` (CEL) and optional `includeWhen`.
+- **`patches[]`** — modify resources rendered by the ComponentType (or earlier traits). Each: `target` (group / version / kind), optional `where` (CEL filter on `resource`), `operations[]` (JSON-patch-shaped).
+- **`parameters.openAPIV3Schema`** — values on `Component.spec.traits[].parameters`.
+- **`environmentConfigs.openAPIV3Schema`** — per-env overrides keyed by `instanceName` on `ReleaseBinding.spec.traitEnvironmentConfigs`.
 
-- **`creates[]`** — new resources alongside the Component's primary workload. Each entry has `template` (CEL) and optional `includeWhen`.
-- **`patches[]`** — modifications to existing resources rendered by the ComponentType (or by another trait that ran first). Each entry has `target` (group / version / kind selector), optional `where` (CEL filter on `resource`), and `operations[]` (JSON-patch-shaped: `op`, `path`, `value`).
-- **`parameters.openAPIV3Schema`** — values the developer sets on `spec.traits[].parameters`.
-- **`environmentConfigs.openAPIV3Schema`** — per-environment overrides keyed by `instanceName` on `ReleaseBinding.spec.traitEnvironmentConfigs`.
-
-Skeleton (`persistent-volume`-style):
+Skeleton (`persistent-volume`):
 
 ```yaml
-# shape: https://openchoreo.dev/docs/reference/api/platform/clustertrait.md (occ v1.0.x)
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterTrait
 metadata:
@@ -88,41 +83,24 @@ spec:
             name: ${parameters.volumeName}
 ```
 
-### 3. Save and commit
+### 3. Commit + verify
 
-```bash
-git checkout -b platform/trait-<name>-$(date +%Y%m%d-%H%M%S)
-git add <file>
-git commit -s -m "platform: add <ClusterTrait|Trait> <name>"
-git push origin HEAD
-gh pr create --fill                       # only after user confirmation
-```
-
-### 4. Verify after merge
+Branch `platform/trait-<name>-<ts>`, message `"platform: add <ClusterTrait|Trait> <name>"`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*. After merge:
 
 ```bash
 flux get kustomizations -A
 occ clustertrait get <name>                # or occ trait get <name> -n <ns>
 ```
 
-### 5. Allow-list the new trait
+### 4. Allow-list the new trait
 
-Either:
+Edit each `(Cluster)ComponentType` that should permit this trait — add to `spec.allowedTraits[]`, commit, PR.
 
-- Edit each `(Cluster)ComponentType` that should permit this trait — add to `spec.allowedTraits[]`. Commit, PR, reconcile.
-- Wait for a developer to ask "why can't I attach this trait?" and surface the answer then.
+## CEL specifics
 
-## CEL specifics for Traits
+`creates[]` / `patches[]` have access to: `metadata.*`, `parameters.*`, `environmentConfigs.*`, `dependencies.*`, `dataplane.*`, `gateway.*`, plus trait-only **`trait.name`** / **`trait.instanceName`** (disambiguates multiple attachments).
 
-Trait `creates[]` and `patches[]` have access to:
-
-- `metadata.*` — generated resource name, target namespace, component identity
-- `parameters.*` — values from `Component.spec.traits[].parameters`
-- `environmentConfigs.*` — per-env overrides
-- `dependencies.*`, `dataplane.*`, `gateway.*` — context from the runtime
-- **`trait.name` / `trait.instanceName`** — *trait-only*. `instanceName` is what disambiguates multiple attachments of the same trait on one Component.
-
-Inside `patches[].where`, the `resource` variable is the target resource being inspected — filter with `${resource.metadata.name == ...}` etc.
+Inside `patches[].where`, the `resource` variable is the target being inspected.
 
 Full availability matrix: [`../cel.md`](../cel.md) §5.
 
@@ -131,33 +109,23 @@ Full availability matrix: [`../cel.md`](../cel.md) §5.
 A trait can attach to a Component multiple times with different parameters — each attachment has a unique `instanceName`:
 
 ```yaml
-# Component.spec.traits (developer-side)
 traits:
   - kind: ClusterTrait
     name: persistent-volume
     instanceName: data-storage
-    parameters:
-      volumeName: data
-      mountPath: /var/lib/data
+    parameters: { volumeName: data, mountPath: /var/lib/data }
   - kind: ClusterTrait
     name: persistent-volume
     instanceName: cache-storage
-    parameters:
-      volumeName: cache
-      mountPath: /var/cache
+    parameters: { volumeName: cache, mountPath: /var/cache }
 ```
 
-Each generates its own PVC (one named `<x>-data-storage`, one `<x>-cache-storage`) and patches the Deployment accordingly. The trait's CEL refers to `${trait.instanceName}` for collision-free naming.
+Each generates its own PVC and patches the Deployment; the trait's CEL uses `${trait.instanceName}` for collision-free naming.
 
 ## Gotchas
 
-- **Patches run in order** — `creates[]` first, then `patches[]` in the order traits appear on the Component. A patch can target a resource a later trait creates. Hidden ordering, easy to surprise yourself; document with comments.
-- **`patches[].target` matches by group/version/kind.** Optional `where` narrows further; without `where`, every matching resource gets the patch.
-- **`Trait.spec.validations` is namespace-scoped only.** `ClusterTrait` schema has no `validations` field. For platform-wide validation rules, embed them in the `(Cluster)ComponentType` that opt-in to this trait via `allowedTraits`.
+- **Patches run in order** — `creates[]` first, then `patches[]` in the order traits appear on the Component. Hidden ordering — document non-obvious dependencies.
+- **`patches[].target` matches by group/version/kind.** `where` narrows further; without it, every matching resource gets patched.
+- **`ClusterTrait` schema has no `validations` field.** For platform-wide rules, embed them in the `ComponentType` that opts in via `allowedTraits`.
 - **`creates[].template` must not hardcode `metadata.namespace`** — use `${metadata.namespace}`.
-- **`instanceName` collisions are per-component.** If two attachments share an `instanceName`, the CR fails validation at the Component level.
-
-## Related
-
-- [`author-componenttype.md`](./author-componenttype.md) — `(Cluster)ComponentType.allowedTraits` needs updating to permit a new trait
-- [`../cel.md`](../cel.md) — CEL syntax, `trait.*` context, patches `where` filters
+- **`instanceName` collisions are per-component.** Two attachments sharing an `instanceName` fails Component-level validation.

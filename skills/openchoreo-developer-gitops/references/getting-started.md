@@ -21,13 +21,14 @@ Heuristics:
 
 ## Up-front questions
 
-Ask interactively, not as a wall of text. In Claude Code, use `AskUserQuestion` with explicit options.
+Ask one decision at a time, not as a wall of text. Each ambiguous item is a separate prompt with explicit options.
 
 - **BYO image or source-build?** Default to source-build *only* if the agent is in the source repo (per §0); otherwise default to BYO. Third-party / public apps: always BYO (multi-platform Dockerfiles commonly fail in the buildah builder).
-- **If source-build:** which CI Workflow? `occ clusterworkflow list` / `occ workflow list -n <ns>`. The right one depends on the source build system:
-  - Dockerfile present → `docker-gitops-release` (or `dockerfile-builder` for non-GitOps flows).
+- **If source-build:** which CI Workflow? List with `occ clusterworkflow list` / `occ workflow list -n <ns>`. In GitOps mode you want one whose pipeline ends in `git-commit-push-pr` — check with `occ clusterworkflow get <name>` (or `occ workflow get <name> -n <ns>`) if you're not sure. Common GitOps-compatible workflows shipped by `sample-gitops`:
+  - Dockerfile present → `docker-gitops-release`.
   - Clean source (no Dockerfile) → `google-cloud-buildpacks-gitops-release` or similar buildpacks workflow.
   - React / SPA → `react-gitops-release`.
+  - **Avoid:** `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` — these are the four defaults from the non-GitOps install. They write the `Workload` directly to the cluster and Flux reverts.
 - **If BYO, how does the image get built?**
   - **External CI** (GitHub Actions, GitLab CI, …) — confirm trigger + registry + tag scheme.
   - **Manual** — the user runs `docker build` / `docker push` themselves. Confirm registry + repo + tag style. The agent won't run `docker push` without explicit per-iteration approval.
@@ -104,7 +105,7 @@ Service: <component-name>
     - <mountPath> = <source: inline | from SecretReference | from descriptor file>
 ```
 
-Ask explicitly via `AskUserQuestion`. Each ambiguous item is one question.
+Ask the user explicitly. Each ambiguous item is one question.
 
 - **Dependency mapping complete?** Inferred maps often miss feature-flagged clients and service-mesh DNS deps.
 - **Dependency *target* names right?** A client variable named `userService` in source might map to a Component named `user-svc` on the cluster.

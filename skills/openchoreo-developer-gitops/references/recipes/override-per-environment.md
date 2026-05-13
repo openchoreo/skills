@@ -171,4 +171,3 @@ The ComponentType / Trait `environmentConfigs.openAPIV3Schema` is the contract. 
 - [`onboard-component-byo.md`](./onboard-component-byo.md), [`onboard-component-source-build.md`](./onboard-component-source-build.md)
 - [`attach-trait.md`](./attach-trait.md) — `instanceName` matters for `traitEnvironmentConfigs`
 - [`../concepts.md`](../concepts.md) *ReleaseBinding*
-- API ref: <https://openchoreo.dev/docs/reference/api/platform/releasebinding.md>

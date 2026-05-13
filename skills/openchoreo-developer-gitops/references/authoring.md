@@ -2,9 +2,22 @@
 
 How application CRD shapes get into Git. `occ` ships four file-mode generators that do most of the heavy lifting; everything else hand-authored from `llms.txt` references or templated from cluster.
 
+## Use the scaffolders — don't hand-write
+
+Hard rule. Hand-writing Components / Workloads / ComponentReleases / ReleaseBindings is the source of nearly every onboarding bug — wrong `componentType.kind` default, missing `owner`, indent breakage in env / files, stale release filenames. Always:
+
+| Resource | Command |
+| --- | --- |
+| `Component` | `occ component scaffold` (sets `kind` from `--clustercomponenttype` / `--componenttype`) |
+| `Workload` (BYO) | `occ workload create --mode file-system --descriptor <file>` |
+| `ComponentRelease` | `occ componentrelease generate --mode file-system` |
+| `ReleaseBinding` | `occ releasebinding generate --mode file-system` |
+
+For source-build Components, **don't** commit the Workload / ComponentRelease / ReleaseBinding by hand — the build pipeline produces them via a PR.
+
 ## The four `occ` file-mode generators
 
-`--mode file-system` is required (the default `api-server` mode applies to the cluster directly). Run `occ <command> -h` for the full flag list; reference: <https://openchoreo.dev/docs/reference/cli-reference.md>.
+**Always pass `--mode file-system` explicitly.** The default for every `occ` generator (`workload create`, `componentrelease generate`, `releasebinding generate`) is `api-server`, which writes to the cluster — wrong for GitOps. `componentrelease generate` *only* supports file-system today and errors if you forget the flag; the other two will silently apply to the cluster. Always set it. Run `occ <command> -h` for the full flag list.
 
 ### `occ component scaffold COMPONENT_NAME`
 
@@ -99,46 +112,27 @@ Writes `namespaces/<ns>/projects/<project>/components/<component>/release-bindin
 
 ## `release-config.yaml`
 
-Optional file at the GitOps repo root. Overrides the default output directories `componentrelease generate` and `releasebinding generate` use per project / component. Schema:
-
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseConfig
-componentReleaseDefaults:
-  defaultOutputDir: namespaces/<ns>/projects/<project>/components/<component>/releases
-  projects:
-    <project-name>:
-      defaultOutputDir: namespaces/<ns>/projects/<project>/releases
-      components:
-        <component-name>: namespaces/<ns>/projects/<project>/components/<component>/releases
-releaseBindingDefaults:
-  defaultOutputDir: namespaces/<ns>/projects/<project>/components/<component>/release-bindings
-  # Same project/component structure as above.
-```
+Optional file at the GitOps repo root. Overrides the default output directories `componentrelease generate` and `releasebinding generate` use per project / component. Full schema (resolution priority, worked example) in [`../assets/release-config.yaml.example`](../assets/release-config.yaml.example).
 
 Resolution priority: explicit per-component → per-project default → top-level default → (fallback) repo-index resolver matching the documented layout.
 
-When absent, paths are inferred from the repo index per the documented layout. The PE skill (or the user) sets it up during scaffolding — this skill consumes whatever's there.
+When absent, paths are inferred from the repo index per the documented layout. The PE skill (or the user) sets it up during scaffolding — this skill consumes whatever's there. **`--all` and `--project` modes for both generators require this file to be present** (otherwise the generators can't resolve where each binding goes).
 
-## Everything else from `llms.txt`
+## Fetching CRD shapes — `scripts/fetch-page.sh`
 
-For kinds without a file-mode generator (Project, ReleaseBinding overrides, dependency wiring on Workload, hand-authored Components for tricky cases), hand-author from API references.
+For kinds without a file-mode generator (Project, ReleaseBinding overrides, dependency wiring on Workload), use the bundled helper. It resolves the title against `llms.txt`, picks the right version, and prints the rendered Markdown. URL paths are not stable across minors — don't compose URLs by hand.
 
-1. **Capture the running `occ` minor** — parse `Client.Version` from `occ version`. Derive `$OCC_MINOR` (e.g. `v1.0.x`).
-2. **Match against `llms.txt`** — `https://openchoreo.dev/llms.txt`. If its header version differs from `$OCC_MINOR`, fetch `https://openchoreo.dev/llms-$OCC_MINOR.txt`. Past minors live at `llms-v<minor>.x.txt`; bleeding edge is `llms-next.txt`.
-3. **API reference URLs** follow:
-   ```
-   https://openchoreo.dev/docs/reference/api/<scope>/<kind>.md
-   ```
-   For app-level kinds, `<scope>` is `application` (Project, Component, Workload, WorkflowRun) or `platform` (ReleaseBinding) or `runtime` (ComponentRelease — controller-generated; never hand-author).
-4. **Compose YAML** from the page's field tables. Cite the page in a comment:
-   ```yaml
-   # shape: https://openchoreo.dev/docs/reference/api/application/component.md (occ v1.0.x)
-   apiVersion: openchoreo.dev/v1alpha1
-   kind: Component
-   ...
-   ```
-5. **Or template from a live instance.** When a similar resource exists, `occ <kind> get <name>` prints YAML — strip `status:` and `metadata.managedFields:`, edit, save.
+```bash
+./scripts/fetch-page.sh --exact --title "Component"          # full schema, including optional fields
+./scripts/fetch-page.sh --exact --title "Workload"
+./scripts/fetch-page.sh --exact --title "ReleaseBinding"
+./scripts/fetch-page.sh --list                       # dump full llms.txt index
+./scripts/fetch-page.sh --exact --title "Workload" --version v1.0.x
+```
+
+On a miss (no match / multiple matches / fetch failure), the script dumps the full `llms.txt` to stdout so you can pick by hand.
+
+> `ComponentRelease` and `RenderedRelease` are controller-managed — never hand-author. Use `occ componentrelease generate` for the former; the latter is created by the controller from a `ReleaseBinding`.
 
 ## Repo paths (application resources)
 
@@ -164,22 +158,34 @@ For build-and-release workflow-driven flows, the PR is produced *by* the workflo
 
 ## Git workflow
 
-| Scope                                  | Branch convention                       |
-| -------------------------------------- | --------------------------------------- |
-| Onboarding a new Component             | `release/<component>-<ts>`              |
-| Updating a Component / Workload        | `release/<component>-<ts>`              |
-| Single-env promotion (one component)   | `release/<component>-promote-<env>-<ts>` |
-| Bulk promotion (project / all)         | `bulk-release/<scope>-<ts>`             |
-
-`<ts>` = `$(date +%Y%m%d-%H%M%S)`. The `bulk-release/` prefix matches what the upstream `bulk-gitops-release` workflow uses internally.
-
-Always `git commit -s` (DCO). Open with the host's CLI; poll until merged when the repo profile says PR-and-wait:
+Every change is a feature branch + PR. Recipes specify branch prefix + commit-message scope; the rest is canonical:
 
 ```bash
+git checkout -b <prefix>/<scope>-$(date +%Y%m%d-%H%M%S)
+git add <files-from-recipe>
+git status                                      # show before committing
+git commit -s -m "<message-from-recipe>"
+git push origin HEAD                            # only after user confirmation
+gh pr create --fill                             # only after user confirmation
 until gh pr view <number> --json state -q .state | grep -q MERGED; do sleep 30; done
 ```
 
-Direct push only when the repo profile says so. Don't force-push — fix-forward instead. **Don't open a PR or push without explicit user confirmation.**
+| Recipe | Branch prefix |
+| --- | --- |
+| Onboard a new Component | `release/<component>-<ts>` |
+| Update a Component / Workload | `release/<component>-<ts>` |
+| Single-env promotion | `release/<component>-promote-<env>-<ts>` |
+| Bulk promotion | `bulk-release/<scope>-<ts>` |
+
+`bulk-release/` matches the upstream `bulk-gitops-release` workflow's convention.
+
+### Atomic commits
+
+One logical change per commit. For multi-Component batches, commit per-Component, not per-stage-across-all-Components. Don't `git add -A && commit -m "everything"`.
+
+### Don't force-push, don't amend after push
+
+Fix-forward on a shared branch. **Don't amend after a push** — create a new commit. Amending breaks force-push semantics, loses hook-failure recovery, and rewrites history collaborators may have pulled.
 
 ## Auth and context
 

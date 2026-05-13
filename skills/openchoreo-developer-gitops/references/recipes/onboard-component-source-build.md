@@ -23,41 +23,9 @@ For BYO image, see [`onboard-component-byo.md`](./onboard-component-byo.md).
 
 If the source repo is in the workspace, write `workload.yaml` at the **root of the chosen `appPath`** (not the repo root, unless `appPath` is `.`).
 
-```yaml
-# <src-repo>/<app-path>/workload.yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workload                                     # ignored; build sets to <component>-workload
-metadata:
-  name: <component>                                # overridden by build
-spec:
-  owner:
-    componentName: <component>
-    projectName: <project>
-  endpoints:
-    - name: http
-      type: HTTP
-      port: 8080
-      visibility: [external]
-  configurations:                                  # descriptor form
-    env:
-      - name: LOG_LEVEL
-        value: info
-    files:
-      - name: /etc/config/app.json
-        mountPath: /etc/config/app.json
-        value: |
-          {"feature_x": false}
-  dependencies:
-    endpoints:
-      - component: postgres
-        name: tcp
-        visibility: project
-        envBindings:
-          host: DB_HOST
-          port: DB_PORT
-```
+Use [`../../assets/workload-descriptor.yaml`](../../assets/workload-descriptor.yaml) as a starting template — it carries the full schema with comments (`endpoints[]`, `configurations.env[] / files[] / secrets`, `dependencies.endpoints[]`), the field-name diff vs the Workload CR, and a worked example. Read it, write the customized version to `<src-repo>/<app-path>/workload.yaml`.
 
-> Field names differ from the Workload CR: `configurations.env[].name` (not `container.env[].key`), `endpoints[].name` (list, not map), `dependencies.endpoints[]` (same name; descriptor uses the same nesting).
+> Field names differ from the Workload CR: `configurations.env[].name` (not `container.env[].key`), `endpoints[]` (list with `name`, not map), `dependencies.endpoints[]` (same name; descriptor uses the same nesting).
 
 Commit and push to the source repo with **explicit user approval** per step. The Workload-descriptor file should land before the Component is created so the first build can read it.
 
@@ -94,10 +62,11 @@ spec:
         url: <src>
         revision:
           branch: main
-        appPath: <app-path>
+          commit: <8-char-or-full-SHA>             # required — resolve via: git ls-remote <src> refs/heads/main | cut -c1-40
+        appPath: /<app-path>                       # MUST start with /; the build concatenates "/mnt/vol/source" + appPath without a separator
       docker:
-        context: <app-path>
-        filePath: <app-path>/Dockerfile
+        context: /<app-path>
+        filePath: /<app-path>/Dockerfile
       workloadDescriptorPath: workload.yaml         # relative to appPath
   autoBuild: false                                  # default; flip to true for webhook builds
   autoDeploy: true                                  # the build's release auto-binds to dev
@@ -106,18 +75,15 @@ spec:
     port: 8080
 ```
 
+> **Workaround: `appPath` must start with `/` here, even though the schema says relative.** The Workflow CR schema (`docker-with-gitops-release.yaml`) declares `appPath` as relative (default `"."`), but the build template at `docker-with-gitops-release-template.yaml:236` does a raw concat: `/mnt/vol/source${APP_PATH}/...`. A relative value like `foo/bar` produces `/mnt/vol/sourcefoo/bar/...` (descriptor not found), and the template *silently falls through* to "no descriptor" mode, emitting a Workload with only `container.image`. Build reports `Succeeded`. Until the upstream template normalizes the path, lead `appPath` with `/`. This contradicts the schema — it's a known workaround, not the canonical contract.
+>
+> **`revision.commit` must be a SHA, not a branch name.** The build's RELEASE_NAME is `<component>-${COMMIT:0:8}`. Passing `commit: main` makes the release file `<component>-main.yaml`, and re-running with the same value collides with the existing release file (the generator errors out on "already exists" before checking content). Resolve a SHA up-front with `git ls-remote <src> refs/heads/<branch>`; re-resolve when re-running.
+
 > The build creates a Workload CR named `<component>-workload` (always; overrides any `metadata.name` from the descriptor). Don't author or commit a Workload CR yourself for source-build Components on Path A.
 
-### 3. Commit the Component (only)
+### 3. Commit the Component (only) on a feature branch, open a PR
 
-```bash
-git checkout -b release/<component>-onboard-$(date +%Y%m%d-%H%M%S)
-git add "namespaces/<ns>/projects/<project>/components/<component>/component.yaml"
-git status                                           # show before committing
-git commit -s -m "Component <component>: onboard source-build"
-git push origin HEAD                                 # only after user confirmation
-gh pr create --fill                                  # only after user confirmation
-```
+Branch `release/<component>-onboard-<ts>`, path `namespaces/<ns>/projects/<project>/components/<component>/component.yaml` only, message `"Component <component>: onboard source-build"`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*.
 
 > Notice no Workload / ComponentRelease / ReleaseBinding in this PR. Those come from the build pipeline's own PR after the first successful run.
 
@@ -136,8 +102,12 @@ Watch:
 ```bash
 occ workflowrun list -n <ns>
 occ workflowrun get <run-name> -n <ns>
-occ component workflow logs <component> -n <ns> -f
+occ component workflowrun logs <component> -n <ns> -f          # latest run for this component
+# Or:
+occ workflowrun logs <run-name> -n <ns> -f                     # specific run
 ```
+
+`occ workflowrun logs` covers both live runs (workflow plane) and completed runs (observer); no need to `kubectl logs -n workflows-<ns> <pod>` by hand.
 
 If the build fails:
 
@@ -157,6 +127,8 @@ A successful build opens a PR on the **GitOps repo** containing:
 Review the PR (especially the Workload — confirm endpoints / env / deps are what you expect from the descriptor). Merge.
 
 Flux reconciles → controller deploys → `occ releasebinding get <component>-development -n <ns>` should show `Ready=True` after a few minutes.
+
+> The build emits a binding **only for the root environment**. Don't pre-create bindings for staging / prod here — use [`promote.md`](./promote.md) once the first env is healthy. Pre-binding to higher envs only when the user explicitly asks (e.g. demo / sandbox spam-everywhere flows).
 
 ### 6. Verify
 
@@ -187,11 +159,14 @@ For Path A users, code changes that also need a workload-contract update (new en
 ## Gotchas
 
 - **`workload.yaml` lives at `<src-repo>/<appPath>/workload.yaml`**, not the source-repo root (unless `appPath` is `.`). Easy to misplace.
+- **`appPath` without leading `/` silently breaks the build (workaround).** The schema says relative paths (default `"."`), but the build template raw-concats `/mnt/vol/source` + `appPath` with no separator. Result: descriptor isn't found, build emits a Workload with only `container.image`, build reports `Succeeded`. Until upstream normalizes the path, always lead with `/` even though it contradicts the schema.
+- **`revision.commit` must be a SHA.** Release files are named `<component>-${COMMIT:0:8}`; passing a branch name causes filename collisions on re-runs. Resolve via `git ls-remote`.
+- **Re-running with the same `revision.commit`** trips the generator's "release file already exists" guard. Either bump the SHA (new commit on the source side) or delete the prior release file before re-running.
 - **The Workload CR's `metadata.name` is fixed at `<component>-workload`** — the build overrides whatever the descriptor / scaffold writes. `occ workload get my-svc -n <ns>` returns nothing; use `<component>-workload`.
 - **Descriptor and CR field names differ.** See [`../concepts.md`](../concepts.md) *Workload Descriptor*.
 - **`Component.spec.workflow.kind` defaults to `ClusterWorkflow`.** Set explicitly to `Workflow` for namespace-scoped workflows.
 - **`autoBuild: true` requires a webhook** on the source repo pointing at OpenChoreo's `gitrepositorywebhooks` receiver. Without one, source pushes won't trigger builds. Verify with PE side.
-- **Build images push to a registry.** If the registry is hardcoded to `host.k3d.internal:10082` (k3d-local), it won't work on cloud clusters. Confirm `registry-url` in the Workflow CR's `runTemplate.spec.arguments.parameters`.
+- **Build images push to a registry.** Confirm `registry-url` in the Workflow CR's `runTemplate.spec.arguments.parameters` matches a registry the workflow plane can push to and the data plane can pull from.
 - **PR conflicts on the GitOps repo.** Two concurrent builds for the same component produce overlapping PRs on the same release-bindings file. Merge in order or rebase.
 
 ## Related
