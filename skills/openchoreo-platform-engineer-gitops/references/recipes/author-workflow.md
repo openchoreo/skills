@@ -1,52 +1,47 @@
 # Recipe — Author a (Cluster)Workflow via Git
 
-Define a build template (or generic automation) that Components can opt into. Backed by Argo Workflows: the OpenChoreo `Workflow` CR carries the parameter schema and an inline `runTemplate` (Argo `Workflow`), usually referencing a `ClusterWorkflowTemplate` for the step logic.
+Define a build template (or generic automation). Backed by Argo Workflows: the OpenChoreo `Workflow` CR carries the parameter schema and an inline `runTemplate` (Argo `Workflow`), usually referencing a `ClusterWorkflowTemplate` for step logic.
 
-For installing the standard GitOps build-and-release bundle (`docker-gitops-release` / `google-cloud-buildpacks-gitops-release` / `react-gitops-release` / `bulk-gitops-release`), see [`install-defaults.md`](./install-defaults.md). This recipe is for authoring a new Workflow from scratch or modifying an existing one.
+For installing the standard GitOps build-and-release bundle, see [`install-defaults.md`](./install-defaults.md). This recipe is for authoring a new Workflow from scratch.
 
-> **Vanilla CI workflows (`dockerfile-builder` etc.) aren't GitOps-compatible** — they write the `Workload` directly to the cluster API server, which Flux reverts. Build a new Workflow that follows the GitOps shape (build → push → clone gitops repo → generate manifests → open PR) instead. See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
+> **The four vanilla CI workflows aren't GitOps-compatible.** Build a Workflow that ends in `git-commit-push-pr` (writes to GitOps repo), not `generate-workload-cr` (writes to cluster API). See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
 ## Scope decision
 
-| Scope                   | When                                                                          | File path                                                  |
-| ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `ClusterWorkflow` (default) | Builder available to every namespace (e.g. `dockerfile-builder`).         | `platform-shared/workflows/<name>.yaml`                    |
-| `Workflow` (namespace-scoped) | Tenant-specific builder or one that consumes namespace-scoped secrets.  | `namespaces/<ns>/platform/workflows/<name>.yaml`           |
+| Scope | When | Path |
+| --- | --- | --- |
+| `ClusterWorkflow` (default) | Available to every namespace. | `platform-shared/workflows/<name>.yaml` |
+| `Workflow` (namespace-scoped) | Tenant-specific, or consumes namespace-scoped secrets. | `namespaces/<ns>/platform/workflows/<name>.yaml` |
 
-**Scope rule.** A `ClusterComponentType`'s `allowedWorkflows` may only reference `ClusterWorkflow`. Namespace-scoped `ComponentType` may reference either.
+**Scope rule.** `ClusterComponentType.allowedWorkflows` may only reference `ClusterWorkflow`. Namespace-scoped `ComponentType` may reference either.
 
 ## Two kinds of Workflow
 
-**Component-bound build workflow** — invoked when a Component with `spec.workflow` triggers a `WorkflowRun`. Standard parameters: `componentName`, `projectName`, `repository.*`, `docker.*` or `buildpacks.*`. The build produces an image and (optionally) a Workload CR.
+- **Component-bound build workflow** — triggered by a Component with `spec.workflow`. Standard parameters: `componentName`, `projectName`, `repository.*`, `docker.*` / `buildpacks.*`. Produces an image + (GitOps mode) a PR on the GitOps repo.
+- **Generic / automation workflow** — triggered via standalone `WorkflowRun`. Promotion (`bulk-gitops-release`), migrations, scheduled tasks.
 
-**Generic / automation workflow** — invoked via standalone `WorkflowRun` (no Component binding). Used for promotion (`bulk-gitops-release`), migrations, scheduled tasks, etc.
-
-The CRD shape is the same; what differs is the parameter schema and what the `runTemplate` does.
+Same CRD shape; what differs is the parameter schema and what `runTemplate` does.
 
 ## Steps
 
 ### 1. Source the shape
 
-Pick one per the shape-lookup decision table in [`../authoring.md`](../authoring.md):
+- **Full schema** — `./scripts/fetch-page.sh --exact --title "ClusterWorkflow"` (or `"Workflow"`).
+- **GitOps reference** — the four GitOps workflows in `sample-gitops` are the canonical examples. URLs in [`../authoring.md`](../authoring.md). Their paired Argo `ClusterWorkflowTemplate`s sit under `platform-shared/cluster-workflow-templates/argo/<name>-template.yaml` in `sample-gitops`.
 
-- **Live cluster** — `occ clusterworkflow get <name>` or `occ workflow get <name> -n <ns>`. Strip status / managed fields.
-- **GitOps reference shape** — the four GitOps workflows in `sample-gitops` are the canonical GitOps examples. WebFetch from `https://raw.githubusercontent.com/openchoreo/sample-gitops/main/namespaces/default/platform/workflows/<name>.yaml`. Their paired `ClusterWorkflowTemplate`s are at `https://raw.githubusercontent.com/openchoreo/sample-gitops/main/platform-shared/cluster-workflow-templates/argo/<name>-template.yaml`.
-- **API reference** — `https://openchoreo.dev/docs/reference/api/platform/clusterworkflow.md` (cluster) or `.../workflow.md` (namespace).
+Don't copy from `samples/getting-started/ci-workflows/` — those are the vanilla CI workflows and aren't GitOps-compatible.
 
-> **Don't copy the vanilla CI workflows** from `samples/getting-started/ci-workflows/` — they write Workload to the cluster directly. Use the GitOps shapes from `sample-gitops` as your reference.
+### 2. Compose
 
-### 2. Compose the spec
+Key pieces:
 
-Three key pieces:
+- **`parameters.openAPIV3Schema`** — what the `WorkflowRun` carries.
+- **`runTemplate`** — the Argo Workflow that materialises per run. Templating context differs from ComponentType — see [`../cel.md`](../cel.md) §5 *Workflow-only variables*. Available: `metadata.workflowRunName`, `metadata.namespace`, `metadata.namespaceName`, `parameters.*`, `workflowplane.secretStore`, `externalRefs[id]`.
+- **`resources[]`** — auxiliary resources per run (usually `ExternalSecret`s for git tokens).
 
-- **`parameters.openAPIV3Schema`** — what the WorkflowRun carries. Strongly typed; `oneOf` / `anyOf` constraints supported.
-- **`runTemplate`** — the rendered Argo Workflow. Templating contexts are different from ComponentType templates — see [`../cel.md`](../cel.md) §5 *Workflow-only variables*. Has access to `metadata.workflowRunName`, `metadata.namespace` (enforced workflow plane namespace), `parameters.*`, `workflowplane.secretStore`, `externalRefs[id]`.
-- **`resources[]`** — auxiliary K8s resources spun up per run (often `ExternalSecret`s for git tokens). Same shape as ComponentType resources but in the workflow plane's namespace.
-
-Skeleton for a generic workflow (no component binding):
+Skeleton (generic workflow):
 
 ```yaml
-# shape: https://openchoreo.dev/docs/reference/api/platform/workflow.md (occ v1.0.x)
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
@@ -85,11 +80,10 @@ spec:
             value: ${metadata.namespaceName}
           - name: scope-all
             value: ${parameters.scope.all}
-          # …
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: bulk-gitops-release         # references an Argo ClusterWorkflowTemplate
+        name: bulk-gitops-release         # Argo ClusterWorkflowTemplate
   resources:
     - id: gitops-git-secret
       template:
@@ -105,65 +99,44 @@ spec:
           data: [{ secretKey: git-token, remoteRef: { key: gitops-token, property: git-token } }]
 ```
 
-The component-bound build-workflow shape adds:
+Component-bound build-workflow shape adds: `componentName` / `projectName` as required parameters, a `workloadDescriptorPath` parameter, and hard-coded `gitops-repo-url` / `registry-url` / `image-name` / `image-tag` in `runTemplate.spec.arguments.parameters` (PE-controlled). See `sample-gitops/namespaces/default/platform/workflows/docker-with-gitops-release.yaml` for the canonical example.
 
-- `componentName` and `projectName` as required parameters.
-- A `workloadDescriptorPath` parameter so the `generate-workload` step can find `workload.yaml`.
-- Hard-coded values in `runTemplate.spec.arguments.parameters` for `gitops-repo-url`, `registry-url`, `image-name`, `image-tag` (PE-controlled, not developer-passed).
+### 3. Argo `ClusterWorkflowTemplate`
 
-See `sample-gitops/namespaces/default/platform/workflows/docker-with-gitops-release.yaml` for the canonical example.
+If `runTemplate.spec.workflowTemplateRef` references one, the template must exist on the workflow plane. Options:
 
-### 3. Argo `ClusterWorkflowTemplate` — when needed
-
-If `runTemplate.spec.workflowTemplateRef` references a `ClusterWorkflowTemplate`, that template must exist on the workflow plane. Two options:
-
-- Pull the template from `sample-gitops/platform-shared/cluster-workflow-templates/argo/` and commit it under `platform-shared/cluster-workflow-templates/argo/<name>.yaml` in this repo. Flux applies it via the `platform-shared` Kustomization.
-- Define the steps inline in `runTemplate.spec.templates[]` (Argo's `templates` array) — fine for small workflows, but step logic doesn't compose across Workflow CRs.
-
-The Argo `ClusterWorkflowTemplate` shape is upstream Argo, not OpenChoreo — its docs are at <https://argo-workflows.readthedocs.io/en/latest/cluster-workflow-templates/>.
+- Pull from `sample-gitops/platform-shared/cluster-workflow-templates/argo/` and commit under `platform-shared/cluster-workflow-templates/argo/<name>.yaml`. Flux applies via the `platform-shared` Kustomization.
+- Inline the steps in `runTemplate.spec.templates[]` — fine for small workflows; doesn't compose across Workflow CRs.
 
 ### 4. Allow-list the workflow
 
-`(Cluster)ComponentType.allowedWorkflows[]` gates which workflows developers may attach. After authoring a new workflow, edit the relevant `(Cluster)ComponentType`s and add it. Commit, PR, reconcile.
+Edit the `(Cluster)ComponentType`s that should permit it, add to `spec.allowedWorkflows[]`, commit, PR.
 
-### 5. Commit, PR, reconcile
+### 5. Commit + verify
 
-```bash
-git checkout -b platform/workflow-<name>-$(date +%Y%m%d-%H%M%S)
-git add <file>
-git commit -s -m "platform: add <ClusterWorkflow|Workflow> <name>"
-git push origin HEAD
-gh pr create --fill
-```
-
-### 6. Verify
+Branch `platform/workflow-<name>-<ts>`, message `"platform: add <ClusterWorkflow|Workflow> <name>"`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*. After merge:
 
 ```bash
 flux get kustomizations -A
 occ clusterworkflow get <name>             # or occ workflow get <name> -n <ns>
 ```
 
-Smoke-test by triggering a WorkflowRun (developer side):
+Smoke-test:
 
 ```bash
 occ component workflow run <component> -n <ns> -p <project>
-# or apply a standalone WorkflowRun manifest
 occ workflowrun list -n <ns>
 occ workflowrun get <run-name> -n <ns>
+occ workflowrun logs <run-name> -n <ns> -f         # live + archived
 ```
+
+Use `occ workflowrun list/get/logs` — don't reach for `kubectl get workflow.argoproj.io -n workflows-<ns>` or `kubectl logs -n workflows-<ns> <pod>`. The `occ` wrappers cover both without needing to know the workflow-plane namespace.
 
 ## Gotchas
 
-- **Workflow CR validation is permissive.** Most errors surface in Argo at WorkflowRun time. Inspect with `occ workflowrun get <run-name>` and look at the Argo workflow's `status` (or use the Argo UI if available).
-- **Hard-coded values in `runTemplate.spec.arguments.parameters`** (`gitops-repo-url`, `registry-url`, `image-tag`) are PE-controlled — developers don't pass them. Editing the Workflow CR changes them for all subsequent runs. Treat as semi-static config.
-- **`workflowplane.secretStore`** is the CEL accessor for the `ClusterSecretStore` name on the referenced WorkflowPlane. Use this instead of hard-coding.
-- **Build workflows need git tokens.** Standard convention: `git-token` for source repos, `gitops-token` for GitOps repo writes. See [`install-flux-and-secrets.md`](./install-flux-and-secrets.md) for provisioning.
-- **`workflowTemplateRef.clusterScope: true`** — for `ClusterWorkflowTemplate` reference. Without it, the lookup is in the workflow plane's namespace, which fails.
-- **The build's `generate-workload` step is opinionated.** It produces a Workload CR named `{component}-workload` (overriding any `metadata.name` from the descriptor). And the auto-generated Workload only carries `container.image` unless `workload.yaml` exists at the descriptor path.
-
-## Related
-
-- [`install-defaults.md`](./install-defaults.md) — install the standard GitOps build-and-release bundle
-- [`author-componenttype.md`](./author-componenttype.md) — `allowedWorkflows` needs updating to permit a new workflow
-- [`../cel.md`](../cel.md) — Workflow-only CEL context (`metadata.workflowRunName`, `parameters`, `externalRefs`, `workflowplane.secretStore`)
-- Argo Workflows docs — <https://argo-workflows.readthedocs.io/>
+- **Workflow CR validation is permissive.** Most errors surface at WorkflowRun time. Inspect with `occ workflowrun get <run-name>`.
+- **Hard-coded `runTemplate.spec.arguments.parameters`** (`gitops-repo-url`, `registry-url`, `image-tag`) are PE-controlled. Editing the Workflow CR changes them for all subsequent runs.
+- **`workflowplane.secretStore`** is the CEL accessor for the `ClusterSecretStore` on the referenced WorkflowPlane. Use this instead of hardcoding.
+- **Build workflows need git tokens** — `git-token` (source clone), `gitops-token` (GitOps repo writes). See [`install-flux-and-secrets.md`](./install-flux-and-secrets.md).
+- **`workflowTemplateRef.clusterScope: true`** required to reach a `ClusterWorkflowTemplate`. Without it the lookup is in the workflow plane's namespace and fails.
+- **The build's `generate-workload` step is opinionated** — names the Workload CR `<component>-workload` regardless of the descriptor's `metadata.name`. Without a `workload.yaml` at `<appPath>`, the generated Workload carries only `container.image`.

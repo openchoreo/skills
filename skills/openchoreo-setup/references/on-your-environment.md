@@ -10,7 +10,7 @@ Apply silent defaults unless the user opted out. Summarise the resolved choices 
 
 | Decision | Options | Default |
 | --- | --- | --- |
-| **OpenChoreo version** | `Latest stable` / `Specific version` | `Latest stable`. The fetch script resolves it and prints the choice on stderr. |
+| **OpenChoreo version** | `Latest stable` / `Specific version` (e.g. `v1.0.x`) / `Bleeding edge (next)` | `Latest stable`. The fetch script resolves the choice and prints it on stderr. |
 | **Optional planes** (multi-select) | Workflow, Observability | Install both. Skip one only if the user explicitly opted out. Control plane + data plane always install. |
 | **Default platform resources** | `Yes` / `No` | `Yes`. Skip only if the user explicitly opted out. Provisions whatever the guide's "Install Default Resources" step describes. |
 
@@ -23,6 +23,7 @@ Run from the skill root:
 ```bash
 ./scripts/fetch-page.sh --title "On Your Environment"
 ./scripts/fetch-page.sh --title "On Your Environment" --version v1.0.x   # pin a specific minor
+./scripts/fetch-page.sh --title "On Your Environment" --version next     # bleeding edge (docs/next/)
 ```
 
 If the script exits non-zero, it has printed the version's `llms.txt` to stdout; pick the right URL from the index and fetch it with `curl` or your harness's web-fetch tool.

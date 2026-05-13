@@ -9,6 +9,5 @@ Branch conventions:
   app: release/{component}-{ts}
   platform: platform/{scope}-{ts}
   bulk: bulk-release/{scope}-{ts}
-Push policy: pr-and-wait | direct-push | hybrid
 Upstream: github.com/<org>/<repo> | none
 Reconciliation interval: 5m

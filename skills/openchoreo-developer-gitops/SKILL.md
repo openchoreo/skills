@@ -23,7 +23,7 @@ command -v occ && occ config context list && occ namespace list
 ls flux 2>/dev/null && ls platform-shared 2>/dev/null && ls namespaces 2>/dev/null
 ```
 
-If `occ` is missing / unconfigured, point the user at <https://openchoreo.dev/docs/getting-started/cli-installation.md> and stop. If the cwd isn't a scaffolded repo (no `flux/` or `clusters/<name>/`, `platform-shared/`, `namespaces/`), ask the user for the repo path; if no repo exists, tell them the repo needs scaffolding upstream of this skill — don't start creating components in a non-scaffolded directory.
+If `occ` is missing / unconfigured, stop and tell the user to install + configure it. If the cwd isn't a scaffolded repo (no `flux/` or `clusters/<name>/`, no `platform-shared/`, no `namespaces/`), ask the user for the repo path; if no repo exists, the repo needs scaffolding upstream of this skill — don't start creating components in a non-scaffolded directory.
 
 **Always show the active `occ` context and confirm with the user** before any cluster-touching action.
 
@@ -33,7 +33,8 @@ If `occ` is missing / unconfigured, point the user at <https://openchoreo.dev/do
 
 Load other references **on-demand**:
 
-- [`references/authoring.md`](./references/authoring.md) — `occ` file-mode generators, `llms.txt` for shapes `occ` doesn't generate, repo paths, git workflow, DCO.
+- [`references/authoring.md`](./references/authoring.md) — `occ` file-mode generators, docs lookup via `scripts/fetch-page.sh`, repo paths, git workflow, DCO.
+- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields. `./scripts/fetch-page.sh --list` dumps the full index.
 - [`references/getting-started.md`](./references/getting-started.md) — first-time deploys (no Project yet, or first time the user touches this repo).
 
 ## What this skill can do
@@ -57,21 +58,13 @@ Load other references **on-demand**:
 - **Imperative ops** — triggering a `WorkflowRun`, runtime log tail, pod-level debugging via `kubectl exec`. `WorkflowRun` does not go in Git (per `gitops/overview.md`); trigger via the UI, webhook, or `occ component workflow run`. For pod-level runtime debugging, use `kubectl` directly against the data plane or the cluster's observability backend.
 - **Editing GitOps-managed resources via `occ apply -f` or any other direct write path** — Flux reverts them on the next reconcile. Always go through Git.
 
-## Tool surface
-
-| Tool                                | Purpose                                                                                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `occ`                               | Four file-mode generators (`workload create`, `componentrelease generate`, `releasebinding generate`, `component scaffold`); reads (`<kind> get`, `<kind> list`) for discovery + verification; auth (`login`, `config`). |
-| `git` + host CLI (`gh` / `glab` / …) | Branch, `commit -s`, push, PR + wait-for-merge.                                                                                     |
-| `flux` (preferred) or `kubectl`     | Verify `GitRepository` / `Kustomization` status; `flux reconcile` to skip the 5m interval.                                          |
-| WebFetch                            | `llms.txt` and the API-reference pages it indexes (for CRD shapes `occ` doesn't generate — Project, ReleaseBinding overrides, etc.). |
-| `AskUserQuestion`                   | Confirm context, BYO-vs-source-build choice, target environments, before-push / before-PR confirmation.                              |
-
 ## Working style
 
 - **Git is the source of truth.** Application resources change only through Git. `occ apply -f` is reserved for pre-Flux bootstrap (which is a PE concern; this skill rarely needs it).
-- **Use `occ` file-mode generators for the four kinds they own** (Workload, ComponentRelease, ReleaseBinding, Component scaffold). For everything else (Project, dependency wiring on a Workload, ReleaseBinding overrides), hand-author from `llms.txt` references or template from cluster.
+- **Use `occ` file-mode generators for the four kinds they own** (Workload, ComponentRelease, ReleaseBinding, Component scaffold). For everything else (Project, dependency wiring on a Workload, ReleaseBinding overrides), fetch the full schema with `./scripts/fetch-page.sh --exact --title "<Kind>"`.
 - **Always `git commit -s`** (DCO is required upstream; harmless on forks).
+- **Every change is a feature branch + PR.** `git checkout -b <branch>` first, push that branch, open a PR.
+- **`occ` over `kubectl` for OpenChoreo CRDs.** When reading / writing Project, Component, Workload, ComponentRelease, ReleaseBinding, Environment, ComponentType, Trait, Workflow, SecretReference — use `occ <kind> get/list/delete`. For runtime logs / build logs, prefer `occ component logs` / `occ workflowrun logs`. Reach for `kubectl` only for non-OpenChoreo resources (Flux CRDs, raw K8s pod state).
 - **Verify, don't assume.** Reconciliation is interval-based (`GitRepository: 1m`, `Kustomization: 5m`). Read the result back with `occ <kind> get` after merge.
 - **Don't open a PR or push without explicit user confirmation.** Local commits are reversible; remote-visible actions are not.
 - **Path A vs Path B for source-build Workloads.** Decide once whether `workload.yaml` in the source repo is the source of truth (Path A) or direct edits to the Workload CR in the GitOps repo are (Path B). Mixing them is a one-way migration trap. See [`recipes/onboard-component-source-build.md`](./references/recipes/onboard-component-source-build.md).
@@ -94,4 +87,4 @@ Load other references **on-demand**:
 - Adding `workload.yaml` to a source repo whose Component's Workload has been iterated on directly (Path B) without first dumping the live Workload and reconstructing the descriptor (one-way destructive migration — overwrites the cluster spec).
 - Setting `visibility: external` on a service-to-service dependency between Components in the same project — `project` is the right default. `external` is for public-internet ingress only.
 - Pushing or opening a PR before the user has seen the commit list.
-- Assuming a deployment is healthy because `Ready=True` — `Ready` means reconciled, not necessarily working. Curl an `external` endpoint or check `kubectl events` / `kubectl logs` against the data plane when in doubt.
+- Assuming a deployment is healthy because `Ready=True` — `Ready` means reconciled, not necessarily working. Curl an `external` endpoint or pull logs via `occ component logs <component> -n <ns> --env <env>` when in doubt.

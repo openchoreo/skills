@@ -33,13 +33,13 @@ See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-com
 ## Preconditions
 
 - A scaffolded repo (directory tree per [`scaffold.md`](./scaffold.md) §5).
-- `occ` configured + active context confirmed with the user (via `AskUserQuestion` showing the context name, control-plane URL, and namespace). The wrong context produces a repo whose `allowedWorkflows[]` and `gitops-repo-url` reference the wrong cluster's identity.
+- `occ` configured + active context confirmed with the user (surface the context name, control-plane URL, and namespace).
 - `kubectl` **only if** you also plan to delete cluster-side originals (Replace flow cleanup). For the pure install-defaults-and-commit case, just `occ` + WebFetch is enough — Flux handles the apply when the merged PR reconciles.
 - For the build-and-release workflows: a `ClusterSecretStore` (typically named `default`) on the workflow plane resolves `git-token` and `gitops-token`. Provision via [`install-flux-and-secrets.md`](./install-flux-and-secrets.md) if missing.
 
 ## User choices upfront
 
-`AskUserQuestion`, multi-select:
+Ask the user which categories to install (multi-select):
 
 | Category | Default | Notes |
 | --- | --- | --- |
@@ -164,7 +164,7 @@ done
    | --- | --- | --- |
    | `gitops-repo-url` | `https://github.com/openchoreo/sample-gitops` | The remote URL of *this* scaffolded GitOps repo |
    | `gitops-branch` | `main` | The repo's branch from scaffolding |
-   | `registry-url` | `host.k3d.internal:10082` (k3d-local) | Registry the workflow plane can push to. If k3d was detected in scaffolding, keep the default. Otherwise ask the user. |
+   | `registry-url` | sample-gitops default | Registry the workflow plane can push to — ask the user. |
    | `image-name` | `${parameters.projectName}-${parameters.componentName}-image` | Usually leave |
    | `image-tag` | `v1` | Usually leave |
 
@@ -233,7 +233,7 @@ Smoke-test with a `WorkflowRun` if the developer side is ready — that's a deve
 - **`allowedWorkflows[]` is the most common omission.** A ComponentType still referencing vanilla CI workflows will reject any Component using `docker-gitops-release` with `WorkflowNotAllowed`.
 - **`kind:` mismatch on `allowedWorkflows[]` / `allowedTraits[]`.** A cluster-scoped ComponentType referencing a namespace-scoped Workflow / Trait fails admission. See [`../authoring.md`](../authoring.md) *Cluster ↔ namespace scope* — cross-scope rule.
 - **`gitops-repo-url` mismatch** in the Workflow `runTemplate`s. If left as `https://github.com/openchoreo/sample-gitops`, every build opens PRs against `sample-gitops` itself. Edit before merging.
-- **`registry-url` for non-k3d clusters.** `host.k3d.internal:10082` only works on k3d-local. Ask the user during scaffolding.
+- **`registry-url`** must match a registry the workflow plane can push to and the data plane can pull from. Ask the user during scaffolding — sample-gitops ships a placeholder.
 - **`ClusterSecretStore` name** in the Workflow CRs' `ExternalSecret`s is hard-coded to `default`. If the cluster's store has a different name, edit the Workflow CR or rename the store.
 - **Argo Workflows must be installed on the WorkflowPlane.** Verify: `kubectl get clusterworkflowtemplate` against the workflow plane. If empty, the `ClusterWorkflowTemplate` CRD isn't installed — that's an install-side fix.
 - **Environments depend on a registered DataPlane.** `ClusterDataPlane/default` must exist before §1 reconciles. Without it, the Environments stay `Ready=False`.

@@ -89,23 +89,21 @@ Common causes:
 - **`ResourceSyncFailed`** — the RenderedRelease couldn't apply. Often a CEL eval error in the ComponentType template, or a referenced resource (Trait, Secret) missing. Cross-reference with the component-type / trait listed in the ComponentRelease.
 - **`ResourcesNotReady`** — the K8s resources rendered but pods aren't healthy. Container crash, image pull failure, OOMKilled, scheduling failure.
 
-The latter needs pod-level evidence. Drop to **`kubectl`** against the data plane directly — `kubectl get pod -n <runtime-ns> -l <selector>`, `kubectl describe pod ...`, `kubectl logs ...`. The data plane may be the same cluster as the control plane (in single-cluster installs) or a separate cluster (multi-cluster). Get the data plane's kubeconfig from your platform team or the `DataPlane` CR's documented entry point.
+The latter needs runtime evidence. Prefer **`occ component logs`** — it routes to the right data plane automatically and falls back to the observer for archived logs:
 
 ```bash
-# If the data plane is the same cluster as the control plane:
-kubectl get releasebinding <component>-<env> -n <ns> -o jsonpath='{.status.renderedReleases[0].renderedRef.name}'
-# Then look up the rendered resources from that RenderedRelease name.
+occ component logs <component> -n <ns> --env <env>           # latest pod, current env
+occ component logs <component> -n <ns> --env <env> -f        # follow
+occ component logs <component> -n <ns> --env <env> --tail 200 --since 30m
 ```
+
+Drop to `kubectl` against the data plane only when you need shape `occ component logs` doesn't expose — `kubectl describe pod` for events / image-pull state, `kubectl get pod -n <runtime-ns> -l <selector>` for restart counts. The data plane may be the same cluster as the control plane (single-cluster installs) or a separate cluster (multi-cluster); get its kubeconfig from your platform team or the `DataPlane` CR.
 
 ## Ready ≠ working
 
 Two failure modes hide behind `Ready=True`:
 
-1. **Crash-loop flapping.** A container can start, briefly report Ready, then crash. The next probe sees Ready=False, then Ready again after restart. Look at restart counts:
-   ```bash
-   kubectl get pod -n <runtime-ns> -l openchoreo.dev/component=<component>
-   # RESTARTS > 0 over a short window is the signal
-   ```
+1. **Crash-loop flapping.** A container can start, briefly report Ready, then crash. The next probe sees Ready=False, then Ready again after restart. Check the logs via `occ component logs <component> -n <ns> --env <env>` for the crash trace; for restart counts specifically (which `occ` doesn't surface today), drop to `kubectl get pod -n <runtime-ns> -l openchoreo.dev/component=<component>`.
 
 2. **Stable container, broken app.** Container is healthy from K8s's perspective but the app inside doesn't actually work — env vars bound to names the app doesn't read, dependencies pointing at the wrong service, silent connect failures. The only way to detect: **hit the actual endpoint**.
 
@@ -151,13 +149,23 @@ occ <kind> get <name> -o yaml | grep -A 30 conditions
 # Pick the condition with status: "False" and read the message.
 ```
 
-If the message points at a downstream controller (Argo Workflows for a WorkflowRun, ESO for a SecretReference), drop to that controller's logs:
+If the message points at a build / workflow run, get the run logs via `occ`:
+
+```bash
+occ component workflowrun logs <component> -n <ns>           # latest run for the component
+occ workflowrun logs <run-name> -n <ns>                      # specific run
+occ workflowrun logs <run-name> -n <ns> -f --since 5m        # live, recent
+```
+
+`occ workflowrun logs` fetches from the workflow plane for live runs and the observer for completed runs — no need to know the workflow plane's namespace (e.g. `workflows-default`) or pick a pod by name.
+
+For downstream controllers (Argo Workflows, ESO, the OpenChoreo controller-manager itself), drop to `kubectl logs` — `occ` doesn't expose controller logs:
 
 ```bash
 kubectl logs -n <controller-ns> deployment/<controller> --tail=200
-# Controller names depend on the install. Typical:
+# Typical:
 #   openchoreo-controller-manager in openchoreo-control-plane
-#   eso external-secrets-controller in external-secrets
+#   external-secrets in external-secrets
 #   workflow-controller in argo
 ```
 
@@ -179,10 +187,12 @@ diff <(git -C <repo> show HEAD:<path>) <(occ <kind> get <name> -n <ns> | grep -v
 
 ## Pod-level / app-level debugging
 
-This skill stops at "Flux applied, controllers reconciled". For deeper questions — why is my container crash-looping, what does the OOM event look like, where is my log output — drop to:
+For runtime questions — container crash-looping, OOM, app log output — reach for the most-`occ`-shaped tool first:
 
-- **`kubectl`** directly against the data plane: `kubectl get pod`, `kubectl describe pod`, `kubectl logs`, `kubectl events`.
-- **The observability backend** (Grafana, OpenSearch, Loki, Prometheus, Tempo) for historical logs / metrics / traces. Connection details come from the platform team or the `ObservabilityPlane` CR.
+- **`occ component logs <component> -n <ns> --env <env>`** — pod logs. Routes to the right data plane, falls back to the observer for archived logs.
+- **`occ component workflowrun logs <component> -n <ns>`** — build / workflow run logs.
+- **`kubectl`** against the data plane only when `occ` doesn't cover the shape — pod events (`describe pod`), restart counts (`get pod`), namespaced controller logs.
+- **The observability backend** (Grafana, OpenSearch, Loki, Prometheus, Tempo) for historical logs / metrics / traces.
 
 ## Gotchas
 
@@ -190,10 +200,12 @@ This skill stops at "Flux applied, controllers reconciled". For deeper questions
 - **`occ` reads the cluster, not Git.** When you want to know what's deployed, `occ get`. When you want to know what should be deployed, `git show`. They should agree.
 - **Don't chase pod logs from a stuck Kustomization.** If `flux get kustomizations` shows the Kustomization isn't READY, no controller has touched your resource yet — pod-level evidence is irrelevant. Fix the Kustomization first.
 - **Three "Ready"s in different conditions.** `Flux Kustomization Ready`, `OpenChoreo Component Ready`, `ReleaseBinding Ready` — different layers. Read the message, not just the status.
+- **Don't `kubectl get workload` / `kubectl get workflow.argoproj.io`.** Both have `occ` wrappers: `occ workload get <name> -n <ns>` (outputs YAML by default) and `occ workflowrun list/get -n <ns>` (which wraps the underlying Argo Workflow). Drop to `kubectl` only when you specifically want raw Argo state or downstream K8s resources `occ` doesn't surface.
 
 ## Related
 
 - [`../concepts.md`](../concepts.md) *Verification ladder*, *Drift recovery*
 - [`onboard-component-byo.md`](./onboard-component-byo.md), [`onboard-component-source-build.md`](./onboard-component-source-build.md)
 - [`promote.md`](./promote.md), [`bulk-promote.md`](./bulk-promote.md)
-- `kubectl` against the data plane — for runtime / pod-level debugging
+- `occ component logs` / `occ workflowrun logs` / `occ component workflowrun logs` — runtime + build logs (prefer over `kubectl`)
+- `kubectl` against the data plane — fall back to it only for pod events / restart counts / controller logs

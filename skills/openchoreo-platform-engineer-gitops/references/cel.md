@@ -10,8 +10,6 @@ This file covers:
 4. Context variables (what's available where)
 5. Helper functions on `configurations`, `dependencies`, `workload`
 
-For the full upstream reference: <https://openchoreo.dev/docs/reference/cel/>
-
 ---
 
 ## 1. Where CEL applies
@@ -585,4 +583,4 @@ spec:
           ${envConfig.envs.transformMapEntry(i, e, {e.name: e.value})}
 ```
 
-For more worked examples — including secrets, file mounts, HTTPRoute generation per endpoint, and the full helper-function expansion — see <https://openchoreo.dev/docs/reference/cel/>.
+For more worked examples — secrets, file mounts, HTTPRoute fan-out per endpoint, the full helper-function expansion — copy from a live ComponentType: `occ clustercomponenttype get service -o yaml`.

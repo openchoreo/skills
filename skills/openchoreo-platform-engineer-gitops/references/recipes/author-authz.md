@@ -1,55 +1,36 @@
 # Recipe — Author AuthzRoles and Bindings via Git
 
-OpenChoreo's authorization layer (separate from K8s RBAC). Two kinds + two binding kinds, both available cluster- and namespace-scoped:
+OpenChoreo authz (separate from K8s RBAC). Two kinds + two binding kinds, each cluster- and namespace-scoped:
 
-| CRD                      | Path                                                       |
-| ------------------------ | ---------------------------------------------------------- |
-| `ClusterAuthzRole`       | `platform-shared/authz/roles/<name>.yaml`                  |
-| `AuthzRole`              | `namespaces/<ns>/platform/authz/roles/<name>.yaml`         |
-| `ClusterAuthzRoleBinding` | `platform-shared/authz/role-bindings/<name>.yaml`         |
-| `AuthzRoleBinding`       | `namespaces/<ns>/platform/authz/role-bindings/<name>.yaml` |
+| CRD | Path |
+| --- | --- |
+| `ClusterAuthzRole` | `platform-shared/authz/roles/<name>.yaml` |
+| `AuthzRole` | `namespaces/<ns>/platform/authz/roles/<name>.yaml` |
+| `ClusterAuthzRoleBinding` | `platform-shared/authz/role-bindings/<name>.yaml` |
+| `AuthzRoleBinding` | `namespaces/<ns>/platform/authz/role-bindings/<name>.yaml` |
 
-For the conceptual model, read `authorization.md` first: <https://openchoreo.dev/docs/platform-engineer-guide/authorization.md>. The custom-roles companion: <https://openchoreo.dev/docs/platform-engineer-guide/authorization/custom-roles.md>.
+A role declares `rules[]` (resources × verbs). A binding attaches subjects (`User` / `Group`) to a role. Cluster bindings can only reference cluster roles; namespace bindings can reference either. Bindings need an IdP wired — without one, subjects resolve to no one.
 
-## Preconditions
-
-- Identity provider configured per <https://openchoreo.dev/docs/platform-engineer-guide/identity-configuration.md>. Without an IdP, the subjects in `AuthzRoleBinding` resolve to no one.
-
-## Source the shapes
-
-```text
-https://openchoreo.dev/docs/reference/api/platform/authzrole.md
-https://openchoreo.dev/docs/reference/api/platform/clusterauthzrole.md
-https://openchoreo.dev/docs/reference/api/platform/authzrolebinding.md
-https://openchoreo.dev/docs/reference/api/platform/clusterauthzrolebinding.md
-```
-
-Or template from cluster (if anything exists yet):
+## Source the shape
 
 ```bash
-occ clusterauthzrole get platform-admin > /tmp/role.yaml
-occ authzrolebinding list -n default
+./scripts/fetch-page.sh --exact --title "ClusterAuthzRole"          # or "AuthzRole" / "ClusterAuthzRoleBinding" / "AuthzRoleBinding"
 ```
 
 ## Compose
 
 ```yaml
-# shape: https://openchoreo.dev/docs/reference/api/platform/clusterauthzrole.md (occ v1.0.x)
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterAuthzRole
 metadata:
   name: platform-admin
 spec:
   rules:
-    - resources: ["*"]                    # OpenChoreo resource kinds
+    - resources: ["*"]
       verbs: ["*"]
-    # Or scope down:
-    # - resources: [ComponentType, Trait, Workflow]
-    #   verbs: [get, list, create, update, delete]
 ```
 
 ```yaml
-# shape: https://openchoreo.dev/docs/reference/api/platform/clusterauthzrolebinding.md (occ v1.0.x)
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterAuthzRoleBinding
 metadata:
@@ -65,70 +46,48 @@ spec:
       name: platform-eng
 ```
 
-Namespace-scoped variants are the same shape, with `metadata.namespace` set, `kind` swapped to `AuthzRole` / `AuthzRoleBinding`, and `roleRef.kind: AuthzRole` (if referencing a namespace-scoped role).
+Namespace-scoped variants: same shape, set `metadata.namespace`, swap `kind` to `AuthzRole` / `AuthzRoleBinding`, set `roleRef.kind: AuthzRole` if pointing at a namespace-scoped role.
 
 ## Steps
 
-1. **Decide scope** — cluster-wide capability vs namespace-bound. Most "developer" / "platform-admin" / "observability-reader" roles are cluster-scoped; tenancy-specific roles ("acme-team-admin") are namespace-scoped.
-2. **Compose the spec** from the API ref. Keep `rules[]` minimal — least-privilege.
-3. **Save** under the path from the table above.
-4. **Commit + PR** (`platform/authz-<name>-<ts>` branch).
-5. **Verify**:
-   ```bash
-   occ clusterauthzrole get <name>          # or namespace-scoped
-   occ clusterauthzrolebinding list
-   ```
+1. Decide scope — cluster-wide capability vs namespace-bound tenant role.
+2. Compose. Keep `rules[]` least-privilege.
+3. Save under the path from the table.
+4. Commit + PR (`platform/authz-<name>-<ts>`).
+5. Verify: `occ clusterauthzrole get <name>` (or namespace-scoped), `occ clusterauthzrolebinding list`.
+6. Smoke-test by impersonating: `occ login --credential <subject-creds>` then `occ component list -n <ns>`.
 
-Smoke-test by impersonating a subject:
+## Common shapes
 
-```bash
-occ login --credential <subject-creds>
-occ component list -n <ns>                  # should reflect the role's verbs
-```
-
-## Variants
-
-### Read-only developer role
+**Read-only developer:**
 
 ```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: ClusterAuthzRole
-metadata:
-  name: developer-readonly
 spec:
   rules:
     - resources: [Project, Component, Workload, ReleaseBinding, ComponentRelease]
       verbs: [get, list]
     - resources: [WorkflowRun]
-      verbs: [get, list]                  # no create / trigger
+      verbs: [get, list]
 ```
 
-### Namespace-bound tenant admin
+**Namespace tenant admin:**
 
 ```yaml
-apiVersion: openchoreo.dev/v1alpha1
 kind: AuthzRole
 metadata:
   name: tenant-admin
   namespace: acme
 spec:
   rules:
-    - resources: ["*"]                    # within this namespace
+    - resources: ["*"]
       verbs: ["*"]
 ```
 
-Note the namespace boundary — the binding subject can do everything *within `acme`* but nothing in `platform-shared/` or other namespaces.
+The binding subject has full access *within `acme`* — nothing in `platform-shared/` or other namespaces.
 
 ## Gotchas
 
-- **`AuthzRole` is OpenChoreo authz, not K8s RBAC.** Don't confuse with `Role` / `ClusterRole` — those are separate and still apply to direct K8s API access.
-- **Subjects depend on the IdP.** `User.name` and `Group.name` must match what the IdP issues. Verify the JWT claims your IdP emits before authoring bindings.
-- **`Cluster*` and namespace-scoped variants are independent.** A `ClusterAuthzRoleBinding` granting `platform-admin` to alice doesn't grant her anything namespace-scoped resources unless the rule explicitly says so. Likewise, namespace `AuthzRoleBinding`s don't reach `platform-shared/`.
-- **`roleRef` kind must match.** `AuthzRoleBinding` can reference `AuthzRole` (namespace-scoped) or `ClusterAuthzRole` (cluster-scoped). `ClusterAuthzRoleBinding` can only reference `ClusterAuthzRole`.
-- **Bindings without an IdP are inert.** Authoring fine; nothing resolves until identity is wired.
-
-## Related
-
-- `authorization.md` — concepts
-- `authorization/custom-roles.md` — `rules[]` shapes, examples
-- `identity-configuration.md` — IdP setup (separate concern, but a hard prereq)
+- **Not K8s RBAC.** `Role` / `ClusterRole` are separate and govern direct K8s API access independently.
+- **Subjects depend on the IdP.** `User.name` / `Group.name` must match the JWT claims your IdP emits.
+- **`roleRef.kind` must match scope.** `ClusterAuthzRoleBinding` → only `ClusterAuthzRole`. `AuthzRoleBinding` → either.
+- **No IdP, no resolution.** Authoring works; nothing takes effect until identity is wired.

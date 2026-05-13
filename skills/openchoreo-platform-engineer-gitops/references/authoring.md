@@ -4,23 +4,37 @@ Where CRD shapes come from, how to convert between scopes, the CI-workflow gotch
 
 ## Shape-lookup decision table
 
-Four sources. Pick by what you're authoring; don't mix them up.
+Pick by what you're authoring; don't mix them up.
 
 | Need | Source |
 | --- | --- |
-| Something similar already lives on the cluster | `occ <kind> get <name>` — strip `status:`, `metadata.managedFields:`, `metadata.creationTimestamp:`, `metadata.resourceVersion:`, `metadata.uid:` |
-| Vanilla defaults: `Project`, `Environment`, `DeploymentPipeline`, the four shipped `ClusterComponentType`s (`service`, `web-application`, `worker`, `scheduled-task`), the shipped `ClusterTrait` (`observability-alert-rule`) | `openchoreo/openchoreo` → `samples/getting-started/` (see *Vanilla defaults* below) |
-| GitOps Workflow CRs (`docker-gitops-release`, `google-cloud-buildpacks-gitops-release`, `react-gitops-release`, `bulk-gitops-release`) + their Argo `ClusterWorkflowTemplate`s | `openchoreo/sample-gitops` (see *GitOps resources* below) |
+| Authoring any CRD from scratch — full schema with optional fields | **`./scripts/fetch-page.sh --exact --title "<Kind>"`** (see *Fetching CRD shapes* below). Primary source. |
+| Vanilla defaults: `Project`, `Environment`, `DeploymentPipeline`, the four shipped `ClusterComponentType`s, the shipped `ClusterTrait` | `openchoreo/openchoreo` → `samples/getting-started/` (see *Vanilla defaults* below) |
+| GitOps Workflow CRs + their Argo `ClusterWorkflowTemplate`s | `openchoreo/sample-gitops` (see *GitOps resources* below) |
 | Extra ComponentTypes (`database`, `message-broker`) + extra Traits (`persistent-volume`, `api-management`) | `openchoreo/sample-gitops` (see *Extra shapes* below) |
-| Anything else (`SecretReference`, `AuthzRole` + binding, `ObservabilityAlertRule`, `NotificationChannel`, plane CRDs, …) | `llms.txt` API reference for the running `occ` minor (see *llms.txt* below) |
 
-All upstream sources are fetched via WebFetch; no local copies kept in the skill.
+Upstream Git files are fetched at the version pinned to the cluster (see *Pin upstream fetches* below). The docs are fetched via `fetch-page.sh`, which handles version resolution internally.
+
+### Pin upstream fetches to the cluster's version
+
+`samples/getting-started/` and `sample-gitops` files change between minors. Always fetch from the tag matching the running cluster, not `main`:
+
+```bash
+OCC_TAG=$(occ version --short 2>/dev/null | awk '/Client Version/ {print $3}')
+# e.g. v1.0.1 — use verbatim in raw URLs:
+#   https://raw.githubusercontent.com/openchoreo/openchoreo/$OCC_TAG/samples/getting-started/<path>
+#   https://raw.githubusercontent.com/openchoreo/sample-gitops/$OCC_TAG/<path>
+```
+
+If `sample-gitops` doesn't carry that exact tag, fall back to the closest tag *<=* the cluster's tag. Never use `main` — it may carry CEL helpers or schema fields the cluster's controllers don't recognise yet.
+
+For docs (`openchoreo.dev`), use the rendered site as-is. The `.md` endpoints already have version substitutions baked in.
 
 ## Vanilla defaults — `samples/getting-started/`
 
 Source: <https://github.com/openchoreo/openchoreo/tree/main/samples/getting-started>
 
-Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/<path>`:
+Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/openchoreo/$OCC_TAG/samples/getting-started/<path>` — `$OCC_TAG` per *Pin upstream fetches* above, never `main`:
 
 | Resource | Path |
 | --- | --- |
@@ -39,7 +53,7 @@ These ship cluster-scoped (`ClusterComponentType` / `ClusterTrait` / `ClusterWor
 
 Source: <https://github.com/openchoreo/sample-gitops>
 
-Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/sample-gitops/main/<path>`:
+Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/sample-gitops/$OCC_TAG/<path>` — `$OCC_TAG` per *Pin upstream fetches* above, never `main`:
 
 | Resource | Path |
 | --- | --- |
@@ -53,7 +67,7 @@ Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/sample-gitops
 >
 > - `gitops-repo-url` — the remote URL of *this* scaffolded GitOps repo
 > - `gitops-branch` — the repo's main branch
-> - `registry-url` — container registry the workflow plane can push to (`host.k3d.internal:10082` is the k3d-local default; replace for non-k3d clusters)
+> - `registry-url` — container registry the workflow plane can push to
 > - `image-name`, `image-tag` — naming convention; usually leave
 
 ## Extra shapes — `sample-gitops`
@@ -70,42 +84,24 @@ Additional ComponentTypes and Traits not in the vanilla defaults but commonly ne
 
 These are namespace-scoped in `sample-gitops`. Use the cluster↔namespace scope swap to flip if needed.
 
-## `llms.txt` — for everything else
+## Fetching CRD shapes — `scripts/fetch-page.sh`
 
-The version-pinned LLM-friendly documentation index:
+Use the bundled helper. It resolves the title against `llms.txt`, picks the right version, and prints the rendered Markdown. URL paths are not stable across minors — don't compose URLs by hand; use the script.
 
-```
-https://openchoreo.dev/llms.txt              # latest stable
-https://openchoreo.dev/llms-v<minor>.x.txt   # specific minor
-https://openchoreo.dev/llms-next.txt         # bleeding edge
-```
-
-Parse `occ version` → `Client.Version` → `$OCC_MINOR` (e.g. `v1.0.x`). Match against the `llms.txt` header; if it lags, fetch `llms-$OCC_MINOR.txt`.
-
-API reference URLs follow:
-
-```
-https://openchoreo.dev/docs/reference/api/<scope>/<kind>.md
+```bash
+./scripts/fetch-page.sh --exact --title "ClusterComponentType"                    # CRD reference
+./scripts/fetch-page.sh --exact --title "ClusterComponentType" --version v1.0.x   # pin version
+./scripts/fetch-page.sh --list                                                     # dump full llms.txt index
+./scripts/list-versions.sh                                                         # supported minors
 ```
 
-`<scope>` is one of:
+For **CRD reference pages**, pass the schema `kind` verbatim (`Component`, `ClusterComponentType`, `Trait`, `Workflow`, `Environment`, `DeploymentPipeline`, `SecretReference`, `AuthzRole`, `AuthzRoleBinding`, `ObservabilityAlertRule`, `ObservabilityAlertsNotificationChannel`, the plane kinds, …). These titles track schema kinds and stay stable.
 
-| Scope | Kinds |
-| --- | --- |
-| `application` | Project, Component, Workload, WorkflowRun |
-| `platform` | DataPlane / ClusterDataPlane, WorkflowPlane / ClusterWorkflowPlane, ObservabilityPlane / ClusterObservabilityPlane, ComponentType / ClusterComponentType, Trait / ClusterTrait, Workflow / ClusterWorkflow, SecretReference, DeploymentPipeline (hyphenated URL: `deployment-pipeline.md`), Environment, ReleaseBinding, ObservabilityAlertRule, ObservabilityAlertsNotificationChannel, AuthzRole / ClusterAuthzRole, AuthzRoleBinding / ClusterAuthzRoleBinding |
-| `runtime` | ComponentRelease, RenderedRelease (both controller-managed; **never hand-author**) |
+For **conceptual / guide pages**, the title isn't the kind — run `--list` first to find the matching entry, then re-invoke with the exact title.
 
-Most kinds use lowercase concatenation (`componenttype.md`); `DeploymentPipeline` is hyphenated.
+On a miss (no match / multiple matches / fetch failure), the script dumps the full `llms.txt` to stdout so you can pick by hand.
 
-When authoring from `llms.txt`, cite the page in a comment:
-
-```yaml
-# shape: https://openchoreo.dev/docs/reference/api/platform/<kind>.md (occ v1.0.x)
-apiVersion: openchoreo.dev/v1alpha1
-kind: <Kind>
-...
-```
+> `ComponentRelease` and `RenderedRelease` are controller-managed — **never hand-author**.
 
 ## Cluster ↔ namespace scope
 
@@ -133,7 +129,7 @@ ComponentType / Trait / Workflow each come in two scopes:
 
 ## Vanilla CI workflows aren't GitOps-compatible
 
-Critical gotcha. The vanilla CI workflows shipped at `samples/getting-started/ci-workflows/`:
+Critical gotcha. The **four default `ClusterWorkflow`s** shipped by the platform install at `samples/getting-started/ci-workflows/`:
 
 - `dockerfile-builder`
 - `paketo-buildpacks-builder`
@@ -151,14 +147,25 @@ clone-gitops → create-feature-branch → generate-gitops-resources → git-com
 
 They build the image, generate the `Workload` + `ComponentRelease` + `ReleaseBinding` manifests using `occ` file-mode, and open a PR against the GitOps repo. Once merged, Flux deploys them.
 
+### Inspect any Workflow before trusting it
+
+The four names above are just today's defaults — installs can ship more, and the platform team can author their own. When in doubt about a workflow you didn't author, inspect it:
+
+```bash
+occ clusterworkflow get <name>           # cluster-scoped
+occ workflow get <name> -n <ns>          # namespace-scoped
+```
+
+Look at the last `steps:` entry of `spec.runTemplate` (or `templates[]` for `ClusterWorkflowTemplate` refs). GitOps-compatible workflows end with **`git-commit-push-pr`** (or equivalent — they push manifests to a Git repo and stop). Non-compatible workflows end with **`generate-workload-cr`** (writes a CR directly to the API) — those are the ones to avoid in GitOps mode.
+
 **Rules:**
 
-1. **Never carry vanilla CI workflows into a GitOps repo.** If they're already on the cluster from a non-GitOps install, surface the recommendation to **Replace with the GitOps versions** when scaffolding.
+1. **Never carry non-GitOps workflows into a GitOps repo.** If they're already on the cluster from a non-GitOps install, surface the recommendation to **Replace with the GitOps versions** when scaffolding.
 2. **Always rewrite `ClusterComponentType.allowedWorkflows[]`** when installing defaults under GitOps: swap the vanilla workflow names (`dockerfile-builder` etc.) for the GitOps names (`docker-gitops-release` etc.), and the `kind:` field for the chosen scope.
 
 ## Repo paths
 
-Per `gitops/overview.md` *Repository Organization Patterns*. Default is the mono-repo layout below.
+Default is the mono-repo layout below. See [`concepts.md`](./concepts.md) *Repo layout* for the full tree (Flux + platform + developer paths).
 
 | Resource | Path |
 | --- | --- |
@@ -194,18 +201,24 @@ Across Kustomizations, Flux's `dependsOn` chain handles ordering: `platform-shar
 
 ## Git workflow
 
-| Scope | Branch convention |
-| --- | --- |
-| Platform changes | `platform/<scope>-<ts>` |
-| Initial scaffold | `chore/scaffold-gitops-<ts>` (or commit directly on `main` for a brand-new repo) |
-
-`<ts>` = `$(date +%Y%m%d-%H%M%S)`. Always `git commit -s` (DCO is required upstream). Open with the host CLI (`gh` / `glab` / `bb`); poll until merged when the repo profile says PR-and-wait:
+Every platform change is a feature branch + PR. Recipes specify their branch prefix and commit-message scope; the rest is canonical:
 
 ```bash
+git checkout -b <prefix>/<scope>-$(date +%Y%m%d-%H%M%S)
+git add <files-from-recipe>
+git status                                      # show before committing
+git commit -s -m "<scope-prefix>: <action>"
+git push origin HEAD                            # only after user confirmation
+gh pr create --fill                             # only after user confirmation
 until gh pr view <number> --json state -q .state | grep -q MERGED; do sleep 30; done
 ```
 
-Don't force-push to a shared branch — fix-forward. **Don't open a PR or push without explicit user confirmation.**
+| Recipe area | Branch prefix | Commit-message scope |
+| --- | --- | --- |
+| Initial scaffold | `chore/scaffold-gitops-<ts>` (or commit directly on `main` for a brand-new repo) | `chore` |
+| Author a `(Cluster)ComponentType` / `Trait` / `Workflow` / `Environment` / `DeploymentPipeline` / `SecretReference` / `AuthzRole` / `ObservabilityAlertRule` | `platform/<scope>-<ts>` | `platform` |
+
+Always `git commit -s` (DCO is required upstream). Don't force-push to a shared branch — fix-forward. **Don't amend commits after a push** — create a new commit. Amending breaks force-push semantics, loses hook-failure recovery, and rewrites history collaborators may have pulled.
 
 ## `occ apply -f <file>` and `kubectl apply -f`
 

@@ -28,15 +28,7 @@ occ releasebinding generate \
   --target-env development --use-pipeline standard
 ```
 
-PR with all three changes (Workload + new release file + updated/new ReleaseBinding):
-
-```bash
-git checkout -b release/<component>-update-$(date +%Y%m%d-%H%M%S)
-git add namespaces/<ns>/projects/<project>/components/<component>/
-git commit -s -m "Component <component>: update Workload"
-git push origin HEAD
-gh pr create --fill
-```
+PR with all three changes (Workload + new release file + updated/new ReleaseBinding). Branch `release/<component>-update-<ts>`, paths `namespaces/<ns>/projects/<project>/components/<component>/`, message `"Component <component>: update Workload"`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*.
 
 After merge: walk verification ladder (see [`verify-and-debug.md`](./verify-and-debug.md)).
 

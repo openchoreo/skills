@@ -107,15 +107,7 @@ occ releasebinding generate \
   --target-env development --use-pipeline standard
 ```
 
-Branch, commit, PR:
-
-```bash
-git checkout -b release/<component>-trait-<trait-name>-$(date +%Y%m%d-%H%M%S)
-git add namespaces/<ns>/projects/<project>/components/<component>/
-git commit -s -m "Component <component>: attach <trait-name> trait"
-git push origin HEAD
-gh pr create --fill                              # after user confirmation
-```
+Branch `release/<component>-trait-<trait-name>-<ts>`, paths `namespaces/<ns>/projects/<project>/components/<component>/`, message `"Component <component>: attach <trait-name> trait"`. Canonical flow in [`../authoring.md`](../authoring.md) *Git workflow*.
 
 ### 6. Verify
 
