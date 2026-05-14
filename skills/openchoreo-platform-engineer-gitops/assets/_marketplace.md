@@ -27,7 +27,7 @@ Start a GitOps repo from scratch and bring in the shipped Project / Environments
 Scaffold a GitOps repo in this directory for my cluster, install the standard defaults, push to my GitHub, and wire Flux against it.
 ```
 
-Once the repo is wired, hand the agent an off-the-shelf microservices app and deploy it into the same cluster using the published images.
+Once the repo is wired, hand the agent an off-the-shelf microservices app and deploy it into the same cluster using the published images. Needs the `openchoreo-developer-gitops` skill installed for the deploy step.
 
 ```text
 Now deploy https://github.com/GoogleCloudPlatform/microservices-demo into this cluster using their already-published remote images.
