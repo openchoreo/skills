@@ -157,7 +157,7 @@ spec:
       limits:   {cpu: 500m, memory: 512Mi}
 ```
 
-The exact parameter set depends on the ClusterComponentType — discover with `get_cluster_component_type_schema name: deployment/service`.
+The exact parameter set depends on the ClusterComponentType — discover with `get_component_type_schema scope: cluster, name: deployment/service`.
 
 For per-environment differences (more replicas in prod), override at the ReleaseBinding level — see `recipes/override-per-environment.md`.
 
@@ -180,7 +180,7 @@ patch_component
         condition: {window: 5m, operator: gt, threshold: 50}
 ```
 
-`traits` on `patch_component` is **whole-list replace at the slice level** — pass every trait you want the Component to keep. An empty array clears all traits; omitting `traits` leaves the existing list unchanged. Discover available traits via `list_cluster_traits`; get a trait's parameter schema via `get_cluster_trait_schema`.
+`traits` on `patch_component` is **whole-list replace at the slice level** — pass every trait you want the Component to keep. An empty array clears all traits; omitting `traits` leaves the existing list unchanged. Discover available traits via `list_traits` (`scope: "cluster"` for platform-wide ClusterTraits); get a trait's parameter schema via `get_trait_schema` (same `scope`).
 
 ## Gotchas
 

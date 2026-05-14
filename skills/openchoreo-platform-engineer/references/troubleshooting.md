@@ -22,9 +22,10 @@ Start from the plane where the failure manifests, then work outward.
 get_component <name>                        → status.conditions, dependent resources
 get_workload <name>                         → container, endpoints, status
 get_release_binding <name>                  → per-environment readiness, deployed URLs
-get_dataplane <name>                         → plane connectivity, gateway config, agent state
-get_workflowplane <name>                    → workflow plane state
-get_observability_plane <name>              → observer endpoint, agent state
+get_dataplane scope:cluster name:<name>      → plane connectivity, gateway config, agent state
+get_workflowplane scope:cluster name:<name>  → workflow plane state
+get_observability_plane scope:cluster name:<name> → observer endpoint, agent state
+  # planes are usually cluster-scoped — drop scope (or scope:namespace + namespace_name) for a namespaced plane
 list_release_bindings <component>           → see all envs the component is deployed to
 
 get_resource_events                          → K8s events on Deployment / Pod under a binding
@@ -155,7 +156,7 @@ Common causes:
 # Check WorkflowRun status (MCP)
 list_workflow_runs                              → recent runs for namespace / project / component
 get_workflow_run <name>                         → status.conditions, per-task phases
-get_workflowplane <name>                        → workflow plane registration / agent state
+get_workflowplane scope:cluster name:<name>     → workflow plane registration / agent state
 ```
 
 ```bash

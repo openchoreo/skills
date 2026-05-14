@@ -90,16 +90,17 @@ Use the bundled helper. It resolves the title against `llms.txt`, picks the righ
 
 ```bash
 ./scripts/fetch-page.sh --exact --title "ClusterComponentType"                    # CRD reference
+./scripts/fetch-page.sh --exact --section "API Reference" --title "ComponentType"  # scope to CRD refs only
 ./scripts/fetch-page.sh --exact --title "ClusterComponentType" --version v1.0.x   # pin version
 ./scripts/fetch-page.sh --list                                                     # dump full llms.txt index
 ./scripts/list-versions.sh                                                         # supported minors
 ```
 
-For **CRD reference pages**, pass the schema `kind` verbatim (`Component`, `ClusterComponentType`, `Trait`, `Workflow`, `Environment`, `DeploymentPipeline`, `SecretReference`, `AuthzRole`, `AuthzRoleBinding`, `ObservabilityAlertRule`, `ObservabilityAlertsNotificationChannel`, the plane kinds, …). These titles track schema kinds and stay stable.
+For **CRD reference pages**, pass the schema `kind` verbatim (`Component`, `ClusterComponentType`, `Trait`, `Workflow`, `Environment`, `DeploymentPipeline`, `SecretReference`, `AuthzRole`, `AuthzRoleBinding`, `ObservabilityAlertRule`, `ObservabilityAlertsNotificationChannel`, the plane kinds, …). These titles track schema kinds and stay stable. Add `--section "API Reference"` to restrict matching to the CRD-reference subtree — needed when a kind name also appears in guide-page titles.
 
 For **conceptual / guide pages**, the title isn't the kind — run `--list` first to find the matching entry, then re-invoke with the exact title.
 
-On a miss (no match / multiple matches / fetch failure), the script dumps the full `llms.txt` to stdout so you can pick by hand.
+On a miss (no match / multiple matches / fetch failure), the script dumps the index — scoped to `--section` if given — to stdout so you can pick by hand.
 
 > `ComponentRelease` and `RenderedRelease` are controller-managed — **never hand-author**.
 

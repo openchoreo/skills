@@ -15,22 +15,24 @@ For **tweaking** an existing type (CEL fix, one new validation rule), prefer `ku
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
 2. You've decided cluster-scoped vs namespace-scoped (see **Variants** below). Default is `ClusterComponentType` — use namespace-scoped only when an org tenancy boundary requires it.
 3. You've picked a `workloadType` from `deployment` / `statefulset` / `cronjob` / `job` / `proxy`. **Immutable after creation**, so pick deliberately.
-4. To learn real-world patterns (CEL templates, HTTPRoute fan-out, ExternalSecret patches) without authoring from scratch, inspect an existing ClusterComponentType on the cluster: `get_cluster_component_type name: deployment/service` (or whichever the platform already ships). The returned `spec.resources[*].template` shows production patterns directly.
+4. To learn real-world patterns (CEL templates, HTTPRoute fan-out, ExternalSecret patches) without authoring from scratch, inspect an existing ClusterComponentType on the cluster: `get_component_type scope: cluster, name: deployment/service` (or whichever the platform already ships). The returned `spec.resources[*].template` shows production patterns directly.
 
 ## Recipe
 
 ### 1. Sanity-check what already exists
 
-```text
-list_cluster_component_types
+```yaml
+list_component_types
+  scope: cluster
 ```
 
 If a type with a similar name already exists, decide whether to extend it (`update_*`) or create a sibling. ComponentType names don't collide cross-scope (a namespace-scoped `ComponentType` named `service` doesn't conflict with `ClusterComponentType/service`), but UI / discovery can become confusing.
 
 ### 2. Fetch the creation schema
 
-```text
-get_cluster_component_type_creation_schema
+```yaml
+get_component_type_creation_schema
+  scope: cluster
 ```
 
 Returns the full JSON schema for the `spec` body — `workloadType`, `allowedWorkflows`, `allowedTraits`, `parameters`, `environmentConfigs`, `validations`, `resources[]`. Use this to shape the spec payload, not memory.
@@ -50,7 +52,8 @@ Five fields drive almost everything:
 ### 4. Create the type
 
 ```yaml
-create_cluster_component_type
+create_component_type
+  scope: cluster
   name: backend-service
   spec:
     workloadType: deployment
@@ -93,12 +96,13 @@ create_cluster_component_type
         template: { ... }
 ```
 
-For the full `resources[]` body — including HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patterns — inspect what the platform already ships: `get_cluster_component_type name: deployment/service` (or `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`). The returned spec shows production patterns to adapt.
+For the full `resources[]` body — including HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patterns — inspect what the platform already ships: `get_component_type scope: cluster, name: deployment/service` (or `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`). The returned spec shows production patterns to adapt.
 
 ### 5. Confirm and exercise
 
 ```yaml
-get_cluster_component_type
+get_component_type
+  scope: cluster
   name: backend-service
 ```
 
@@ -119,10 +123,12 @@ A `WorkflowNotAllowed` / `TraitNotAllowed` failure on the component means your `
 `update_*` is **full-spec replacement** — omitted fields are deleted. Always read first:
 
 ```yaml
-get_cluster_component_type
+get_component_type
+  scope: cluster
   name: backend-service
 # Modify the spec locally (e.g. add a validation rule, tighten allowedWorkflows)
-update_cluster_component_type
+update_component_type
+  scope: cluster
   name: backend-service
   spec: <the entire modified spec>
 ```
@@ -148,7 +154,7 @@ Use cases: regulated tenants needing stricter limits, per-team experimental shap
 
 ### Cluster-scoped variant (the default)
 
-`create_cluster_component_type` — what most platforms ship. Visible to all namespaces. Used in `Component.spec.componentType.kind: ClusterComponentType`.
+`create_component_type` with `scope: "cluster"` — what most platforms ship. Visible to all namespaces. Used in `Component.spec.componentType.kind: ClusterComponentType`.
 
 ## Gotchas
 
