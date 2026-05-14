@@ -27,7 +27,7 @@ occ namespace list                              # cluster reachable?
 Load other references **on-demand** as the task needs them:
 
 - [`references/authoring.md`](./references/authoring.md) — where CRD shapes come from (live cluster / vanilla defaults / sample-gitops / docs via `scripts/fetch-page.sh`), repo path conventions, the cluster↔namespace scope swap, the CI-vs-GitOps workflow gotcha, git workflow, DCO.
-- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields. `./scripts/fetch-page.sh --list` dumps the full index.
+- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields; `--section "API Reference"` scopes matching to CRD-reference pages, `--list` dumps the index.
 - [`references/cel.md`](./references/cel.md) — only when writing or reviewing CEL inside ComponentType / Trait / Workflow templates.
 
 ## Detect the mode
