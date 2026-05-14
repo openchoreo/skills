@@ -7,7 +7,7 @@ Build a container image from a Git repository using a CI workflow, then deploy i
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
 2. A Project exists (see [Create a Project](deploy-prebuilt-image.md#variant-create-a-project)).
 3. The repo URL, branch, and the path to the app inside the repo (`appPath`) are known.
-4. The ClusterComponentType you'll use lists the workflow you want in `allowedWorkflows`. Discover with `list_cluster_component_types`, then `get_cluster_component_type` to read `allowedWorkflows`.
+4. The ClusterComponentType you'll use lists the workflow you want in `allowedWorkflows`. Discover with `list_component_types` (`scope: "cluster"`), then `get_component_type` (`scope: "cluster"`) to read `allowedWorkflows`.
 
 ## Available builders
 
@@ -24,14 +24,16 @@ All workflows share `repository.url`, `repository.revision.branch`, `repository.
 
 ### 1. Pick a workflow and inspect its schema
 
-```text
-list_cluster_workflows
+```yaml
+list_workflows
+  scope: cluster
 ```
 
 Pick one, then read the parameter schema so you know what fields to pass:
 
 ```yaml
-get_cluster_workflow_schema
+get_workflow_schema
+  scope: cluster
   name: dockerfile-builder
 ```
 

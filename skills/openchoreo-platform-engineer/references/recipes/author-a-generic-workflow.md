@@ -37,8 +37,10 @@ For step shape reference: [`../../resources/workflow-templates/checkout-source.y
 ### 2. Create the OpenChoreo Workflow CR (MCP)
 
 ```yaml
-list_cluster_workflows           # sanity-check; don't duplicate
-create_cluster_workflow
+list_workflows                   # sanity-check; don't duplicate
+  scope: cluster
+create_workflow
+  scope: cluster
   name: terraform-runner
   spec:
     workflowPlaneRef:
@@ -143,10 +145,12 @@ For *completed* failed runs, fall back to `kubectl logs --previous <argo-pod> -n
 `update_*` is full-spec replacement:
 
 ```yaml
-get_cluster_workflow
+get_workflow
+  scope: cluster
   name: terraform-runner
 # Modify locally
-update_cluster_workflow
+update_workflow
+  scope: cluster
   name: terraform-runner
   spec: <complete modified spec>
 ```

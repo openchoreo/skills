@@ -53,10 +53,12 @@ Load `../openchoreo-platform-engineer/SKILL.md` if it's installed; otherwise tel
 
 One MCP server: `openchoreo-cp`. Throughout this skill, tools are referenced by bare name (e.g. `get_component`); your agent wraps with its prefix (Claude Code uses `mcp__openchoreo-cp__<tool>`).
 
+ComponentType / Trait / Workflow and the plane tools are **scope-collapsed**: one tool with a `scope` arg — `"namespace"` (default) or `"cluster"` for the platform-wide `Cluster*` resource. This skill always uses the canonical name + `scope`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — but prefer the canonical form.
+
 ## Working style
 
 - **Live cluster output beats memory.** Discover via MCP first; don't guess available ComponentTypes / Traits / Workflows / Environments / field names.
-- **Schema-first authoring.** `get_workload_schema` / `get_cluster_component_type_schema` / `get_cluster_trait_schema` before writing a spec from scratch.
+- **Schema-first authoring.** `get_workload_schema`, or `get_component_type_schema` / `get_trait_schema` with `scope: "cluster"` for platform-wide standards, before writing a spec from scratch.
 
 ## Stable guardrails
 

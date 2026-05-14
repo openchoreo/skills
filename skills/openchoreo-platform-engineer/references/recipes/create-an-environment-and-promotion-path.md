@@ -12,7 +12,7 @@ Stand up a new `Environment` (a deployment target — dev, staging, prod, perf, 
 ## Prerequisites
 
 1. The control-plane MCP server is configured (`list_namespaces` returns).
-2. **A `DataPlane` (or `ClusterDataPlane`) must already be registered.** New environments point at an existing plane via `data_plane_ref`. Discover with `list_dataplanes` / `list_cluster_dataplanes` (and `get_*` for status). If the plane you need doesn't exist, that's an install-side concern (handed off to `openchoreo-install`).
+2. **A `DataPlane` (or `ClusterDataPlane`) must already be registered.** New environments point at an existing plane via `data_plane_ref`. Discover with `list_dataplanes` — `scope: "cluster"` for the common `ClusterDataPlane` case, `scope: "namespace"` for a tenant-local one (and `get_dataplane` for status). If the plane you need doesn't exist, that's an install-side concern (handed off to `openchoreo-install`).
 3. You know whether this env is production (`is_production: true` gates production-only validations on ComponentTypes / Traits — e.g. "production requires ≥ 2 replicas").
 4. To see the canonical layout, inspect what's already on the cluster: `list_environments` and `list_deployment_pipelines` against `default`. The standard dev / staging / prod trio + linear promotion path is the typical starting shape to mimic.
 
@@ -21,10 +21,11 @@ Stand up a new `Environment` (a deployment target — dev, staging, prod, perf, 
 ### 1. Pick the data plane
 
 ```yaml
-list_cluster_dataplanes      # cluster-scoped (the common case)
-list_dataplanes              # namespace-scoped (only if a tenant has its own plane)
-get_cluster_dataplane
-  cdp_name: default          # check status — must be Ready
+list_dataplanes
+  scope: cluster             # cluster-scoped (the common case); scope: namespace for a tenant-local plane
+get_dataplane
+  scope: cluster
+  name: default              # check status — must be Ready
 ```
 
 Note the **kind** (`DataPlane` vs `ClusterDataPlane`) — you'll pass it as `data_plane_ref_kind` to `create_environment`. Default is `DataPlane`. Note also the plane's name (the `data_plane_ref` is just the name string; kind is separate).

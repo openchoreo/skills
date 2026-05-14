@@ -15,22 +15,24 @@ For per-environment differences (e.g. larger PVC in prod), set `environmentConfi
 1. The control-plane MCP server is configured (`list_namespaces` returns).
 2. You've decided cluster-scoped vs namespace-scoped (see **Variants**). Default is `ClusterTrait`.
 3. You know which ComponentTypes will list the trait in `allowedTraits` — the trait is unusable until at least one type allows it. Cross-scope rules apply: a `ClusterComponentType` may only allow `ClusterTrait`s.
-4. To learn real-world patterns (parameter schemas, environment-config overrides, `creates[]` vs `patches[]`, CEL in templates), inspect an existing trait on the cluster: `get_cluster_trait name: observability-alert-rule` (or whichever traits the platform ships). The returned spec shows production patterns to adapt.
+4. To learn real-world patterns (parameter schemas, environment-config overrides, `creates[]` vs `patches[]`, CEL in templates), inspect an existing trait on the cluster: `get_trait scope: cluster, name: observability-alert-rule` (or whichever traits the platform ships). The returned spec shows production patterns to adapt.
 
 ## Recipe
 
 ### 1. Sanity-check what already exists
 
-```text
-list_cluster_traits
+```yaml
+list_traits
+  scope: cluster
 ```
 
 Don't duplicate. If a similar trait exists, prefer extending it (`update_*`) over creating a sibling — multiple alert traits with overlapping behavior cause noise.
 
 ### 2. Fetch the creation schema
 
-```text
+```yaml
 get_trait_creation_schema
+  scope: cluster
 ```
 
 Returns the schema for the `spec` body — `parameters`, `environmentConfigs`, `validations` (namespace-scoped only), `creates[]`, `patches[]`.
@@ -48,7 +50,8 @@ See [`../component-types-and-traits.md`](../component-types-and-traits.md) §3 f
 ### 4. Compose the spec
 
 ```yaml
-create_cluster_trait
+create_trait
+  scope: cluster
   name: persistent-volume
   spec:
     parameters:
@@ -108,12 +111,13 @@ Note the use of `${trait.instanceName}` in resource names — that's how the sam
 
 ### 5. List the trait on at least one ComponentType
 
-A trait is unusable until some ComponentType lists it in `allowedTraits`. Either edit an existing type (`get_cluster_component_type` → modify → `update_cluster_component_type`), or include the trait in the type's `allowedTraits` from the start.
+A trait is unusable until some ComponentType lists it in `allowedTraits`. Either edit an existing type (`get_component_type scope: cluster` → modify → `update_component_type scope: cluster`), or include the trait in the type's `allowedTraits` from the start.
 
 ### 6. Verify
 
 ```yaml
-get_cluster_trait
+get_trait
+  scope: cluster
   name: persistent-volume
 ```
 
@@ -136,10 +140,12 @@ get_component
 `update_*` is full-spec replacement:
 
 ```yaml
-get_cluster_trait
+get_trait
+  scope: cluster
   name: persistent-volume
 # Modify locally
-update_cluster_trait
+update_trait
+  scope: cluster
   name: persistent-volume
   spec: <complete modified spec>
 ```

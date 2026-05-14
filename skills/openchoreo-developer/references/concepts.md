@@ -100,9 +100,9 @@ The northbound gateway for external traffic is typically set up. The westbound g
 
 ### ComponentType
 
-Platform-engineer-defined template that controls how a component deploys. Developers pick from available types and fill in the schema. View available types with `list_cluster_component_types` and inspect one with `get_cluster_component_type` / `get_cluster_component_type_schema`.
+Platform-engineer-defined template that controls how a component deploys. Developers pick from available types and fill in the schema. View available types with `list_component_types` and inspect one with `get_component_type` / `get_component_type_schema` — pass `scope: "cluster"` for the platform-wide ClusterComponentTypes most installs use.
 
-**Component type format is `workloadType/typeName`** (e.g. `deployment/service`). Use `get_cluster_component_type_schema` to discover accepted values before setting `spec.componentType.name`.
+**Component type format is `workloadType/typeName`** (e.g. `deployment/service`). Use `get_component_type_schema` (with `scope: "cluster"`) to discover accepted values before setting `spec.componentType.name`.
 
 **Workload types**: `deployment`, `statefulset`, `cronjob`, `job`, `proxy`
 
@@ -119,7 +119,7 @@ Composable capability attached to components. Adds resources (like PVCs) or modi
 
 Each trait instance on a component needs a unique `instanceName`. This lets you attach the same trait type multiple times with different configs (e.g., two different persistent volumes).
 
-View available traits: `list_cluster_traits`, `list_traits`. Inspect: `get_cluster_trait` / `get_cluster_trait_schema`.
+View available traits: `list_traits` (pass `scope: "cluster"` for the platform-wide ClusterTraits most installs use). Inspect: `get_trait` / `get_trait_schema`.
 
 **Common traits**: persistent-volume, ingress, autoscaling, resource-limits.
 
@@ -254,8 +254,8 @@ Do not create or patch resources until the application shape is clear.
 Use focused discovery via MCP instead of broad inventory:
 
 - existing project, component, or release binding when names are known (`get_component`, `get_release_binding`)
-- available ComponentTypes only if you need to create or change the type (`list_cluster_component_types`, `get_cluster_component_type_schema`)
-- available Workflows only if this is a source build (`list_cluster_workflows`, `get_cluster_workflow_schema`)
+- available ComponentTypes only if you need to create or change the type (`list_component_types`, `get_component_type_schema` — pass `scope: "cluster"` for platform-wide standards)
+- available Workflows only if this is a source build (`list_workflows`, `get_workflow_schema` — pass `scope: "cluster"` for platform-wide ClusterWorkflows)
 - environments and deployment pipelines only if deployment or promotion depends on them (`list_environments`, `list_deployment_pipelines`)
 
 If the component already exists, inspect it (`get_component`, `get_workload`) before reauthoring.
@@ -265,8 +265,8 @@ If the component already exists, inspect it (`get_component`, `get_workload`) be
 Before writing a `workload_spec`, Component spec, or override payload, fetch the relevant schema:
 
 - `get_workload_schema`
-- `get_cluster_component_type_schema`
-- `get_cluster_trait_schema`
+- `get_component_type_schema` (`scope: "cluster"` for platform-wide standards)
+- `get_trait_schema` (`scope: "cluster"` for platform-wide standards)
 
 For existing resources, read the current spec via `get_*` before sending an `update_*`. `update_workload` sends the full spec, not a partial patch — modifying locally then writing back is the canonical loop.
 

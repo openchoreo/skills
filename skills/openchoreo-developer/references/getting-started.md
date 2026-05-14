@@ -47,7 +47,7 @@ Service: <component-name>
 Use `AskUserQuestion` per question, defaults pre-selected:
 
 - **BYO image or source-build?** Ask only if §1 says we're inside the source repo. *Source-build* means OpenChoreo's workflow plane builds from this repo; *BYO* means an image is already published elsewhere.
-- **If source-build**: which Workflow? `list_cluster_workflows` / `list_workflows`. Pick by build system — Dockerfile → `dockerfile-builder`, no Dockerfile → a buildpacks variant. If nothing fits, confirm with the user before falling back to BYO.
+- **If source-build**: which Workflow? `list_workflows` (`scope: "cluster"` for platform-wide ClusterWorkflows). Pick by build system — Dockerfile → `dockerfile-builder`, no Dockerfile → a buildpacks variant. If nothing fits, confirm with the user before falling back to BYO.
 - **If BYO**: how is the image built? External CI / manual / hybrid (assume manual until clarified).
 - **`workload.yaml` committed in the source repo?** Source-build only. Yes → descriptor is the source of truth (Path A). No → spec lives on the cluster (Path B). Mixing paths is a one-way trap; pick once. See [§7](#7-configure-the-workload-path-a-or-path-b).
 - **Deploy scope**: first environment only, or promote along the pipeline?
@@ -63,17 +63,17 @@ Restate the contract with the §3 choices applied — image source, endpoints, d
 
 Authoring needs the right templates. Discover:
 
-- `list_cluster_component_types` + `list_component_types -n <ns>` — pick the ComponentType.
-- `list_cluster_traits` + `list_traits -n <ns>` — any traits to attach.
-- `list_cluster_workflows` + `list_workflows -n <ns>` — source-build only.
+- `list_component_types` — `scope: "cluster"` for platform-wide standards, or `scope: "namespace"` + `namespace_name` for namespace-local ones — pick the ComponentType.
+- `list_traits` — same `scope` choice — any traits to attach.
+- `list_workflows` — same `scope` choice — source-build only.
 
-For each candidate, fetch the schema (`get_cluster_component_type_schema` / `get_cluster_trait_schema` / `get_cluster_workflow_schema`) before composing the spec.
+For each candidate, fetch the schema (`get_component_type_schema` / `get_trait_schema` / `get_workflow_schema`, with `scope` matching where the resource lives) before composing the spec.
 
 > Environments, DeploymentPipelines, DataPlanes — assume they exist. Inspect them only when troubleshooting a stuck deploy.
 
 ## 6. Pick a ComponentType
 
-Shipped defaults (verify with `list_cluster_component_types`):
+Shipped defaults (verify with `list_component_types`, `scope: "cluster"`):
 
 | ComponentType                | Use for                                                       |
 | ---------------------------- | ------------------------------------------------------------- |

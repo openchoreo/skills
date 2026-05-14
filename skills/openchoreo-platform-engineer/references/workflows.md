@@ -6,7 +6,7 @@ For CEL syntax used in `runTemplate` and `resources`, see [`cel.md`](./cel.md). 
 
 **Tool surface:**
 
-- **`Workflow` / `ClusterWorkflow` (control plane CRDs)** — MCP-first. `create_workflow` / `create_cluster_workflow` / `update_*` / `delete_*` all exist. The full `spec` body is passed to create / update (including `runTemplate` — the inline Argo Workflow). `update_*` is full-spec replacement; read first via `get_*`. `kubectl apply -f` is a fine fallback for big edits to `runTemplate` CEL where the diff is easier to manage as YAML.
+- **`Workflow` / `ClusterWorkflow` (control plane CRDs)** — MCP-first, and **scope-collapsed**: `create_workflow` / `update_workflow` / `delete_workflow` / `get_workflow` / `list_workflow` each take a `scope` arg — `"namespace"` (default; the namespaced `Workflow` in `namespace_name`) or `"cluster"` (the platform-wide `ClusterWorkflow`). The full `spec` body is passed to create / update (including `runTemplate` — the inline Argo Workflow). `update_*` is full-spec replacement; read first via `get_*`. The old `*_cluster_workflow` tool names still work as deprecated aliases (removed in v1.3) — use the canonical name + `scope`. `kubectl apply -f` is a fine fallback for big edits to `runTemplate` CEL where the diff is easier to manage as YAML.
 - **Argo `ClusterWorkflowTemplate`s (workflow plane)** — kubectl-only. These are upstream Argo CRDs, not OpenChoreo CRDs, and have no MCP path. Apply with `kubectl apply -f` against the workflow-plane cluster.
 - **`WorkflowRun` (control plane)** — created via `trigger_workflow_run` (component-bound) or `create_workflow_run` (standalone) MCP tools, or via Git webhook for auto-build, or hand-applied with `kubectl apply -f` for ad-hoc cases.
 
@@ -249,7 +249,7 @@ spec:
 
 ### Step 3 — the `Workflow` CR
 
-Before authoring, fetch the spec shape via `get_workflow_creation_schema` (or `get_cluster_workflow_creation_schema` for cluster-scoped) — that's the canonical schema source.
+Before authoring, fetch the spec shape via `get_workflow_creation_schema` (pass `scope: "cluster"` for the cluster-scoped variant) — that's the canonical schema source.
 
 The CR has three notable fields:
 
@@ -660,17 +660,17 @@ Deletes the WorkflowRun and all workflow-plane resources it created.
 ### MCP-first
 
 ```text
-# Read what's already there
-list_cluster_workflows
-get_cluster_workflow <name>                       → full spec + status
+# Read what's already there (all scope-collapsed — scope: cluster shown; omit scope or use namespace for namespaced Workflows)
+list_workflows           scope: cluster
+get_workflow             scope: cluster, name: <name>   → full spec + status
 
 # Author a new one (apply the ClusterWorkflowTemplates first via kubectl, then create the Workflow CR)
-create_cluster_workflow                           → name + spec (parameters + runTemplate + externalRefs + resources)
+create_workflow          scope: cluster                 → name + spec (parameters + runTemplate + externalRefs + resources)
 
 # Update — full-spec replacement
-get_cluster_workflow <name>                       → fetch current spec
+get_workflow             scope: cluster, name: <name>   → fetch current spec
 # modify locally
-update_cluster_workflow                           → name + the entire modified spec
+update_workflow          scope: cluster                 → name + the entire modified spec
 
 # Trigger and inspect runs
 trigger_workflow_run                              → component-bound build (build toolset)
