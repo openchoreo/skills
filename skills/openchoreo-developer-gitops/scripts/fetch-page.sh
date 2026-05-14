@@ -8,6 +8,7 @@
 #
 #   --exact     match the bracketed title verbatim (default: substring)
 #   --section   scope matching to one llms.txt heading's subtree
+#               (default: search docs only, skipping the Ecosystem catalog)
 #   --version   pin a minor (default: latest stable); "next" = bleeding-edge docs
 #
 # Exit: 0 ok · 1 bad args · 2 zero/multiple matches (index dumped) · 3 fetch failed
@@ -19,17 +20,18 @@ LLMS_URL="https://openchoreo.dev/llms.txt"
 
 die() { echo "fetch-page: $*" >&2; exit "${2:-1}"; }
 
-# Print one heading's subtree from stdin: the named heading down to the
-# next heading of the same or higher level. Empty if not found.
-extract_section() {
-  awk -v name="$1" '
+# Filter stdin by one heading's subtree (the named heading down to the
+# next heading of equal-or-higher level). mode "keep" prints only that
+# subtree; mode "drop" prints everything else.
+section_filter() {
+  awk -v name="$1" -v mode="$2" '
     /^#+ / {
       n = 0; while (substr($0, n + 1, 1) == "#") n++
       heading = substr($0, n + 2)
       if (inside && n <= lvl) inside = 0
-      if (!inside && heading == name) { lvl = n; inside = 1; print; next }
+      if (!inside && heading == name) { lvl = n; inside = 1 }
     }
-    inside { print }
+    (mode == "keep") == (inside != 0) { print }
   '
 }
 
@@ -42,7 +44,7 @@ while [[ $# -gt 0 ]]; do
     --section) section="${2:-}"; shift 2 ;;
     --list)    list_only=1; shift ;;
     --exact)   exact=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1 ;;
+    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1 ;;
     *)         die "unknown argument: $1" ;;
   esac
 done
@@ -79,12 +81,15 @@ fi
 current_version=$(printf '%s' "$llms" \
   | grep -m1 -oE 'OpenChoreo Documentation \([^)]+\)' | sed -E 's/.*\((.*)\)/\1/' || true)
 
-# scope to a section if asked (current_version was read above, from the full header)
-search_index="$llms"
+# --section scopes the search to that heading's subtree; without it, the
+# default search drops the ## Ecosystem section (catalog links, not docs).
+# current_version was read above, from the full header.
 if [[ -n "$section" ]]; then
-  search_index=$(printf '%s' "$llms" | extract_section "$section")
+  search_index=$(printf '%s' "$llms" | section_filter "$section" keep)
   [[ -n "$search_index" ]] \
     || die "section '$section' not found. Sections:"$'\n'"$(printf '%s' "$llms" | grep -E '^#+ ' | sed -E 's/^#+ +//')"
+else
+  search_index=$(printf '%s' "$llms" | section_filter Ecosystem drop)
 fi
 
 if [[ $list_only -eq 1 ]]; then
