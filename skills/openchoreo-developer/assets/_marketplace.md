@@ -24,11 +24,11 @@ Hand the agent the GCP microservices demo app and have it figure out how each se
 Deploy github.com/GoogleCloudPlatform/microservices-demo into OpenChoreo using their already-published images.
 ```
 
-### Scaffold a three-tier app and deploy from source
-Let the agent get creative: build a three-tier app, push it to your GitHub as a public repo, then onboard it to OpenChoreo as a source-built component.
+### Scaffold an app and deploy from source
+Let the agent get creative: build a live audience Q&A app, push to GitHub, deploy each component to OpenChoreo from source.
 
 ```text
-Build a three-tier app, push it to my GitHub as a public repo, then deploy it to OpenChoreo from source.
+Build a live audience Q&A app (join by code, submit + upvote questions, host moderates). Push it to my GitHub as a public repo, then deploy each component to OpenChoreo from source.
 ```
 
 Once the first deploy is healthy, promote it forward.

@@ -22,16 +22,22 @@ A new team with specific environment needs. Have the agent provision the environ
 We're onboarding a new team to the platform: orders-api. They need dev, staging, canary, and prod environments. Provision the environments, build out the deployment pipeline, and attach it to the team's project using the platform's default templates and policies.
 ```
 
-### Author a CI workflow
-Register a build workflow developers can pick when source-building a Component.
+### Author a CI workflow and smoke-test it
+Register a build workflow, attach it to a ComponentType, then build + deploy a tiny service through it end-to-end. Needs the `openchoreo-developer` skill installed for the deploy step.
 
 ```text
-Create a CI workflow go-buildpack that runs go test ./... and then builds an image with Buildpacks.
+Create a CI workflow go-buildpack that runs go test ./... and builds with Buildpacks.
 ```
 
-### Build a promotion pipeline with a manual gate
-Wire several Environments into a DeploymentPipeline so developers can promote across them, with optional manual approvals.
+Attach it to the service ComponentType's `allowedWorkflows`:
 
 ```text
-Build a dev → staging → prod deployment pipeline for team-payments, with prod requiring a manual gate.
+Add go-buildpack to the service ComponentType's allowedWorkflows.
 ```
+
+Smoke-test (this hop into the `openchoreo-developer` skill):
+
+```text
+Scaffold a small Go greeter service, push it to my GitHub as a public repo, and deploy it through go-buildpack.
+```
+
