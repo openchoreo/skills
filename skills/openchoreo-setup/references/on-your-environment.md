@@ -2,19 +2,19 @@
 
 Bootstrap OpenChoreo on an existing Kubernetes cluster (k3s, GKE, EKS, AKS, DOKS, Rancher Desktop, or self-managed).
 
-> **Disclaimer:** the fetched install guide is the source of truth. The cluster-fingerprint workarounds and production swap-outs below mirror what the guide already calls out — they're listed here so the agent can plan around them. If anything in this reference conflicts with the guide, follow the guide.
+> **Disclaimer:** the fetched install guide is the source of truth. If anything here conflicts with the guide, follow the guide. This reference covers choice-capture, gaps the guide doesn't mention, and the shape of the final report.
 
 ## Step 1 — Capture choices
 
-Apply silent defaults unless the user opted out. Summarise the resolved choices before running anything.
+Apply silent defaults unless the user opted out. Summarise resolved choices before running anything.
 
 | Decision | Options | Default |
 | --- | --- | --- |
-| **OpenChoreo version** | `Latest stable` / `Specific version` (e.g. `v1.0.x`) / `Bleeding edge (next)` | `Latest stable`. The fetch script resolves the choice and prints it on stderr. |
-| **Optional planes** (multi-select) | Workflow, Observability | Install both. Skip one only if the user explicitly opted out. Control plane + data plane always install. |
-| **Default platform resources** | `Yes` / `No` | `Yes`. Skip only if the user explicitly opted out. Provisions whatever the guide's "Install Default Resources" step describes. |
+| **OpenChoreo version** | latest stable / specific minor / bleeding edge (`next`) | latest stable (the fetch script resolves it and prints on stderr) |
+| **Optional planes** | Workflow, Observability | install both; skip one only if the user opted out (control + data planes always install) |
+| **Default platform resources** | yes / no | yes; skip only if the user opted out (without these no apps can deploy) |
 
-The guide's "Try it out" sections are opt-in follow-ups, not part of the install. Offer them after; run only if asked.
+"Try it: ..." subsections in the guide are opt-in. Walk past them during install; offer them after.
 
 ## Step 2 — Fetch the install guide
 
@@ -22,56 +22,46 @@ Run from the skill root:
 
 ```bash
 ./scripts/fetch-page.sh --title "On Your Environment"
-./scripts/fetch-page.sh --title "On Your Environment" --version v1.0.x   # pin a specific minor
-./scripts/fetch-page.sh --title "On Your Environment" --version next     # bleeding edge (docs/next/)
+./scripts/fetch-page.sh --title "On Your Environment" --version v1.0.x   # pin a minor
+./scripts/fetch-page.sh --title "On Your Environment" --version next     # bleeding edge
 ```
 
-If the script exits non-zero, it has printed the version's `llms.txt` to stdout; pick the right URL from the index and fetch it with `curl` or your harness's web-fetch tool.
+If the script exits non-zero, it has printed the version's `llms.txt`; pick the right URL and fetch it directly.
 
 ## Step 3 — Walk the guide
 
-The guide is the source of truth. Walk it top-to-bottom. Execution rules:
+Top-to-bottom. Rules:
 
-- **Skip optional plane sections the user did not select** (`Setup Workflow Plane (Optional)` / `Setup Observability Plane (Optional)` headings).
-- **If the user opted out of default resources**, skip the "Install Default Resources" step and warn them that no application deploys are possible until they create their own.
-- **Apply the applicable cluster-fingerprint workarounds (below)** as their relevant guide step comes up.
-- **On failure, use judgment.** You have the cluster — `kubectl describe`, `kubectl logs`, `kubectl get events`, condition checks. If the cause is clear and the fix is in scope, fix it and continue. If you're not confident, surface what you found and let the user decide. Don't silently substitute a "should be equivalent" command, and don't strip `kubectl wait` calls. Keep a running note of anything you fixed or deviated from for the report.
-
-### Rancher Desktop gotcha — applies BEFORE walking
-
-If the cluster is Rancher Desktop, two settings have to change before the install begins, or the workflow plane will fail and traefik will fight kgateway:
-
-- **Container runtime:** set to `containerd`. The default Docker/moby runtime trips `crun pids cgroup not available` on the workflow plane's build step.
-- **Disable traefik.** It competes with kgateway for the 80/443 listeners.
-
-Both live in Rancher Desktop → Preferences → Kubernetes. If `rdctl` is on PATH, the agent can change them headlessly — run `rdctl set --help` to find the exact flag names (they shift between versions), set the container engine to containerd and disable traefik, then restart Kubernetes (takes a few minutes). Tell the user what you're about to change first. If `rdctl` isn't available, walk the user through the GUI and wait for them to confirm before continuing.
-
-### Cluster-fingerprint workarounds
-
-Apply inline as the relevant guide step comes up. If the guide's `:::note` / `:::tip` / `<details>` says something different, follow the guide.
-
-- **EKS — patch each gateway LB to `internet-facing`.** EKS defaults to internal LBs. Three patch points under `<details>` blocks labelled "EKS only: make the LoadBalancer internet-facing" (control-plane, data-plane, observability-plane gateway namespaces). `kubectl patch svc gateway-default -n <ns> -p` setting `service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing`.
-- **Single-IP LoadBalancer — split ports across planes.** If the LB provider gives the same IP to multiple services (self-managed Kubernetes, MetalLB single-pool, bare-metal), gateways collide on 80/443. Pass `--set gateway.httpPort=<X>` `--set gateway.httpsPort=<Y>` per plane — the guide suggests DP `8080/8443`, OBS `9080/9443`. The `ClusterDataPlane` registration's `gateway.ingress.external.http.port` / `https.port` must match; read them back from `kubectl get gateway gateway-default -n openchoreo-data-plane -o jsonpath=...`.
-- **Raw k3s on Docker runtime (not Rancher Desktop) — `crun pids cgroup` failure.** The `generate-workload-cr` build step fails; image build/push succeed. If switching the runtime isn't an option, apply the guide's `<details>` block "Workaround: manually create the Workload CR".
-- **LoadBalancer returns hostname, not IP.** Common on EKS classic ELB. The guide's bash already falls back to `dig +short`. If `dig` isn't on the host, use `nslookup`, or have the user supply a real DNS domain via `CP_BASE_DOMAIN` / `DP_DOMAIN` / `OBS_BASE_DOMAIN` exports.
-- **`nip.io` as default DNS.** Bases like `openchoreo.<ip-dashed>.nip.io` get free wildcard DNS; cert SANs reference these. If the user has their own DNS, substitute it in the same exports.
+- **Skip plane sections the user opted out of** (the workflow plane is sometimes called "Build Plane").
+- **Check the platform-specific tweaks below** before starting and as relevant steps come up.
+- **On failure, use judgment.** You have the cluster — `kubectl describe / logs / get events`, condition checks. If the cause is clear and the fix is in scope, fix it and continue; otherwise surface and ask. Don't silently substitute "equivalent" commands and don't strip `kubectl wait` calls. Keep a running note of any fix or deviation for the report.
 
 ## Step 4 — Report
 
-When the install finishes (or stops short), summarise what happened. Drop lines for categories that don't apply.
+Summarise what happened. Drop categories that don't apply.
 
-- **Outcome** — success, partial (which step did you stop at?), or failed.
+- **Outcome** — success / partial (where did you stop?) / failed.
 - **Version installed** and which planes are up and registered.
-- **Choices applied** — optional planes selected, whether default platform resources were installed.
-- **Workarounds applied during install** — Rancher Desktop runtime / traefik change, EKS LB patch, single-IP port split, k3s cgroup fallback, etc. Note why each was needed.
-- **Deviations from the guide** — commands you didn't run as written, extra steps you added during diagnose-and-fix, sections skipped beyond the user's opt-outs.
-- **Console URL and login**, copied from the guide's "Log in" step. The user must accept self-signed certs separately for `console`, `api`, `thunder`, and (if installed) the observer subdomain.
-- **Follow-ups the user owns** — the production swap-outs below, opt-in "Try it out" sections in the resolved guide, any day-2 platform work.
+- **Choices applied** — opted-out planes, whether default platform resources were installed.
+- **Workarounds applied** — anything that wasn't a straight read of the guide, and why.
+- **Deviations from the guide** — commands not run as written, extra steps added during diagnose-and-fix.
+- **Console URL and login**, copied from the guide. The user must accept self-signed certs separately for each subdomain (`console`, `api`, `thunder`, and the observer if installed).
+- **Production swap-outs** the user owns later: the self-signed TLS issuer, OpenBao running in dev mode, and (if the workflow plane was installed) the ephemeral `ttl.sh` registry. Each is a one-knob change documented elsewhere.
+- **Follow-ups** — opt-in "Try it" sections, any day-2 platform work.
 
-### Production swap-outs (surface in the report)
+## Platform-specific tweaks
 
-The install defaults to dev-grade. Defaults work for evaluation; surface these for the user to handle later. If the guide explicitly tells the user to do something different in their environment, follow the guide.
+Things the guide doesn't (fully) cover. Apply only on the matching platform.
 
-- **TLS issuer — self-signed `openchoreo-ca` (default).** Every `Certificate` references this `ClusterIssuer`, so swapping to a real CA (typically Let's Encrypt via ACME) is one change. Until then, browsers need to accept self-signed certs separately for each subdomain.
-- **OpenBao mode — dev (default).** Installed with `server.dev.enabled=true` (in-memory, single replica). Data lost on pod restart. Production deployments need their own values with storage + unsealing — the OpenBao Helm chart docs cover the shape.
-- **Container registry — `ttl.sh` (default, workflow plane only).** Images expire after 24h. Swap to ECR / GAR / ACR / GHCR by editing the `publish-image` `ClusterWorkflowTemplate`. Only matters if the workflow plane was installed.
+### Rancher Desktop — change two settings BEFORE Step 1
+
+Otherwise the workflow plane will fail and traefik will fight kgateway:
+
+- **Container runtime → containerd.** Default Docker/moby runtime trips `crun pids cgroup not available` on the build step.
+- **Disable traefik.** Competes with kgateway for 80/443.
+
+Both are in Rancher Desktop → Preferences → Kubernetes. If `rdctl` is on PATH, change them headlessly (run `rdctl set --help` for current flag names — they shift between versions), then restart Kubernetes. Tell the user what you're changing first. Without `rdctl`, walk them through the GUI and wait for confirmation.
+
+### EKS — patch the observability-plane gateway
+
+If the obs plane is installed, also patch its gateway to `internet-facing`. The guide has the patch under `<details>` for the control-plane and data-plane gateways but not for the observability-plane gateway, so the obs LB stays internal otherwise.
