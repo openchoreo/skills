@@ -92,7 +92,7 @@ Full mechanics in [`authoring.md`](./authoring.md) *Cluster ↔ namespace scope*
 
 ## Vanilla CI workflows aren't GitOps-compatible
 
-Critical gotcha. `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` write the `Workload` CR directly to the cluster API server — Flux would revert it on the next reconcile. Use the GitOps versions from `openchoreo/sample-gitops` (`docker-gitops-release` / `google-cloud-buildpacks-gitops-release` / `react-gitops-release` / `bulk-gitops-release`) instead. Details in [`authoring.md`](./authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
+Critical gotcha. `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` write the `Workload` CR directly to the cluster API server — Flux would revert it on the next reconcile. Use the GitOps equivalents (`docker-gitops-release` / `google-cloud-buildpacks-gitops-release` / `react-gitops-release` / `bulk-gitops-release`) — `./scripts/extract-resources.sh gitops-workflows --list` discovers them via the ecosystem catalog. Details in [`authoring.md`](./authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
 ## Immutability and update semantics
 

@@ -16,8 +16,8 @@ Add a composable capability developers attach to a Component via `spec.traits[]`
 ### 1. Source the shape
 
 - **Full schema** — `./scripts/fetch-page.sh --exact --title "ClusterTrait"` (or `"Trait"`).
-- **Vanilla default** — `observability-alert-rule` (URL in [`../authoring.md`](../authoring.md)).
-- **Extra shape** — `persistent-volume` / `api-management` from `sample-gitops` (URLs in `../authoring.md`).
+- **Default for inspiration** — `./scripts/extract-resources.sh defaults --kind ClusterTrait --name observability-alert-rule`.
+- **What's installed on the live cluster** — `occ clustertrait get <name>` / `occ trait get <name> -n <ns>`.
 
 Apply the cluster↔namespace swap (in `../authoring.md`) if the source scope doesn't match.
 

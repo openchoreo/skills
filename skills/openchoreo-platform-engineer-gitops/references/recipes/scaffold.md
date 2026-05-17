@@ -181,21 +181,13 @@ If `yq` isn't available, do the strip manually. Result must not contain `status:
 
 ### Replace-with-defaults path
 
-Fetch each resource from upstream via WebFetch, then place it under the canonical repo path.
+Defer to [`install-defaults.md`](./install-defaults.md) for the end-to-end procedure. It uses `./scripts/extract-resources.sh` to pull from `samples/getting-started/all.yaml` and the GitOps workflow catalog, then writes files under the canonical repo paths.
 
-For the **vanilla defaults** (Project / Environments / Pipeline / 4 CCTs / 1 ClusterTrait), fetch from `https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/<path>` per the inventory in [`../authoring.md`](../authoring.md) *Vanilla defaults*.
+The three transforms `install-defaults.md` applies on top of raw extraction:
 
-For the **GitOps Workflow CRs + Argo ClusterWorkflowTemplates**, fetch from `https://raw.githubusercontent.com/openchoreo/sample-gitops/main/<path>` per [`../authoring.md`](../authoring.md) *GitOps resources*.
-
-For the **extra shapes** (`database`, `message-broker`, `persistent-volume`, `api-management`) if the user asks for them, fetch from the same `sample-gitops` URLs per [`../authoring.md`](../authoring.md) *Extra shapes*.
-
-**Three required transforms** when materializing each file:
-
-1. **Scope swap.** If §3 chose cluster-scoped workflows / CCTs / Traits but the source is namespace-scoped (or vice versa), apply the conversion in [`../authoring.md`](../authoring.md) *Cluster ↔ namespace scope*. Update the referrer `allowedWorkflows[].kind` / `allowedTraits[].kind` on every ComponentType you scaffold.
-2. **`allowedWorkflows[]` rewrite.** The vanilla `ClusterComponentType` files list the vanilla CI workflows (`dockerfile-builder` etc.). Swap them for the GitOps Workflow names (`docker-gitops-release` etc.) with the chosen `kind:`.
+1. **Scope swap.** If §3 chose cluster-scoped (default) but the source is namespace-scoped (the GitOps Workflow CRs), apply the conversion in [`../authoring.md`](../authoring.md) *Cluster ↔ namespace scope*. Update each ComponentType's `allowedWorkflows[].kind` / `allowedTraits[].kind` accordingly.
+2. **`allowedWorkflows[]` rewrite.** The vanilla `ClusterComponentType` files list the vanilla CI workflows. Swap them for the GitOps Workflow names per the table in `install-defaults.md` §6.
 3. **Hard-coded values in the GitOps Workflow `runTemplate`.** Edit `gitops-repo-url` (the remote URL of *this* scaffolded repo), `gitops-branch` (the branch from §3), `registry-url` (k3d-local default if §1 detected k3d, otherwise ask the user), and `image-name` / `image-tag` (usually leave the defaults).
-
-For the install procedure end-to-end, defer to [`install-defaults.md`](./install-defaults.md).
 
 ### Skip — delete path
 
