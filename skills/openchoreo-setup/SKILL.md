@@ -7,10 +7,14 @@ metadata:
 
 # OpenChoreo Setup
 
-Bootstraps OpenChoreo onto Kubernetes. Three paths, each with its own self-contained playbook:
+Bootstraps OpenChoreo onto Kubernetes. Two targets, each with a single-cluster and a multi-cluster path:
 
-- **Local k3d** → follow [`./references/on-k3d-locally.md`](./references/on-k3d-locally.md)
-- **Single existing Kubernetes cluster** (k3s, GKE, EKS, AKS, DOKS, Rancher Desktop, or self-managed) → follow [`./references/on-your-environment.md`](./references/on-your-environment.md)
-- **Multiple clusters** (full multi-cluster, hybrid, or multi-region) → follow [`./references/multi-cluster.md`](./references/multi-cluster.md)
+**Locally on k3d** (development / contributor workflow)
+- Single cluster → [`./references/on-k3d-locally.md`](./references/on-k3d-locally.md)
+- Multi-cluster (one cluster per plane) → [`./references/on-k3d-multi-cluster.md`](./references/on-k3d-multi-cluster.md)
 
-Ask the user which target if they haven't said. Then load the matching reference and follow it end to end — it owns the choice-capture, version resolution, fetch, walk, and report flow for that target.
+**On your Kubernetes environment** (k3s, GKE, EKS, AKS, DOKS, Rancher Desktop, or self-managed)
+- Single cluster → [`./references/on-your-environment.md`](./references/on-your-environment.md)
+- Multi-cluster (full multi-cluster, hybrid, or multi-region) → [`./references/multi-cluster.md`](./references/multi-cluster.md)
+
+Ask the user which target and topology if they haven't said. Then load the matching reference and follow it end to end — it owns the choice-capture, version resolution, fetch, walk, and report flow for that path.

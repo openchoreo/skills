@@ -38,6 +38,20 @@ Top-to-bottom. Rules:
 - **Check the platform-specific tweaks below** before starting and as relevant steps come up.
 - **On failure, use judgment.** You have the cluster — `kubectl describe / logs / get events`, condition checks. If the cause is clear and the fix is in scope, fix it and continue; otherwise surface and ask. Don't silently substitute "equivalent" commands and don't strip `kubectl wait` calls. Keep a running note of any fix or deviation for the report.
 
+## Step 3.5 — Verify before reporting
+
+- [ ] All OpenChoreo deployments Available: `kubectl get deploy -A | awk 'NR>1 && $4!=$5'` should return zero rows for `openchoreo-*` / `thunder` / `openbao` namespaces.
+- [ ] API health: `curl -sfk https://api.${CP_BASE_DOMAIN}/health`.
+- [ ] Thunder readiness: `curl -sfk https://thunder.${CP_BASE_DOMAIN}/health/readiness`.
+- [ ] Console returns 200: `curl -sIk https://console.${CP_BASE_DOMAIN}/ | head -1`.
+- [ ] CORS preflight from console → API: `curl -sIk -X OPTIONS https://api.${CP_BASE_DOMAIN}/ -H "Origin: https://console.${CP_BASE_DOMAIN}" -H "Access-Control-Request-Method: GET" | grep -i "access-control-allow-origin"` returns the console origin (not `*`, not empty).
+- [ ] If OP installed: Observer health: `curl -sfk https://observer.${OBS_BASE_DOMAIN}${OBS_PORT_SUFFIX}/health`.
+- [ ] If OP installed: the logs module's collection DaemonSet (e.g. fluent-bit) is Ready in `openchoreo-observability-plane` (labels per the module's chart).
+- [ ] If WP installed: `kubectl get clusterworkflowtemplates` shows the checkout / build / publish / generate-workload templates.
+- [ ] Cluster-gateway certificate has the expected SANs: `kubectl get certificate cluster-gateway-tls -n openchoreo-control-plane -o jsonpath='{.spec.dnsNames}'` includes the public hostname (only relevant if the user plans to add remote planes later).
+
+Anything red → surface in the report's "Deviations" or "Outcome: partial".
+
 ## Step 4 — Report
 
 Summarise what happened. Drop categories that don't apply.
