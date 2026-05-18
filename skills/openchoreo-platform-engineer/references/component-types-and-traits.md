@@ -4,7 +4,7 @@ This file is the authoring reference for **ComponentTypes**, **ClusterComponentT
 
 For the CEL expressions used throughout, see [`cel.md`](./cel.md). For Workflow authoring (build templates), see [`workflows.md`](./workflows.md). The full MCP tool list is discovered at runtime via the control-plane MCP server.
 
-**Tool surface for these resources:** MCP-first. `create_component_type` / `create_cluster_component_type` / `create_trait` / `create_cluster_trait` (and their `update_*` / `delete_*` counterparts) all exist. They take a full `spec` body — discover the spec shape via `get_component_type_creation_schema` / `get_trait_creation_schema`. `update_*` is **full-spec replacement**: read the current spec via `get_*` first, modify locally, send the whole spec back. For one-line CEL or template tweaks, `kubectl apply -f` against an edited YAML is often easier; both paths are equivalent.
+**Tool surface for these resources:** MCP-first, and **scope-collapsed** — `create_component_type` / `create_trait` (and their `get_*` / `update_*` / `delete_*` / `list_*` counterparts) each take a `scope` arg: `"namespace"` (default; the namespaced `ComponentType` / `Trait` in `namespace_name`) or `"cluster"` (the platform-wide `ClusterComponentType` / `ClusterTrait`). So `create_component_type` with `scope: "cluster"` is what authors a `ClusterComponentType`. They take a full `spec` body — discover the spec shape via `get_component_type_creation_schema` / `get_trait_creation_schema` (also `scope`-aware). `update_*` is **full-spec replacement**: read the current spec via `get_*` first, modify locally, send the whole spec back. The old `*_cluster_*` tool names still work as deprecated aliases (removed in v1.3) but use the canonical name + `scope`. For one-line CEL or template tweaks, `kubectl apply -f` against an edited YAML is often easier; both paths are equivalent.
 
 Contents:
 
@@ -1017,31 +1017,33 @@ metadata:
 
 ### MCP-first flow
 
+All ComponentType / Trait tools take `scope` — `"cluster"` for the `Cluster*` variant, shown below.
+
 ```text
 # Discover the creation schema, then create the type
-get_cluster_component_type_creation_schema       → schema for the spec body
-create_cluster_component_type                    → name + spec (display_name / description optional)
+get_component_type_creation_schema   scope: cluster   → schema for the spec body
+create_component_type                scope: cluster   → name + spec (display_name / description optional)
 
 # Confirm it's discoverable
-list_cluster_component_types                     → see the new type appear
-get_cluster_component_type <name>                → full resource (templates, allowed workflows, validation rules)
+list_component_types                 scope: cluster   → see the new type appear
+get_component_type                   scope: cluster, name: <name>   → full resource (templates, allowed workflows, validation rules)
 
 # For traits, same shape
-get_trait_creation_schema
-create_cluster_trait                              → name + spec
-get_cluster_trait <name>
+get_trait_creation_schema            scope: cluster
+create_trait                         scope: cluster   → name + spec
+get_trait                            scope: cluster, name: <name>
 
 # Test by creating a Component that uses it (paired with the developer skill, or direct via MCP)
-create_component                                  → with this componentType
-get_component <name>                              → check status.conditions for validation failures
+create_component                                      → with this componentType
+get_component <name>                                  → check status.conditions for validation failures
 ```
 
 For an existing type, the update path is:
 
 ```text
-get_cluster_component_type <name>      → fetch the current full spec
+get_component_type     scope: cluster, name: <name>   → fetch the current full spec
 # modify locally
-update_cluster_component_type          → name + the entire modified spec (full-replacement; missing fields are deleted)
+update_component_type  scope: cluster                 → name + the entire modified spec (full-replacement; missing fields are deleted)
 ```
 
 ### `kubectl apply -f` fallback
@@ -1056,7 +1058,7 @@ kubectl apply -f test-component.yaml
 kubectl get component test-component -o yaml
 ```
 
-For comparable inspection without leaving MCP, the equivalents are `list_cluster_component_types`, `get_cluster_component_type <name>`, `get_component <name>`. Both paths produce the same end state.
+For comparable inspection without leaving MCP, the equivalents are `list_component_types` / `get_component_type` (with `scope: "cluster"`) and `get_component <name>`. Both paths produce the same end state.
 
 If a validation fails, `status.conditions` carries the rule index and message in the form documented in §5.
 

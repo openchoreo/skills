@@ -27,9 +27,10 @@ Same CRD shape; what differs is the parameter schema and what `runTemplate` does
 ### 1. Source the shape
 
 - **Full schema** — `./scripts/fetch-page.sh --exact --title "ClusterWorkflow"` (or `"Workflow"`).
-- **GitOps reference** — the four GitOps workflows in `sample-gitops` are the canonical examples. URLs in [`../authoring.md`](../authoring.md). Their paired Argo `ClusterWorkflowTemplate`s sit under `platform-shared/cluster-workflow-templates/argo/<name>-template.yaml` in `sample-gitops`.
+- **GitOps reference** — `./scripts/extract-resources.sh gitops-workflows --list` to see what's available, then `--name <slug>` to extract a Workflow CR + its paired Argo `ClusterWorkflowTemplate` together.
+- **What's installed on the live cluster** — `occ clusterworkflow get <name>` / `occ workflow get <name> -n <ns>`.
 
-Don't copy from `samples/getting-started/ci-workflows/` — those are the vanilla CI workflows and aren't GitOps-compatible.
+Don't copy from the vanilla CI workflows in `samples/getting-started/all.yaml` (`dockerfile-builder` etc.) — the `extract-resources.sh defaults` mode refuses them for this reason; they aren't GitOps-compatible.
 
 ### 2. Compose
 
@@ -99,13 +100,13 @@ spec:
           data: [{ secretKey: git-token, remoteRef: { key: gitops-token, property: git-token } }]
 ```
 
-Component-bound build-workflow shape adds: `componentName` / `projectName` as required parameters, a `workloadDescriptorPath` parameter, and hard-coded `gitops-repo-url` / `registry-url` / `image-name` / `image-tag` in `runTemplate.spec.arguments.parameters` (PE-controlled). See `sample-gitops/namespaces/default/platform/workflows/docker-with-gitops-release.yaml` for the canonical example.
+Component-bound build-workflow shape adds: `componentName` / `projectName` as required parameters, a `workloadDescriptorPath` parameter, and hard-coded `gitops-repo-url` / `registry-url` / `image-name` / `image-tag` in `runTemplate.spec.arguments.parameters` (PE-controlled). For the canonical example, run `./scripts/extract-resources.sh gitops-workflows --name docker-gitops-release`.
 
 ### 3. Argo `ClusterWorkflowTemplate`
 
 If `runTemplate.spec.workflowTemplateRef` references one, the template must exist on the workflow plane. Options:
 
-- Pull from `sample-gitops/platform-shared/cluster-workflow-templates/argo/` and commit under `platform-shared/cluster-workflow-templates/argo/<name>.yaml`. Flux applies via the `platform-shared` Kustomization.
+- Extract via `./scripts/extract-resources.sh gitops-workflows --name <slug>` (emits the Workflow + paired template; second doc is the template) and commit under `platform-shared/cluster-workflow-templates/argo/<name>.yaml`. Flux applies via the `platform-shared` Kustomization.
 - Inline the steps in `runTemplate.spec.templates[]` — fine for small workflows; doesn't compose across Workflow CRs.
 
 ### 4. Allow-list the workflow

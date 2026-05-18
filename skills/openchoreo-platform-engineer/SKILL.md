@@ -55,6 +55,8 @@ Two surfaces: **MCP** (`openchoreo-cp` server) for OpenChoreo CRDs, and **`kubec
 
 > **Tool naming.** Throughout this skill, MCP tools are referenced by their bare name (e.g. `create_environment`). The actual callable name carries an agent-specific prefix wrapping the server name — Claude Code uses `mcp__openchoreo-cp__<tool>`. Other coding agents use different prefixes. Apply whatever your agent expects.
 
+> **Scope-collapsed tools.** ComponentType / Trait / Workflow, the three plane families, and the Authz role / binding families are each a single tool that takes a `scope` arg — `"namespace"` (default; requires `namespace_name`) or `"cluster"` for the platform-wide `Cluster*` resource. This skill uses the canonical name + `scope`; e.g. `create_component_type` with `scope: "cluster"` authors a `ClusterComponentType`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — prefer the canonical form.
+
 ## Working style
 
 The full per-task discovery flow is in `concepts.md` (loaded at *Step 1*). Durable principles to keep in mind:
@@ -70,7 +72,7 @@ The full per-task discovery flow is in `concepts.md` (loaded at *Step 1*). Durab
 
 - **`update_environment` is partial, but `data_plane_ref` is immutable.** Re-pointing an environment to a different plane requires delete + recreate (and re-binding any existing ReleaseBindings).
 - **Helm upgrade order matters.** Control plane first, never move a remote plane ahead of it.
-- **Scope matters.** Cluster-scoped and namespace-scoped resources are not interchangeable. `ClusterComponentType` may only reference `ClusterTrait` and `ClusterWorkflow`, not their namespace-scoped counterparts.
+- **Scope matters.** Cluster-scoped and namespace-scoped resources are not interchangeable. `ClusterComponentType` may only reference `ClusterTrait` and `ClusterWorkflow`, not their namespace-scoped counterparts. On the scope-collapsed MCP tools this is the `scope` arg — `scope: "cluster"` operates on the `Cluster*` resource, `scope: "namespace"` (default) on the namespaced one.
 - **`status.conditions`, live resource YAML, and current controller logs are better truth sources than memory.** When a task needs exact controller behavior or CRD fields, inspect the repo or current docs instead of guessing.
 - **Prefer reversible, inspectable changes** over broad edits across many planes or namespaces.
 

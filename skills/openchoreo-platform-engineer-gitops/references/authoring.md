@@ -9,80 +9,66 @@ Pick by what you're authoring; don't mix them up.
 | Need | Source |
 | --- | --- |
 | Authoring any CRD from scratch — full schema with optional fields | **`./scripts/fetch-page.sh --exact --title "<Kind>"`** (see *Fetching CRD shapes* below). Primary source. |
-| Vanilla defaults: `Project`, `Environment`, `DeploymentPipeline`, the four shipped `ClusterComponentType`s, the shipped `ClusterTrait` | `openchoreo/openchoreo` → `samples/getting-started/` (see *Vanilla defaults* below) |
-| GitOps Workflow CRs + their Argo `ClusterWorkflowTemplate`s | `openchoreo/sample-gitops` (see *GitOps resources* below) |
-| Extra ComponentTypes (`database`, `message-broker`) + extra Traits (`persistent-volume`, `api-management`) | `openchoreo/sample-gitops` (see *Extra shapes* below) |
+| Default `Project` / `Environment`s / `DeploymentPipeline` / `ClusterComponentType`s / `ClusterTrait`, and the vanilla CI `ClusterWorkflow`s | **`./scripts/extract-resources.sh defaults --list`** (see *Resource extraction* below) |
+| GitOps build-and-release Workflows + paired Argo `ClusterWorkflowTemplate`s | **`./scripts/extract-resources.sh gitops-workflows --list`** (see *Resource extraction* below) |
+| Discover what extensions exist on the platform (community modules, integrations, ComponentTypes, Workflows, Skills, Agents) | The per-type ecosystem catalogs linked from <https://openchoreo.dev/llms.txt> *## Ecosystem* — see *Discovering extensions* below |
 
 Upstream Git files are fetched at the version pinned to the cluster (see *Pin upstream fetches* below). The docs are fetched via `fetch-page.sh`, which handles version resolution internally.
 
 ### Pin upstream fetches to the cluster's version
 
-`samples/getting-started/` and `sample-gitops` files change between minors. Always fetch from the tag matching the running cluster, not `main`:
+`samples/getting-started/all.yaml` ships in `openchoreo/openchoreo`, which is tagged per minor. Set `OCC_TAG` before running `extract-resources.sh`:
 
 ```bash
 OCC_TAG=$(occ version --short 2>/dev/null | awk '/Client Version/ {print $3}')
-# e.g. v1.0.1 — use verbatim in raw URLs:
-#   https://raw.githubusercontent.com/openchoreo/openchoreo/$OCC_TAG/samples/getting-started/<path>
-#   https://raw.githubusercontent.com/openchoreo/sample-gitops/$OCC_TAG/<path>
+# e.g. v1.0.1 — exported into the env, consumed by the script:
+export OCC_TAG
+./scripts/extract-resources.sh defaults --list
 ```
 
-If `sample-gitops` doesn't carry that exact tag, fall back to the closest tag *<=* the cluster's tag. Never use `main` — it may carry CEL helpers or schema fields the cluster's controllers don't recognise yet.
+The GitOps workflow files live in `openchoreo/sample-gitops`, which is **not yet tagged** — `GITOPS_TAG` defaults to `main`. When sample-gitops starts tagging releases, export `GITOPS_TAG` to match.
+
+Never leave the defaults pointing at `main` for production work — that branch may carry CEL helpers or schema fields the cluster's controllers don't recognise yet.
 
 For docs (`openchoreo.dev`), use the rendered site as-is. The `.md` endpoints already have version substitutions baked in.
 
-## Vanilla defaults — `samples/getting-started/`
+## Resource extraction — `scripts/extract-resources.sh`
 
-Source: <https://github.com/openchoreo/openchoreo/tree/main/samples/getting-started>
+The script is a pure extractor: it fetches + prints raw YAML to stdout, never writes files, never transforms. The agent does scope swap, `allowedWorkflows[]` rewrite, runTemplate edits, and PR open.
 
-Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/openchoreo/$OCC_TAG/samples/getting-started/<path>` — `$OCC_TAG` per *Pin upstream fetches* above, never `main`:
+```bash
+./scripts/extract-resources.sh defaults --list
+./scripts/extract-resources.sh defaults --kind <Kind> [--name <name>] [--include-vanilla-ci]
+./scripts/extract-resources.sh gitops-workflows --list
+./scripts/extract-resources.sh gitops-workflows --name <slug>
+./scripts/extract-resources.sh --help
+```
 
-| Resource | Path |
+**`defaults` mode** splits `samples/getting-started/all.yaml` on `---` and filters by kind + name. Multi-doc output when a kind has multiple resources; docs are separated by `---`. The four vanilla CI `ClusterWorkflow`s are flagged inline in `--list` output and the script refuses to extract them without `--include-vanilla-ci` — they're not GitOps-compatible (see *Vanilla CI workflows aren't GitOps-compatible* below).
+
+**`gitops-workflows` mode** fetches `openchoreo.dev/ecosystem/workflows.md`, greps for `gitops`, and resolves each entry's source URL to a raw URL pinned to `GITOPS_TAG`. `--name <slug>` emits the `Workflow` YAML followed by `---` followed by its paired `ClusterWorkflowTemplate`. The slug matches the resource name (the value used in `allowedWorkflows[].name`), not the catalog's display name.
+
+End-to-end install procedure: [`recipes/install-defaults.md`](./recipes/install-defaults.md).
+
+## Discovering extensions
+
+The platform has more than just defaults. Per-type catalogs live under the `## Ecosystem` section of <https://openchoreo.dev/llms.txt>:
+
+- <https://openchoreo.dev/ecosystem/component-types.md>
+- <https://openchoreo.dev/ecosystem/workflows.md>
+- <https://openchoreo.dev/ecosystem/modules.md>
+- <https://openchoreo.dev/ecosystem/integrations.md>
+
+Each entry is `- **Name** *(default?)* — description — source URL`. Source URL identifies the install path:
+
+| URL pattern | Means |
 | --- | --- |
-| Combined manifest | `all.yaml` |
-| Default Project | `project.yaml` |
-| 3 Environments (dev / staging / production) | `environments.yaml` |
-| Default DeploymentPipeline | `deployment-pipeline.yaml` |
-| 4 ClusterComponentTypes | `component-types/{service,webapp,worker,scheduled-task}.yaml` |
-| ClusterTrait | `component-traits/alert-rule-trait.yaml` |
-| Vanilla CI workflows (do NOT use for GitOps — see *CI gotcha*) | `ci-workflows/{dockerfile,paketo-buildpacks,gcp-buildpacks,ballerina-buildpack}-builder.yaml` |
-| Vanilla Argo `ClusterWorkflowTemplate`s for the CI workflows | `workflow-templates/*.yaml` |
+| `openchoreo/openchoreo/.../samples/getting-started/component-types/` | Default ComponentType — use `extract-resources.sh defaults` |
+| `openchoreo/openchoreo/.../samples/getting-started/ci-workflows/` | Vanilla CI workflow — **don't install in GitOps mode** |
+| `openchoreo/sample-gitops/.../workflows/` | GitOps-mode workflow — use `extract-resources.sh gitops-workflows` |
+| `openchoreo/community-modules/` | Helm-installed extension — different install path (out of scope for this recipe pass) |
 
-These ship cluster-scoped (`ClusterComponentType` / `ClusterTrait` / `ClusterWorkflow`). To use namespace-scoped, see *Cluster ↔ namespace scope* below.
-
-## GitOps resources — `sample-gitops`
-
-Source: <https://github.com/openchoreo/sample-gitops>
-
-Raw file URLs follow `https://raw.githubusercontent.com/openchoreo/sample-gitops/$OCC_TAG/<path>` — `$OCC_TAG` per *Pin upstream fetches* above, never `main`:
-
-| Resource | Path |
-| --- | --- |
-| GitOps Workflow CRs (4) — build + GitOps PR | `namespaces/default/platform/workflows/{docker-with-gitops-release,google-cloud-buildpacks-gitops-release,react-gitops-release,bulk-gitops-release}.yaml` |
-| Argo `ClusterWorkflowTemplate`s for the above | `platform-shared/cluster-workflow-templates/argo/{docker-with-gitops-release,google-cloud-buildpacks-gitops-release,react-gitops-release,bulk-gitops-release}-template.yaml` |
-| Flux entrypoint reference | `flux/{gitrepository,namespaces-kustomization,platform-shared-kustomization,oc-demo-platform-kustomization,oc-demo-projects-kustomization}.yaml` |
-
-> The GitOps Workflow CRs in `sample-gitops` are **namespace-scoped** (`kind: Workflow`, `metadata.namespace: default`). The skill defaults to **cluster-scoped** (`kind: ClusterWorkflow`, drop `metadata.namespace`) unless the user asks otherwise — convert per *Cluster ↔ namespace scope* below.
-
-> The GitOps `runTemplate`s contain hard-coded values inside `runTemplate.spec.arguments.parameters` that must be edited per cluster:
->
-> - `gitops-repo-url` — the remote URL of *this* scaffolded GitOps repo
-> - `gitops-branch` — the repo's main branch
-> - `registry-url` — container registry the workflow plane can push to
-> - `image-name`, `image-tag` — naming convention; usually leave
-
-## Extra shapes — `sample-gitops`
-
-Additional ComponentTypes and Traits not in the vanilla defaults but commonly needed.
-
-| Kind | Path | Notes |
-| --- | --- | --- |
-| `ComponentType/database` | `namespaces/default/platform/component-types/database.yaml` | Stateful DB shape; pairs with `persistent-volume` Trait |
-| `ComponentType/message-broker` | `namespaces/default/platform/component-types/message-broker.yaml` | Broker shape (NATS, Kafka, etc.) |
-| `Trait/persistent-volume` | `namespaces/default/platform/traits/persistent-volume.yaml` | PVC + Deployment patches for volume mount |
-| `Trait/api-management` | `namespaces/default/platform/traits/api-management.yaml` | API gateway shaping (rate limits, auth) |
-| `Trait/observability-alert-rule` | `namespaces/default/platform/traits/observability-alert-rule.yaml` | Same as the vanilla default but namespace-scoped |
-
-These are namespace-scoped in `sample-gitops`. Use the cluster↔namespace scope swap to flip if needed.
+Surface community options to the user when their request can't be satisfied by the defaults — e.g. AWS RDS PostgreSQL self-service, WSO2 Micro Integrator ComponentType.
 
 ## Fetching CRD shapes — `scripts/fetch-page.sh`
 
@@ -90,16 +76,17 @@ Use the bundled helper. It resolves the title against `llms.txt`, picks the righ
 
 ```bash
 ./scripts/fetch-page.sh --exact --title "ClusterComponentType"                    # CRD reference
+./scripts/fetch-page.sh --exact --section "API Reference" --title "ComponentType"  # scope to CRD refs only
 ./scripts/fetch-page.sh --exact --title "ClusterComponentType" --version v1.0.x   # pin version
 ./scripts/fetch-page.sh --list                                                     # dump full llms.txt index
 ./scripts/list-versions.sh                                                         # supported minors
 ```
 
-For **CRD reference pages**, pass the schema `kind` verbatim (`Component`, `ClusterComponentType`, `Trait`, `Workflow`, `Environment`, `DeploymentPipeline`, `SecretReference`, `AuthzRole`, `AuthzRoleBinding`, `ObservabilityAlertRule`, `ObservabilityAlertsNotificationChannel`, the plane kinds, …). These titles track schema kinds and stay stable.
+For **CRD reference pages**, pass the schema `kind` verbatim (`Component`, `ClusterComponentType`, `Trait`, `Workflow`, `Environment`, `DeploymentPipeline`, `SecretReference`, `AuthzRole`, `AuthzRoleBinding`, `ObservabilityAlertRule`, `ObservabilityAlertsNotificationChannel`, the plane kinds, …). These titles track schema kinds and stay stable. Add `--section "API Reference"` to restrict matching to the CRD-reference subtree — needed when a kind name also appears in guide-page titles.
 
 For **conceptual / guide pages**, the title isn't the kind — run `--list` first to find the matching entry, then re-invoke with the exact title.
 
-On a miss (no match / multiple matches / fetch failure), the script dumps the full `llms.txt` to stdout so you can pick by hand.
+On a miss (no match / multiple matches / fetch failure), the script dumps the index — scoped to `--section` if given — to stdout so you can pick by hand.
 
 > `ComponentRelease` and `RenderedRelease` are controller-managed — **never hand-author**.
 

@@ -12,8 +12,8 @@ Stand up a fresh control-plane namespace with the standard set of platform resou
 ## Prerequisites
 
 1. The control-plane MCP server is configured (`list_namespaces` returns).
-2. **At least one `DataPlane` (or `ClusterDataPlane`) registered.** Environments need a plane to point at. By default, OpenChoreo installs ship with `ClusterDataPlane/default`, visible across all namespaces — verify with `list_cluster_dataplanes` and `get_cluster_dataplane cdp_name: default`. If it's missing, that's an install-side concern (handed off to `openchoreo-install`).
-3. Cluster-scoped platform resources (`ClusterComponentType`, `ClusterTrait`, `ClusterWorkflow`) are already in place. New namespaces inherit them automatically — verify with `list_cluster_component_types`, `list_cluster_traits`, `list_cluster_workflows`.
+2. **At least one `DataPlane` (or `ClusterDataPlane`) registered.** Environments need a plane to point at. By default, OpenChoreo installs ship with `ClusterDataPlane/default`, visible across all namespaces — verify with `list_dataplanes` and `get_dataplane` (both with `scope: "cluster"`; `get_dataplane scope: cluster, name: default`). If it's missing, that's an install-side concern (handed off to `openchoreo-install`).
+3. Cluster-scoped platform resources (`ClusterComponentType`, `ClusterTrait`, `ClusterWorkflow`) are already in place. New namespaces inherit them automatically — verify with `list_component_types`, `list_traits`, `list_workflows` (each with `scope: "cluster"`).
 4. The user has explicitly confirmed they want a new namespace. Default behavior is to use `default`.
 5. To see a complete bootstrap shape, inspect what the platform's `default` namespace has: `list_environments`, `list_deployment_pipelines`, `list_projects` against `default`. The returned resources show the standard dev / staging / prod layout you'll reproduce in the new namespace.
 
@@ -135,11 +135,11 @@ The standard trio (`development` / `staging` / `production`) is the common shape
 
 - **Always confirm with the user before `create_namespace`.** It's an organizational boundary, not a casual default. Per the SKILL.md guardrail: "Default to the `default` namespace. Always ask before creating a new namespace — it's an organisational boundary, not a casual default."
 - **`create_project` parameter is `deployment_pipeline` (string), not `deployment_pipeline_ref`.** Easy to typo. The MCP tool wraps it as the object reference server-side.
-- **Environments need a plane registered first.** If `data_plane_ref: default` doesn't resolve to an existing `ClusterDataPlane` (or namespace-scoped `DataPlane` if `data_plane_ref_kind: DataPlane`), `create_environment` fails. Verify with `list_cluster_dataplanes` before starting.
+- **Environments need a plane registered first.** If `data_plane_ref: default` doesn't resolve to an existing `ClusterDataPlane` (or namespace-scoped `DataPlane` if `data_plane_ref_kind: DataPlane`), `create_environment` fails. Verify with `list_dataplanes` (`scope: "cluster"`) before starting.
 - **The namespace label `openchoreo.dev/control-plane=true` is required.** `create_namespace` via MCP applies it; raw `kubectl create namespace` does not, and the controller will skip un-labeled namespaces.
 - **Rolling back a failed bootstrap.** Hard-delete via `kubectl delete namespace <name>` against the control plane (cascades to every OpenChoreo CR in the namespace) — destructive, confirm with the user.
 - **Cluster-scoped platform resources are inherited automatically.** New namespaces don't need a copy of `ClusterComponentType` / `ClusterTrait` / `ClusterWorkflow` — they're visible by default. Only create namespace-scoped variants if you want isolation or overrides.
-- **Don't bootstrap without at least one ComponentType / Trait / Workflow available.** The Project + Environments + Pipeline are useless if there's nothing for developers to deploy. Verify with `list_cluster_component_types` etc. before bootstrapping; if empty, that's an install-side concern (handed off to `openchoreo-install`).
+- **Don't bootstrap without at least one ComponentType / Trait / Workflow available.** The Project + Environments + Pipeline are useless if there's nothing for developers to deploy. Verify with `list_component_types` etc. (`scope: "cluster"`) before bootstrapping; if empty, that's an install-side concern (handed off to `openchoreo-install`).
 
 ## Related
 

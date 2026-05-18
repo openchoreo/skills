@@ -10,15 +10,15 @@ Author a `ClusterWorkflow` that developers can reference from `Component.spec.wo
 - You want to wrap an existing builder with extra steps (Trivy scan, SBOM emit, attestation)
 - You want a CI workflow scoped to a single namespace (tenant-private builders) — see **Variants**
 
-For an off-the-shelf builder, OpenChoreo ships `dockerfile-builder`, `gcp-buildpacks-builder`, `paketo-buildpacks-builder`, `ballerina-buildpack-builder`. List with `list_cluster_workflows`. Don't author a new one if a default fits.
+For an off-the-shelf builder, OpenChoreo ships `dockerfile-builder`, `gcp-buildpacks-builder`, `paketo-buildpacks-builder`, `ballerina-buildpack-builder`. List with `list_workflows` (`scope: "cluster"`). Don't author a new one if a default fits.
 
 ## Prerequisites
 
 1. The control-plane MCP server is configured (`list_namespaces` returns).
 2. **`kubectl` access to the WorkflowPlane cluster** (where the Argo `ClusterWorkflowTemplate`s live). For single-cluster installs, this is the same cluster as the control plane; for multi-cluster, switch contexts.
-3. A `WorkflowPlane` (or `ClusterWorkflowPlane`) is registered and healthy. Verify with `list_cluster_workflowplanes` / `get_cluster_workflowplane`.
+3. A `WorkflowPlane` (or `ClusterWorkflowPlane`) is registered and healthy. Verify with `list_workflowplanes` / `get_workflowplane` (pass `scope: "cluster"` for the `ClusterWorkflowPlane`).
 4. Familiarity with the doc walkthrough: <https://openchoreo.dev/docs/platform-engineer-guide/workflows/creating-workflows> — it walks through the same 3-step process from a docs angle.
-5. The 4 canonical Argo `ClusterWorkflowTemplate`s for the Dockerfile path ship with this skill at [`../../resources/workflow-templates/`](../../resources/workflow-templates/) — `checkout-source.yaml`, `containerfile-build.yaml`, `publish-image.yaml`, `generate-workload.yaml`. To inspect a real OpenChoreo `Workflow` CRD that wires them together, `get_cluster_workflow name: dockerfile-builder` (the platform usually ships this).
+5. The 4 canonical Argo `ClusterWorkflowTemplate`s for the Dockerfile path ship with this skill at [`../../resources/workflow-templates/`](../../resources/workflow-templates/) — `checkout-source.yaml`, `containerfile-build.yaml`, `publish-image.yaml`, `generate-workload.yaml`. To inspect a real OpenChoreo `Workflow` CRD that wires them together, `get_workflow scope: cluster, name: dockerfile-builder` (the platform usually ships this).
 
 ## Recipe
 
@@ -28,7 +28,7 @@ The 3-step authoring process from [`../workflows.md`](../workflows.md) §3, mapp
 |---|---|---|---|
 | 1 | Author the `ClusterWorkflowTemplate`(s) — actual step logic | WorkflowPlane | `kubectl apply -f` |
 | 2 | Design the Argo Workflow shape — pipeline structure, parameters | (paper / scratchpad) | none |
-| 3 | Create the OpenChoreo `Workflow` / `ClusterWorkflow` CR — schema + embedded `runTemplate` | Control plane | `create_cluster_workflow` |
+| 3 | Create the OpenChoreo `Workflow` / `ClusterWorkflow` CR — schema + embedded `runTemplate` | Control plane | `create_workflow` (`scope: "cluster"`) |
 
 ### Step 1 — Apply the ClusterWorkflowTemplates (kubectl)
 
@@ -65,8 +65,10 @@ For CI workflows specifically, the developer-provided parameters that drive auto
 ### Step 3 — Create the OpenChoreo Workflow CR (MCP)
 
 ```yaml
-list_cluster_workflows                # sanity-check existing names
-create_cluster_workflow
+list_workflows                        # sanity-check existing names
+  scope: cluster
+create_workflow
+  scope: cluster
   name: my-custom-builder
   spec:
     workflowPlaneRef:
@@ -155,9 +157,9 @@ metadata:
     openchoreo.dev/workflow-type: "component"
 ```
 
-Pass this through the MCP `create_cluster_workflow` call (the tool accepts a `metadata.labels` field on the resource). Without it, UI / CLI won't categorize the workflow as CI and auto-build won't pick it up. See [`../workflows.md`](../workflows.md) §7.
+Pass this through the MCP `create_workflow` call (`scope: "cluster"`; the tool accepts a `metadata.labels` field on the resource). Without it, UI / CLI won't categorize the workflow as CI and auto-build won't pick it up. See [`../workflows.md`](../workflows.md) §7.
 
-For the full body — including the registry-push ExternalSecret, the per-step CEL expressions, and the proper `runTemplate.spec.arguments.parameters`-to-CWT-arg wiring — inspect a Workflow already on the cluster: `get_cluster_workflow name: dockerfile-builder` (the platform usually ships this and the three buildpack alternatives). Adapt the returned spec.
+For the full body — including the registry-push ExternalSecret, the per-step CEL expressions, and the proper `runTemplate.spec.arguments.parameters`-to-CWT-arg wiring — inspect a Workflow already on the cluster: `get_workflow scope: cluster, name: dockerfile-builder` (the platform usually ships this and the three buildpack alternatives). Adapt the returned spec.
 
 ### Step 4 — Allow the workflow on at least one ComponentType
 
@@ -166,7 +168,8 @@ A CI workflow is unusable until a ComponentType lists it in `allowedWorkflows`. 
 ### Step 5 — Verify
 
 ```yaml
-get_cluster_workflow
+get_workflow
+  scope: cluster
   name: my-custom-builder
 ```
 
@@ -191,7 +194,7 @@ For *completed* failed runs, the live-log endpoint returns nothing — fall back
 
 ### Different builder strategies
 
-Default OpenChoreo platform setups usually ship four `ClusterWorkflow`s — inspect each with `get_cluster_workflow name: <name>`:
+Default OpenChoreo platform setups usually ship four `ClusterWorkflow`s — inspect each with `get_workflow scope: cluster, name: <name>`:
 
 | Workflow name | Builder |
 |---|---|

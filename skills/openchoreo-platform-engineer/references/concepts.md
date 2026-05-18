@@ -91,7 +91,7 @@ The northbound gateway for external traffic is typically set up. The westbound g
 
 ### ComponentType
 
-Platform-engineer-defined template that controls how a component deploys. Developers pick from available types and fill in the schema. View available types with `list_cluster_component_types` and inspect one with `get_cluster_component_type` / `get_cluster_component_type_schema`. Authoring goes through MCP (`create_cluster_component_type` + `update_cluster_component_type`) or `kubectl apply -f` for big YAML edits — see `component-types-and-traits.md`.
+Platform-engineer-defined template that controls how a component deploys. Developers pick from available types and fill in the schema. View available types with `list_component_types` and inspect one with `get_component_type` / `get_component_type_schema` — all take a `scope` arg (`"cluster"` for the platform-wide ClusterComponentTypes most installs use, `"namespace"` for namespace-local ones). Authoring goes through MCP (`create_component_type` + `update_component_type`, same `scope` arg) or `kubectl apply -f` for big YAML edits — see `component-types-and-traits.md`.
 
 **Workload types**: `deployment`, `statefulset`, `cronjob`, `job`, `proxy`
 
@@ -108,7 +108,7 @@ Composable capability attached to components. Adds resources (like PVCs) or modi
 
 Each trait instance on a component needs a unique `instanceName`. This lets you attach the same trait type multiple times with different configs (e.g., two different persistent volumes).
 
-View available traits: `list_cluster_traits`, `list_traits`. Inspect: `get_cluster_trait` / `get_cluster_trait_schema`.
+View available traits: `list_traits` (`scope: "cluster"` for platform-wide ClusterTraits, `scope: "namespace"` for namespace-local ones). Inspect: `get_trait` / `get_trait_schema`, same `scope` arg.
 
 **Common traits**: persistent-volume, ingress, autoscaling, resource-limits.
 
@@ -233,7 +233,7 @@ For mixed tasks, keep the app-facing thread and the platform-facing thread conne
 Start with the smallest useful inspection:
 
 - `get_component` / `get_workload` / `get_release_binding` for app-facing resources (status conditions, endpoints).
-- `get_cluster_component_type` / `get_cluster_trait` / `get_cluster_workflow` for platform extensions.
+- `get_component_type` / `get_trait` / `get_workflow` (with `scope: "cluster"`) for platform extensions.
 - `list_environments`, `list_deployment_pipelines`, plane reads (`list_dataplanes`, `get_dataplane`, etc.) for topology.
 - `get_resource_events` / `get_resource_logs` for pod-level debugging through a binding.
 
@@ -243,12 +243,10 @@ Drop to `kubectl logs` only when MCP can't reach what you need — controller po
 
 Before writing a `spec` body for a `create_*` call, fetch the relevant schema:
 
-- `get_component_type_creation_schema` / `get_cluster_component_type_creation_schema`
-- `get_trait_creation_schema` / `get_cluster_trait_creation_schema`
-- `get_workflow_creation_schema` / `get_cluster_workflow_creation_schema`
-- `get_workload_schema`, `get_cluster_component_type_schema`, `get_cluster_trait_schema`, `get_cluster_workflow_schema` for inspecting existing-resource shape
+- `get_component_type_creation_schema`, `get_trait_creation_schema`, `get_workflow_creation_schema` — each takes a `scope` arg (`"cluster"` for the `Cluster*` variant)
+- `get_workload_schema`; `get_component_type_schema`, `get_trait_schema`, `get_workflow_schema` (with `scope`) for inspecting existing-resource shape
 
-For existing resources, read the current spec via `get_*` before sending an `update_*`. **`update_component_type`, `update_trait`, `update_workflow` (and cluster variants) are full-spec replacement** — read first, modify locally, send the complete spec back. Omitting a field deletes it. For one-line CEL or template tweaks, `kubectl apply -f` against an edited YAML is often easier; both paths produce the same end state.
+For existing resources, read the current spec via `get_*` before sending an `update_*`. **`update_component_type`, `update_trait`, `update_workflow` are full-spec replacement** (at either `scope`) — read first, modify locally, send the complete spec back. Omitting a field deletes it. For one-line CEL or template tweaks, `kubectl apply -f` against an edited YAML is often easier; both paths produce the same end state.
 
 ### 4. Change one layer at a time
 

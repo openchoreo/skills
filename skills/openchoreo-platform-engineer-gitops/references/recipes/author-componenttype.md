@@ -28,8 +28,9 @@ Tweaking an existing ComponentType uses the same recipe — edit the file, commi
 Pick one per [`../authoring.md`](../authoring.md) *Shape-lookup*:
 
 - **Full schema** — `./scripts/fetch-page.sh --exact --title "ClusterComponentType"` (or `"ComponentType"`).
-- **Vanilla default** — fetch `service` / `webapp` / `worker` / `scheduled-task` from `samples/getting-started/component-types/` (URLs in `../authoring.md`).
-- **Extra shape** — fetch `database` / `message-broker` from `sample-gitops` (URLs in `../authoring.md`).
+- **Default for inspiration** — `./scripts/extract-resources.sh defaults --kind ClusterComponentType --name <service|web-application|worker|scheduled-task>`.
+- **What's installed on the live cluster** — `occ clustercomponenttype get <name>` / `occ componenttype get <name> -n <ns>`.
+- **What else exists in the ecosystem** — <https://openchoreo.dev/ecosystem/component-types.md> lists community CCTs (Agent Sandbox, WSO2 Micro Integrator, etc.) with source URLs.
 
 If sourcing one scope but the user wants the other, apply the conversion in `../authoring.md` *Cluster ↔ namespace scope*.
 
@@ -96,7 +97,7 @@ spec:
       template: { ... }
 ```
 
-For the full `resources[]` body — HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patches — copy from `sample-gitops` (`database.yaml`, `service.yaml`, `webapp.yaml`).
+For the full `resources[]` body — HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patches — start from a default extracted via `./scripts/extract-resources.sh defaults --kind ClusterComponentType --name <service|web-application|worker|scheduled-task>` and adapt.
 
 ### 4. Commit + verify
 
@@ -138,7 +139,7 @@ Flux re-applies the full file every reconcile. **Anything not in the file is rem
 - **`resources[].id` of the primary workload must equal `workloadType`.** `workloadType: deployment` → exactly one `id: deployment`.
 - **Don't hardcode `metadata.namespace` in templates.** Use `${metadata.namespace}` (CEL). Webhook rejects literal namespace strings.
 - **`ClusterComponentType` may only reference `ClusterTrait` / `ClusterWorkflow`.** Mixing scopes fails validation.
-- **`allowedWorkflows[]` must point at GitOps-compatible Workflows.** The vanilla CI workflows from `samples/getting-started/ci-workflows/` write the `Workload` to the cluster directly — Flux reverts. Use the GitOps variants (`docker-gitops-release` etc.) — see [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
+- **`allowedWorkflows[]` must point at GitOps-compatible Workflows.** The vanilla CI workflows in `samples/getting-started/all.yaml` (`dockerfile-builder` etc.) write the `Workload` to the cluster directly — Flux reverts. Use the GitOps variants (`docker-gitops-release` etc.) discoverable via `./scripts/extract-resources.sh gitops-workflows --list`. See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 - **Required-by-default in JSON Schema.** Every property is required unless it has `default`. Use object-level `default: {}` on container objects so adding a required nested field doesn't silently break every existing Component.
 - **CEL context.** `parameters` / `environmentConfigs` always available; `workload` / `configurations` / `dependencies` / `dataplane` / `gateway` in scope for `resources[]` and `validations[]`. See [`../cel.md`](../cel.md) §5.
 - **`metadata.namespace`:** cluster-scoped CRDs reject it; namespace-scoped CRDs require it.

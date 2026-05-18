@@ -34,7 +34,7 @@ If `occ` is missing / unconfigured, stop and tell the user to install + configur
 Load other references **on-demand**:
 
 - [`references/authoring.md`](./references/authoring.md) — `occ` file-mode generators, docs lookup via `scripts/fetch-page.sh`, repo paths, git workflow, DCO.
-- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields. `./scripts/fetch-page.sh --list` dumps the full index.
+- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields; `--section "API Reference"` scopes matching to CRD-reference pages, `--list` dumps the index.
 - [`references/getting-started.md`](./references/getting-started.md) — first-time deploys (no Project yet, or first time the user touches this repo).
 
 ## What this skill can do

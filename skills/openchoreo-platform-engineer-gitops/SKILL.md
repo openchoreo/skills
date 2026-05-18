@@ -26,8 +26,9 @@ occ namespace list                              # cluster reachable?
 
 Load other references **on-demand** as the task needs them:
 
-- [`references/authoring.md`](./references/authoring.md) — where CRD shapes come from (live cluster / vanilla defaults / sample-gitops / docs via `scripts/fetch-page.sh`), repo path conventions, the cluster↔namespace scope swap, the CI-vs-GitOps workflow gotcha, git workflow, DCO.
-- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields. `./scripts/fetch-page.sh --list` dumps the full index.
+- [`references/authoring.md`](./references/authoring.md) — where CRD shapes come from (live cluster / `scripts/extract-resources.sh` for defaults + GitOps workflows / `scripts/fetch-page.sh` for docs / ecosystem catalogs for community extensions), repo path conventions, the cluster↔namespace scope swap, the CI-vs-GitOps workflow gotcha, git workflow, DCO.
+- [`scripts/fetch-page.sh`](./scripts/fetch-page.sh) — fetch any OpenChoreo docs page by title (resolves against `llms.txt`, picks a stable version). Use this for full CRD schemas with optional fields; `--section "API Reference"` scopes matching to CRD-reference pages, `--list` dumps the index.
+- [`scripts/extract-resources.sh`](./scripts/extract-resources.sh) — extract default platform resources from `samples/getting-started/all.yaml` (`defaults --kind X [--name Y]`), or GitOps build-and-release workflows discovered via the ecosystem catalog (`gitops-workflows --list` / `--name <slug>`). Refuses vanilla CI workflows by default.
 - [`references/cel.md`](./references/cel.md) — only when writing or reviewing CEL inside ComponentType / Trait / Workflow templates.
 
 ## Detect the mode
@@ -81,7 +82,7 @@ If the heuristic doesn't fit the layout (per the docs' *Flexible Repository Stru
 - **No plaintext secrets in Git** — use `SecretReference` resources backed by a `ClusterSecretStore`.
 - **Protect `platform-shared/` with CODEOWNERS** — cluster-scoped changes affect every namespace. Sample at [`assets/codeowners-platform-shared`](./assets/codeowners-platform-shared).
 - **Cluster ↔ namespace scope is interchangeable** for ComponentType / Trait / Workflow. Convert by swapping the `kind:` and adding/removing `metadata.namespace:`. Update referrers' `allowedWorkflows[].kind` accordingly. See [`authoring.md`](./references/authoring.md).
-- **Vanilla CI workflows aren't GitOps-compatible.** The four `ClusterWorkflow`s shipped by the platform install — `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` — write the `Workload` CR directly to the cluster API, so Flux reverts them. Use the GitOps versions from `sample-gitops` (`docker-gitops-release` etc.) instead. When in doubt about any other Workflow, inspect it (`occ clusterworkflow get <name>` / `occ workflow get <name> -n <ns>`) and check whether the pipeline ends with `git-commit-push-pr` (GitOps-compatible) or `generate-workload-cr` (not). Full write-up in [`authoring.md`](./references/authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
+- **Vanilla CI workflows aren't GitOps-compatible.** The four `ClusterWorkflow`s shipped by the platform install — `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` — write the `Workload` CR directly to the cluster API, so Flux reverts them. `extract-resources.sh defaults` refuses to extract them by default; use `extract-resources.sh gitops-workflows` for the GitOps equivalents (`docker-gitops-release` etc.). When in doubt about any other Workflow, inspect it (`occ clusterworkflow get <name>` / `occ workflow get <name> -n <ns>`) and check whether the pipeline ends with `git-commit-push-pr` (GitOps-compatible) or `generate-workload-cr` (not). Full write-up in [`authoring.md`](./references/authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
 ## Anti-patterns
 

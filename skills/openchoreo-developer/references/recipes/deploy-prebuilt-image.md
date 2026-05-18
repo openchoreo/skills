@@ -6,7 +6,7 @@ Deploy an existing container image — built elsewhere or pulled from a public r
 
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
 2. A Project exists. The `default` project is created during install — confirm with `list_projects` (`namespace_name: default`). If you need a new one, see [Variant: create a Project](#variant-create-a-project) below.
-3. A ComponentType matching the workload shape exists. The platform may register either cluster-scoped (`ClusterComponentType`) or namespace-scoped (`ComponentType`) — **discover both** with `list_cluster_component_types` and `list_component_types`. Common cluster-scoped ones in default platform setups: `deployment/service`, `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`. Pass the `{workloadType}/{name}` to `create_component`'s `component_type` — the server resolves the kind (namespace-scoped first, cluster-scoped fallback).
+3. A ComponentType matching the workload shape exists. The platform may register either cluster-scoped (`ClusterComponentType`) or namespace-scoped (`ComponentType`) — **discover both** by calling `list_component_types` twice, once with `scope: "cluster"` and once with `scope: "namespace"` (+ `namespace_name`). Common cluster-scoped ones in default platform setups: `deployment/service`, `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`. Pass the `{workloadType}/{name}` to `create_component`'s `component_type` — the server resolves the kind (namespace-scoped first, cluster-scoped fallback).
 
 ## Recipe
 
@@ -130,7 +130,7 @@ In all cases the Component itself doesn't change between iterations — only the
 
 ## Gotchas
 
-- **`component_type` is a single string in `{workloadType}/{name}` form**, not a separate kind+name pair. The server auto-resolves the kind: it looks up a namespace-scoped `ComponentType` with that name first and falls back to `ClusterComponentType`. So one `{workloadType}/{name}` works whether the type was discovered via `list_component_types` (namespace-scoped only) or `list_cluster_component_types` (cluster-scoped only) — name collisions across scopes resolve to the namespace-scoped one.
+- **`component_type` is a single string in `{workloadType}/{name}` form**, not a separate kind+name pair. The server auto-resolves the kind: it looks up a namespace-scoped `ComponentType` with that name first and falls back to `ClusterComponentType`. So one `{workloadType}/{name}` works whether the type was discovered via `list_component_types` with `scope: "namespace"` or `scope: "cluster"` — name collisions across scopes resolve to the namespace-scoped one.
 - **For BYOI, do not pass `workflow` to `create_component`.** Adding a workflow turns this into a source build and triggers failed builds.
 - **For BYOI, you create the Workload yourself** via `create_workload`. Source-build components auto-generate `{component}-workload`; never call `create_workload` for those. BYOI is the opposite.
 - **Workload `owner` (projectName + componentName) is immutable** after creation. Pick names carefully.

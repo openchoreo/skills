@@ -126,11 +126,14 @@ For kinds without a file-mode generator (Project, ReleaseBinding overrides, depe
 ./scripts/fetch-page.sh --exact --title "Component"          # full schema, including optional fields
 ./scripts/fetch-page.sh --exact --title "Workload"
 ./scripts/fetch-page.sh --exact --title "ReleaseBinding"
+./scripts/fetch-page.sh --exact --section "API Reference" --title "Component"   # scope to CRD refs only
 ./scripts/fetch-page.sh --list                       # dump full llms.txt index
 ./scripts/fetch-page.sh --exact --title "Workload" --version v1.0.x
 ```
 
-On a miss (no match / multiple matches / fetch failure), the script dumps the full `llms.txt` to stdout so you can pick by hand.
+`--section "API Reference"` restricts matching to the CRD-reference subtree of `llms.txt` — use it when a kind name (`Component`, `Workload`) also appears in guide-page titles. `--section` works with `--list` too (dumps just that subtree).
+
+On a miss (no match / multiple matches / fetch failure), the script dumps the index — scoped to `--section` if given — to stdout so you can pick by hand.
 
 > `ComponentRelease` and `RenderedRelease` are controller-managed — never hand-author. Use `occ componentrelease generate` for the former; the latter is created by the controller from a `ReleaseBinding`.
 
