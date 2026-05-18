@@ -38,6 +38,18 @@ Top-to-bottom in the user's shell. Rules:
 - **Check the platform-specific tweaks below** before starting.
 - **On failure, use judgment.** You have the cluster — `kubectl describe / logs / get events`, condition checks. If the cause is clear and the fix is in scope, fix it and continue; otherwise surface and ask. Don't silently substitute "equivalent" commands and don't strip `kubectl wait` calls. Keep a running note of any fix or deviation for the report.
 
+## Step 3.5 — Verify before reporting
+
+- [ ] All OpenChoreo deployments Available: `kubectl get deploy -A | awk 'NR>1 && $4!=$5'` should return zero rows for `openchoreo-*` / `thunder` / `openbao` namespaces.
+- [ ] Console URL returns 200 (from the guide's "Log in" step): `curl -sI http://openchoreo.localhost:8080 | head -1`.
+- [ ] API health: `curl -sf http://api.openchoreo.localhost:8080/health`.
+- [ ] Thunder readiness: `curl -sf http://thunder.openchoreo.localhost:8080/health/readiness`.
+- [ ] If OP installed: Observer health: `curl -sf http://observer.openchoreo.localhost:11080/health`.
+- [ ] If OP installed: the logs module's collection DaemonSet (e.g. fluent-bit) is Ready in `openchoreo-observability-plane` (labels per the module's chart).
+- [ ] If WP installed: `kubectl get clusterworkflowtemplates` shows the checkout / build / publish / generate-workload templates.
+
+Anything red → surface in the report's "Deviations" or "Outcome: partial".
+
 ## Step 4 — Report
 
 Summarise what happened. Drop categories that don't apply.

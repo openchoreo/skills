@@ -53,10 +53,13 @@ Multi-cluster has more easy-to-miss steps than single-cluster. Before declaring 
 - [ ] Each remote cluster has the CP CA in the `cluster-gateway-ca` ConfigMap in the plane's namespace.
 - [ ] Each remote plane was installed with `clusterAgent.serverUrl` pointing at the public CP-gateway URL.
 - [ ] Each remote plane's agent CA was extracted from the `cluster-agent-tls` Secret (`ca.crt`, NOT `tls.crt`) and embedded in the plane CRD registered on the CP.
-- [ ] Each remote cluster-agent logs show `connected to control plane`.
-- [ ] If OP was installed: `observerURL` on the `ClusterObservabilityPlane` CRD is externally reachable from the CP cluster (no `svc.cluster.local`).
+- [ ] Each remote cluster-agent log shows `connected to control plane` — `kubectl --context <remote> logs -n <plane-ns> -l app=cluster-agent --tail=20 | grep -F 'connected to control plane'`.
+- [ ] Each plane CRD on the CP shows the agent connected — `kubectl --context <cp> get clusterdataplane default -o jsonpath='{.status.agentConnection.connected}'` returns `true` (same for `clusterworkflowplane` / `clusterobservabilityplane`).
+- [ ] CP-side health: `curl -sfk https://api.${CP_BASE_DOMAIN}/health`, `curl -sfk https://thunder.${CP_BASE_DOMAIN}/health/readiness`, `curl -sIk https://console.${CP_BASE_DOMAIN}/ | head -1` returns 200.
+- [ ] CORS preflight from console → API works: `curl -sIk -X OPTIONS https://api.${CP_BASE_DOMAIN}/ -H "Origin: https://console.${CP_BASE_DOMAIN}" -H "Access-Control-Request-Method: GET" | grep -i "access-control-allow-origin"` returns the console origin.
+- [ ] If OP was installed: `observerURL` on the `ClusterObservabilityPlane` CRD is externally reachable from the CP cluster (no `svc.cluster.local`); `curl -sfk` against it returns 200.
 - [ ] If OP was installed: DP and WP (if installed) have `observabilityPlaneRef` patched.
-- [ ] If OP was installed: observability module(s) on each remote DP/WP cluster are in push/collector-only mode pointing at the OP's ingestion endpoints.
+- [ ] If OP was installed: the logs module's collection DaemonSet (e.g. fluent-bit) is Ready on the OP cluster *and* on each remote cluster you want logs from (DP, WP). The module must be installed on each remote cluster (push/collector-only mode) for the DS to exist there.
 - [ ] Module overrides requested by the user were applied (default install commands skipped, alt module READMEs followed) — none if the user didn't ask.
 - [ ] Platform-specific tweaks applied per cluster as relevant (RD pre-install, EKS observability-plane LB).
 - [ ] Default platform resources applied to the CP (if the user didn't opt out).
