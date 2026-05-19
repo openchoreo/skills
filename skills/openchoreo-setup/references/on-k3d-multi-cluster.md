@@ -63,7 +63,7 @@ Four clusters mean four context-scoped checks. Use `--context k3d-openchoreo-{cp
 - [ ] **WP cluster** (if installed): deployments Available; agent connected (same grep, swap namespace + context); `ClusterWorkflowPlane` `agentConnection.connected == true` on CP.
 - [ ] **OP cluster** (if installed): deployments Available; agent connected; `ClusterObservabilityPlane` `agentConnection.connected == true` on CP; Observer health: `curl -sf http://observer.openchoreo.localhost:11080/health`.
 - [ ] **Logs collection DS per cluster** (if OP installed): the logs module's DaemonSet (e.g. fluent-bit) is Ready on the OP cluster *and* on each remote cluster you want logs from (DP, WP). The module must be installed on each remote cluster (collector-only mode) for the DS to exist there.
-- [ ] **Cross-plane links**: `kubectl --context k3d-openchoreo-cp get clusterdataplane default -o jsonpath='{.spec.observabilityPlaneRef.name}'` is non-empty (same for `clusterworkflowplane` if installed).
+- [ ] **Cross-plane links** (if OP installed): `kubectl --context k3d-openchoreo-cp get clusterdataplane default -o jsonpath='{.spec.observabilityPlaneRef.name}'` is non-empty; same for `clusterworkflowplane` if WP is installed.
 - [ ] If WP installed: `kubectl --context k3d-openchoreo-wp get clusterworkflowtemplates` shows the checkout / build / publish / generate-workload templates.
 
 Anything red → surface in the report's "Deviations" or "Outcome: partial", noting which cluster.

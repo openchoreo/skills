@@ -48,7 +48,7 @@ Top-to-bottom. Rules:
 - [ ] If OP installed: Observer health: `curl -sfk https://observer.${OBS_BASE_DOMAIN}${OBS_PORT_SUFFIX}/health`.
 - [ ] If OP installed: the logs module's collection DaemonSet (e.g. fluent-bit) is Ready in `openchoreo-observability-plane` (labels per the module's chart).
 - [ ] If WP installed: `kubectl get clusterworkflowtemplates` shows the checkout / build / publish / generate-workload templates.
-- [ ] Cluster-gateway certificate has the expected SANs: `kubectl get certificate cluster-gateway-tls -n openchoreo-control-plane -o jsonpath='{.spec.dnsNames}'` includes the public hostname (only relevant if the user plans to add remote planes later).
+- [ ] Cluster-gateway certificate has the expected SANs: `kubectl get certificate cluster-gateway-tls -n openchoreo-control-plane -o jsonpath='{.spec.dnsNames}{.spec.ipAddresses}'` includes the public hostname or IP (only relevant if the user plans to add remote planes later).
 
 Anything red → surface in the report's "Deviations" or "Outcome: partial".
 
