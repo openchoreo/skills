@@ -1,0 +1,73 @@
+# Reference sample for the openchoreo-import skill — shows what a
+# Trait can express. Read it to see the shape; the skill plans
+# migrations and never authors CT / RT / Trait YAML itself.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: persistent-volume
+  namespace: default
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      required:
+        - volumeName
+        - mountPath
+      properties:
+        volumeName:
+          type: string
+        mountPath:
+          type: string
+        containerName:
+          type: string
+          default: main
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        size:
+          type: string
+          default: "1Gi"
+        storageClass:
+          type: string
+          default: local-path
+
+  creates:
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${environmentConfigs.size}
+          storageClassName: ${environmentConfigs.storageClass}
+
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${parameters.volumeName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${trait.instanceName}
+
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
+          value:
+            name: ${parameters.volumeName}
+            mountPath: ${parameters.mountPath}

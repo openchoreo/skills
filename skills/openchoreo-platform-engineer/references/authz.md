@@ -10,7 +10,7 @@ Authz is **MCP-first** and **scope-collapsed**. Each role / role-binding operati
 
 - **Roles** — `list_authz_roles`, `get_authz_role`, `get_authz_role_creation_schema`, `create_authz_role`, `update_authz_role` *(full-spec replacement)*, `delete_authz_role`
 - **Role bindings** — `list_authz_role_bindings`, `get_authz_role_binding`, `get_authz_role_binding_creation_schema`, `create_authz_role_binding`, `update_authz_role_binding` *(full-spec replacement)*, `delete_authz_role_binding`
-- **Diagnostics** (flat — no `scope` arg) — `list_authz_actions` (the action catalogue, §7), `evaluate_authz` (debug allow/deny decisions, §6)
+- **Diagnostics** (flat — no `scope` arg) — `list_authz_actions` (the action catalogue, 7), `evaluate_authz` (debug allow/deny decisions, 6)
 
 `create_*` / `update_*` take `name`, optional `display_name` / `description`, and a structured `spec` object — **not** a YAML file. The YAML blocks below show the `spec` shape; pass the equivalent object. `kubectl apply -f` remains a fine fallback for large edits or when you'd rather manage the diff as YAML — both paths produce the same end state.
 
@@ -58,7 +58,7 @@ Wildcards:
 - `component:*` — any verb on components
 - `*` — any verb on any resource
 
-The full action catalogue is in §7. Discover it at runtime with `list_authz_actions`.
+The full action catalogue is in 7. Discover it at runtime with `list_authz_actions`.
 
 ### Effect
 

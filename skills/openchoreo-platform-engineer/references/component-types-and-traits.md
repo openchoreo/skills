@@ -110,7 +110,7 @@ spec:
 - **`parameters`** — values from `Component.spec.parameters`. **Static** across environments. Set once when the developer authors the Component.
 - **`environmentConfigs`** — values from `ReleaseBinding.spec.componentTypeEnvironmentConfigs`. **Per-environment**. Lets staging and production set different replica counts, resource limits, etc.
 
-Both use the same `openAPIV3Schema` shape (see §4).
+Both use the same `openAPIV3Schema` shape (see 4).
 
 ### `allowedTraits`
 
@@ -1060,6 +1060,6 @@ kubectl get component test-component -o yaml
 
 For comparable inspection without leaving MCP, the equivalents are `list_component_types` / `get_component_type` (with `scope: "cluster"`) and `get_component <name>`. Both paths produce the same end state.
 
-If a validation fails, `status.conditions` carries the rule index and message in the form documented in §5.
+If a validation fails, `status.conditions` carries the rule index and message in the form documented in 5.
 
 For the API CRD specs, see <https://openchoreo.dev/docs/reference/api/platform/>.

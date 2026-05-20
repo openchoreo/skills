@@ -10,10 +10,12 @@ A library of skills for working with OpenChoreo.
 
 | Skill | For | Prerequisites |
 | :--- | :--- | :--- |
+| [`openchoreo-setup`](skills/openchoreo-setup) | Installing OpenChoreo onto Kubernetes — local k3d, a hosted cluster (k3s/GKE/EKS/AKS/DOKS/self-managed), or a multi-cluster topology. | `helm` ≥ 3, `kubectl`; `k3d` for the local path; cluster credentials for hosted targets. |
+| [`openchoreo-import`](skills/openchoreo-import) | Planning a migration of an existing app (Helm chart, Kustomize overlay, Docker Compose, or raw Kubernetes YAML) onto OpenChoreo. Plans only — never applies. | Node ≥ 18 for the preview server; the renderer for your source (`helm`, `kustomize` / `kubectl kustomize`, or `kompose`); a browser. |
 | [`openchoreo-developer`](skills/openchoreo-developer) | Application developers shipping services on OpenChoreo. | [OpenChoreo MCP server](https://openchoreo.dev/docs/ai/mcp-servers/) configured. |
 | [`openchoreo-platform-engineer`](skills/openchoreo-platform-engineer) | Platform engineers running OpenChoreo. | [OpenChoreo MCP server](https://openchoreo.dev/docs/ai/mcp-servers/) configured; `kubectl` + Helm available. |
-| [`openchoreo-platform-engineer-gitops`](skills/openchoreo-platform-engineer-gitops) | Platform engineers managing OpenChoreo via Git. | [`occ`](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against the cluster; [Flux CD](https://fluxcd.io/) in the cluster; `git`. |
 | [`openchoreo-developer-gitops`](skills/openchoreo-developer-gitops) | Application developers working from an OpenChoreo GitOps repo. | [`occ`](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against the cluster; the repo already scaffolded; `git`. |
+| [`openchoreo-platform-engineer-gitops`](skills/openchoreo-platform-engineer-gitops) | Platform engineers managing OpenChoreo via Git. | [`occ`](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against the cluster; [Flux CD](https://fluxcd.io/) in the cluster; `git`. |
 
 ## Installation
 

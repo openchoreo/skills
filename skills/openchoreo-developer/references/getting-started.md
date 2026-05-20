@@ -17,7 +17,7 @@ Quick check, drives the rest:
 
 ## 2. Code discovery
 
-Walk the code first; questions come after (§3). For each candidate service, infer:
+Walk the code first; questions come after (3). For each candidate service, infer:
 
 - **Project + component layout.** One service → one Component. A multi-service repo may need multiple Components, often grouped under one Project.
 - **Endpoints — port + protocol.** Server bind code (`app.listen`, `http.ListenAndServe`, `uvicorn --port`), Dockerfile `EXPOSE`, framework defaults. Protocol per endpoint: HTTP/REST, GraphQL, gRPC, WebSocket, TCP, UDP.
@@ -30,7 +30,7 @@ For repos with multiple services, do this per-service. A worker / cron job with 
 
 ## 3. Confirm the discovery + answer the questions
 
-Show what §2 inferred as a tabular summary per service:
+Show what 2 inferred as a tabular summary per service:
 
 ```text
 Service: <component-name>
@@ -46,10 +46,10 @@ Service: <component-name>
 
 Use `AskUserQuestion` per question, defaults pre-selected:
 
-- **BYO image or source-build?** Ask only if §1 says we're inside the source repo. *Source-build* means OpenChoreo's workflow plane builds from this repo; *BYO* means an image is already published elsewhere.
+- **BYO image or source-build?** Ask only if 1 says we're inside the source repo. *Source-build* means OpenChoreo's workflow plane builds from this repo; *BYO* means an image is already published elsewhere.
 - **If source-build**: which Workflow? `list_workflows` (`scope: "cluster"` for platform-wide ClusterWorkflows). Pick by build system — Dockerfile → `dockerfile-builder`, no Dockerfile → a buildpacks variant. If nothing fits, confirm with the user before falling back to BYO.
 - **If BYO**: how is the image built? External CI / manual / hybrid (assume manual until clarified).
-- **`workload.yaml` committed in the source repo?** Source-build only. Yes → descriptor is the source of truth (Path A). No → spec lives on the cluster (Path B). Mixing paths is a one-way trap; pick once. See [§7](#7-configure-the-workload-path-a-or-path-b).
+- **`workload.yaml` committed in the source repo?** Source-build only. Yes → descriptor is the source of truth (Path A). No → spec lives on the cluster (Path B). Mixing paths is a one-way trap; pick once. See [7](#7-configure-the-workload-path-a-or-path-b).
 - **Deploy scope**: first environment only, or promote along the pipeline?
 - **`autoDeploy`**: `true` = each new release auto-binds to the first env; `false` = explicit binding required even for dev.
 
@@ -57,7 +57,7 @@ Use `AskUserQuestion` per question, defaults pre-selected:
 
 ## 4. Confirm the final workload contract
 
-Restate the contract with the §3 choices applied — image source, endpoints, dependencies, env, files, secrets. One last "anything missing?" before authoring. Humans always know something the code doesn't say.
+Restate the contract with the 3 choices applied — image source, endpoints, dependencies, env, files, secrets. One last "anything missing?" before authoring. Humans always know something the code doesn't say.
 
 ## 5. Platform discovery (only what's needed)
 
@@ -102,7 +102,7 @@ For BYO, only Path B applies (no rebuild pipeline). For source-build, **surface 
 ### Path A — `workload.yaml` in the source repo
 
 1. Use [`../assets/workload-descriptor.yaml`](../assets/workload-descriptor.yaml) as a starting template.
-2. Encode the §4 contract: `endpoints[]`, `dependencies.endpoints[]`, `configurations.env[]`, `configurations.files[]`. Schema in the asset's comments.
+2. Encode the 4 contract: `endpoints[]`, `dependencies.endpoints[]`, `configurations.env[]`, `configurations.files[]`. Schema in the asset's comments.
 3. Place at the **root of the chosen `appPath`** (not the repo root, unless `appPath` is `.`). Build-time read.
 4. Commit and push (user approval per step — see [`./recipes/build-from-source.md`](./recipes/build-from-source.md) *When you're in the source repo*).
 
@@ -121,7 +121,7 @@ For BYO, only Path B applies (no rebuild pipeline). For source-build, **surface 
 The workload spec lives only on the cluster. Used for BYO; available for source-build when MCP edits are preferred over a committed descriptor.
 
 1. `get_workload_schema` to discover the spec shape.
-2. Compose the spec encoding the §4 contract: `container.image`, `container.env[]`, `container.files[]`, `endpoints` (map), `dependencies.endpoints[]`. Use the CR shape (`key`), not the descriptor shape (`name`).
+2. Compose the spec encoding the 4 contract: `container.image`, `container.env[]`, `container.files[]`, `endpoints` (map), `dependencies.endpoints[]`. Use the CR shape (`key`), not the descriptor shape (`name`).
 3. **First-deploy**: `create_workload(namespace_name, component_name, workload_spec)`. (BYO only — never `create_workload` for source-build; the build auto-generates `{component}-workload`.)
 4. **Updating**: `update_workload(namespace_name, workload_name, workload_spec)`. **Full-spec replacement.** Read current state with `get_workload` first, modify locally, write the complete spec back. Omitting a field deletes it.
 

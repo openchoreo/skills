@@ -111,7 +111,7 @@ CI workflows additionally support:
 - UI integration for build management
 - Workload generation from build output
 
-See §7 for CI-specific labels, vendor extensions, and governance.
+See 7 for CI-specific labels, vendor extensions, and governance.
 
 ---
 
@@ -184,7 +184,7 @@ Decide the pipeline structure before writing the CR. Categorize each parameter i
 | **Developer-provided** | Filled in via `WorkflowRun.spec.workflow.parameters` | `repository.url`, `branch`, `timeout` |
 | **System-generated** | Injected at runtime by OpenChoreo | `${metadata.workflowRunName}`, `${metadata.namespaceName}`, `${metadata.namespace}`, `${externalRefs[...].spec.*}` |
 
-Hard-coded parameters live in the `runTemplate`. Developer-provided parameters go in the schema (§4). System-generated parameters come from CEL context (`metadata.*`, `externalRefs.*`, `workflowplane.*`).
+Hard-coded parameters live in the `runTemplate`. Developer-provided parameters go in the schema (4). System-generated parameters come from CEL context (`metadata.*`, `externalRefs.*`, `workflowplane.*`).
 
 Skeleton (will be embedded in the Workflow CR):
 
@@ -253,11 +253,11 @@ Before authoring, fetch the spec shape via `get_workflow_creation_schema` (pass 
 
 The CR has three notable fields:
 
-- **`parameters.openAPIV3Schema`** — what developers can configure (§4).
+- **`parameters.openAPIV3Schema`** — what developers can configure (4).
 - **`runTemplate`** — the Argo Workflow shape from Step 2, with CEL expressions in place of literal values.
-- **`resources`** (optional) — auxiliary Kubernetes resources to create alongside the run (§6).
-- **`externalRefs`** (optional) — references to external CRs resolved at run time (§5).
-- **`ttlAfterCompletion`** (optional) — how long to keep finished runs (§9).
+- **`resources`** (optional) — auxiliary Kubernetes resources to create alongside the run (6).
+- **`externalRefs`** (optional) — references to external CRs resolved at run time (5).
+- **`ttlAfterCompletion`** (optional) — how long to keep finished runs (9).
 
 Full skeleton:
 
@@ -268,22 +268,22 @@ metadata:
   name: dockerfile-builder
   namespace: default                        # omit for ClusterWorkflow
   labels:
-    openchoreo.dev/workflow-type: "component"  # only for CI workflows; see §7
+    openchoreo.dev/workflow-type: "component"  # only for CI workflows; see 7
 spec:
   ttlAfterCompletion: "1d"
 
   parameters:
-    openAPIV3Schema: { ... }                # see §4
+    openAPIV3Schema: { ... }                # see 4
 
   externalRefs:
-    - id: git-secret-reference              # see §5
+    - id: git-secret-reference              # see 5
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
       name: ${parameters.repository.secretRef}
 
   runTemplate: { ... }                      # the Argo Workflow from Step 2
 
-  resources:                                # see §6
+  resources:                                # see 6
     - id: git-secret
       template: { ... }
 ```
@@ -292,7 +292,7 @@ spec:
 
 ## 4. Schema syntax (`openAPIV3Schema`)
 
-Workflow `parameters` use OpenAPI v3 JSON Schema. Same shape as ComponentType / Trait schemas (see `component-types-and-traits.md` §4) — but with one important difference.
+Workflow `parameters` use OpenAPI v3 JSON Schema. Same shape as ComponentType / Trait schemas (see `component-types-and-traits.md` 4) — but with one important difference.
 
 > **Required-by-default rule differs.** In Workflow schemas, fields are **optional by default** unless listed under `required`. In ComponentType / Trait schemas, fields are required by default unless they have a `default`.
 
@@ -336,7 +336,7 @@ parameters:
 
 When an object has `default: {}`, all its nested defaults apply automatically, so omitting it produces the fully-defaulted object.
 
-Standard JSON Schema constraints (`minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `enum`, `minItems`, `maxItems`, `uniqueItems`, etc.) are supported. See `component-types-and-traits.md` §4 for the full constraint catalogue — same syntax.
+Standard JSON Schema constraints (`minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `enum`, `minItems`, `maxItems`, `uniqueItems`, etc.) are supported. See `component-types-and-traits.md` 4 for the full constraint catalogue — same syntax.
 
 ### Accessing parameters in `runTemplate`
 
@@ -355,7 +355,7 @@ runTemplate:
           value: ${parameters.timeout}
 ```
 
-Workflow-only context variables (`metadata.workflowRunName`, `metadata.namespaceName`, `metadata.namespace`, `workflowplane.secretStore`, `externalRefs[...]`) are listed in `cel.md` §5. Note: `metadata.namespaceName` is the user-facing namespace (e.g. `default`); `metadata.namespace` is the enforced workflow-plane execution namespace (e.g. `workflows-default`) — they are not interchangeable.
+Workflow-only context variables (`metadata.workflowRunName`, `metadata.namespaceName`, `metadata.namespace`, `workflowplane.secretStore`, `externalRefs[...]`) are listed in `cel.md` 5. Note: `metadata.namespaceName` is the user-facing namespace (e.g. `default`); `metadata.namespace` is the enforced workflow-plane execution namespace (e.g. `workflows-default`) — they are not interchangeable.
 
 ---
 
@@ -443,7 +443,7 @@ resources:
 
 ## 6. Resources
 
-Auxiliary Kubernetes resources to create alongside the workflow run, in the workflow-plane namespace. Same `template` / `includeWhen` / `forEach` / `var` semantics as ComponentType `resources` (see `component-types-and-traits.md` §2).
+Auxiliary Kubernetes resources to create alongside the workflow run, in the workflow-plane namespace. Same `template` / `includeWhen` / `forEach` / `var` semantics as ComponentType `resources` (see `component-types-and-traits.md` 2).
 
 Common pattern — `ExternalSecret` for credentials:
 

@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer-gitops
 description: Platform-engineer GitOps work for OpenChoreo — scaffolding a GitOps repo (pristine, platform-only, or active cluster), wiring Flux CD, and authoring platform CRDs (ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, SecretReferences, AuthzRoles, alert rules, notification channels) via Git. Use when the user says 'set up GitOps for this cluster', 'move this cluster to GitOps', 'wire Flux', 'add a ComponentType / ResourceType / Trait / Workflow via Git', or operates a platform change inside a scaffolded GitOps repo.
 metadata:
-  version: "2.1.0"
+  version: "1.1.0"
 ---
 
 # OpenChoreo Platform-Engineer GitOps Guide

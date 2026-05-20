@@ -102,7 +102,7 @@ Edit each `(Cluster)ComponentType` that should permit this trait — add to `spe
 
 Inside `patches[].where`, the `resource` variable is the target being inspected.
 
-Full availability matrix: [`../cel.md`](../cel.md) §5.
+Full availability matrix: [`../cel.md`](../cel.md) 5.
 
 ## Multiple instances
 

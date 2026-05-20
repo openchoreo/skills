@@ -23,7 +23,7 @@ Heuristics:
 
 Ask one decision at a time, not as a wall of text. Each ambiguous item is a separate prompt with explicit options.
 
-- **BYO image or source-build?** Default to source-build *only* if the agent is in the source repo (per §0); otherwise default to BYO. Third-party / public apps: always BYO (multi-platform Dockerfiles commonly fail in the buildah builder).
+- **BYO image or source-build?** Default to source-build *only* if the agent is in the source repo (per 0); otherwise default to BYO. Third-party / public apps: always BYO (multi-platform Dockerfiles commonly fail in the buildah builder).
 - **If source-build:** which CI Workflow? List with `occ clusterworkflow list` / `occ workflow list -n <ns>`. In GitOps mode you want one whose pipeline ends in `git-commit-push-pr` — check with `occ clusterworkflow get <name>` (or `occ workflow get <name> -n <ns>`) if you're not sure. Common GitOps-compatible workflows shipped by `sample-gitops`:
   - Dockerfile present → `docker-gitops-release`.
   - Clean source (no Dockerfile) → `google-cloud-buildpacks-gitops-release` or similar buildpacks workflow.
@@ -75,7 +75,7 @@ If any required prereq is missing (no ComponentTypes, no Environments, no DataPl
 
 ## 2. Code discovery — infer the workload contract
 
-When inside the source repo (per §0), walk the code to figure out what the workload actually needs at runtime. The output feeds either the `workload.yaml` descriptor (source-build) or the Workload spec passed to `occ workload create` (BYO).
+When inside the source repo (per 0), walk the code to figure out what the workload actually needs at runtime. The output feeds either the `workload.yaml` descriptor (source-build) or the Workload spec passed to `occ workload create` (BYO).
 
 Read for:
 
@@ -88,7 +88,7 @@ For repos with multiple services, do this per-service. A service with no inbound
 
 ## 3. Confirm the workload contract with the user
 
-Before authoring `workload.yaml` or calling `occ workload create`, present what §2 inferred and ask the user to confirm or correct. Catching a wrong dependency or missed env var here is cheaper than after the first failed deploy.
+Before authoring `workload.yaml` or calling `occ workload create`, present what 2 inferred and ask the user to confirm or correct. Catching a wrong dependency or missed env var here is cheaper than after the first failed deploy.
 
 Show a tabular summary, one block per service:
 

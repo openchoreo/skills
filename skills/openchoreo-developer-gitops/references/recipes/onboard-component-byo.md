@@ -7,7 +7,7 @@ For source-build (OpenChoreo builds from a Git repo), see [`onboard-component-so
 ## Preconditions
 
 - This skill's Step 0 checks have passed (`occ` configured + cwd in a scaffolded GitOps repo).
-- The Project exists (and its DeploymentPipeline + Environments). If not, author the Project file first (§ *Variant: create a Project* below) — same PR.
+- The Project exists (and its DeploymentPipeline + Environments). If not, author the Project file first ( *Variant: create a Project* below) — same PR.
 - A `ComponentType` matching the workload shape exists. Discover both scopes: `occ clustercomponenttype list` and `occ componenttype list -n <ns>`. Pick one.
 - The image is published and pullable from the DataPlane.
 
