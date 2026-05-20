@@ -154,7 +154,7 @@ If the agent is operating inside the git repo for this component (not just point
 
 ### First-time setup: where does the workload spec live?
 
-Two options for source-build, with tradeoffs covered in [`../getting-started.md`](../getting-started.md) §6 — surface the choice to the user, don't pick silently:
+Two options for source-build, with tradeoffs covered in [`../getting-started.md`](../getting-started.md) 6 — surface the choice to the user, don't pick silently:
 
 - **Committed `workload.yaml`** in the source repo. Spec is source-controlled. Every rebuild does a full `PUT` from the descriptor — endpoints, env, deps, files, image are all regenerated. MCP edits between rebuilds are overwritten.
 - **`update_workload` via MCP** against the auto-generated `{component}-workload`. Spec lives only on the cluster. Fast iteration; **MCP edits persist across rebuilds** because the build only patches `container.image` when no descriptor is in the repo. Adding a `workload.yaml` later is a one-way migration and clobbers any MCP-applied state.

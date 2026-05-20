@@ -62,7 +62,7 @@ If `Ready=False`, the controller's message is in `status.conditions[].message`. 
 
 - **Scope mismatch.** `ClusterComponentType` referencing a namespace-scoped `Trait` / `Workflow` in `allowedTraits` / `allowedWorkflows`. Fix the kind.
 - **Required-by-default schema field missing a `default`.** Add `default:` or mark the field optional.
-- **CEL context not in scope.** `${trait.instanceName}` referenced inside a ComponentType template (only available in Trait `creates[]` / `patches[]`). See [`../cel.md`](../cel.md) §5.
+- **CEL context not in scope.** `${trait.instanceName}` referenced inside a ComponentType template (only available in Trait `creates[]` / `patches[]`). See [`../cel.md`](../cel.md) 5.
 - **Referenced resource doesn't exist.** Environment's `dataPlaneRef` pointing at a missing plane. Wait for the plane Kustomization to apply, or fix the ref.
 
 ### 4. (Applications only — developer side) RenderedRelease

@@ -2,16 +2,16 @@
 
 Materialise the OpenChoreo defaults into a scaffolded GitOps repo. Two upstream sources, both routed through `./scripts/extract-resources.sh`:
 
-- **`defaults` mode** — fetches `samples/getting-started/all.yaml` from `openchoreo/openchoreo`. Contains the default `Project`, three `Environment`s, `DeploymentPipeline`, four `ClusterComponentType`s, the default `ClusterTrait`, and the four vanilla CI `ClusterWorkflow`s (the script refuses to extract those for GitOps by default — see *Steps* §4).
+- **`defaults` mode** — fetches `samples/getting-started/all.yaml` from `openchoreo/openchoreo`. Contains the default `Project`, three `Environment`s, `DeploymentPipeline`, four `ClusterComponentType`s, the default `ClusterTrait`, and the four vanilla CI `ClusterWorkflow`s (the script refuses to extract those for GitOps by default — see *Steps* 4).
 - **`gitops-workflows` mode** — traverses `openchoreo.dev/ecosystem/workflows.md` filtered for `gitops`. Each match pairs the `Workflow` CR with its Argo `ClusterWorkflowTemplate`.
 
 `./scripts/extract-resources.sh --help` for the full surface. The script prints raw YAML to stdout — the agent applies scope swap, `allowedWorkflows[]` rewriting, and `runTemplate` parameter editing, then commits.
 
-Run during scaffolding (per [`scaffold.md`](./scaffold.md) §6 *Replace with defaults*), or standalone to top up a partially-scaffolded repo.
+Run during scaffolding (per [`scaffold.md`](./scaffold.md) 6 *Replace with defaults*), or standalone to top up a partially-scaffolded repo.
 
 ## Preconditions
 
-- A scaffolded repo (directory tree per [`scaffold.md`](./scaffold.md) §5).
+- A scaffolded repo (directory tree per [`scaffold.md`](./scaffold.md) 5).
 - `occ` configured + active context confirmed with the user (surface context name, control-plane URL, namespace).
 - `OCC_TAG` env var set to the cluster's OpenChoreo version (otherwise the script fetches from `main`). See [`../authoring.md`](../authoring.md) *Pin upstream fetches*.
 - For the build-and-release workflows: a `ClusterSecretStore` (typically named `default`) on the workflow plane that resolves `git-token` and `gitops-token`. Provision via [`install-flux-and-secrets.md`](./install-flux-and-secrets.md) if missing.
@@ -34,7 +34,7 @@ Plus a single scope choice that applies to every bundle above:
 | Cluster (`ClusterX`) | Yes | Visible to every namespace. Matches the vanilla install pattern. |
 | Namespace (`X` under `namespaces/<ns>/platform/`) | No | One-namespace install for tenancy isolation. |
 
-If both **CCTs** and **GitOps workflows** are selected, the agent additionally rewrites each CCT's `allowedWorkflows[]` to point at the GitOps workflows (§5).
+If both **CCTs** and **GitOps workflows** are selected, the agent additionally rewrites each CCT's `allowedWorkflows[]` to point at the GitOps workflows (5).
 
 ## Steps
 
@@ -81,7 +81,7 @@ mkdir -p platform-shared/traits
   > platform-shared/traits/observability-alert-rule.yaml
 ```
 
-Same scope swap as §1 if needed.
+Same scope swap as 1 if needed.
 
 ### 3. GitOps Workflow CRs + Argo templates
 
@@ -121,9 +121,9 @@ ClusterWorkflowTemplates are always cluster-scoped — no swap needed.
 
 The script refuses `--kind ClusterWorkflow` on `defaults` mode by default — those four workflows in `all.yaml` write `Workload` CRs directly to the cluster, which Flux reverts. Full reasoning in [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
-Override (rarely correct) with `--include-vanilla-ci`. The normal answer is to use §3.
+Override (rarely correct) with `--include-vanilla-ci`. The normal answer is to use 3.
 
-### 5. (If §1 + §3 both chosen) — rewrite `allowedWorkflows[]`
+### 5. (If 1 + 3 both chosen) — rewrite `allowedWorkflows[]`
 
 The vanilla CCT YAMLs reference the vanilla CI workflows by name (`paketo-buildpacks-builder` etc.). Replace each CCT's `allowedWorkflows[]` with the GitOps-mode set:
 
@@ -175,7 +175,7 @@ kubectl get clusterworkflowtemplate                     # docker-gitops-release 
 - **`registry-url`** must match a registry the workflow plane can push to and the data plane can pull from. Ask the user — the sample default is a placeholder.
 - **`ClusterSecretStore` name** in the Workflow CRs' `ExternalSecret`s is hard-coded to `default`. If the cluster's store has a different name, edit the Workflow CR or rename the store.
 - **Argo Workflows must be installed on the WorkflowPlane.** Verify: `kubectl get clusterworkflowtemplate`. If the CRD isn't installed, that's an install-side fix.
-- **Environments depend on a registered DataPlane.** `ClusterDataPlane/default` must exist before §0 reconciles. Without it, Environments stay `Ready=False`.
+- **Environments depend on a registered DataPlane.** `ClusterDataPlane/default` must exist before 0 reconciles. Without it, Environments stay `Ready=False`.
 
 ## Related
 

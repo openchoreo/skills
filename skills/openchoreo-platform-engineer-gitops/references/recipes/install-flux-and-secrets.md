@@ -78,7 +78,7 @@ spec:
     name: git-credentials
 ```
 
-For public repos, skip §2 entirely.
+For public repos, skip 2 entirely.
 
 ## 3. git-token / gitops-token secrets (build-and-release workflows)
 
@@ -148,16 +148,16 @@ For **`gh auth token`** flow:
 ```bash
 gh auth status                                   # confirm 'repo' scope is present
 TOKEN=$(gh auth token)
-# Then for the chosen backend in §3b, substitute "$TOKEN" wherever <PAT> appears.
+# Then for the chosen backend in 3b, substitute "$TOKEN" wherever <PAT> appears.
 ```
 
 For **manual PAT** flow:
 
 1. Generate a PAT with `repo` scope at <https://github.com/settings/tokens> (classic) or a fine-grained token scoped to the GitOps repo.
-2. Paste into the agent for the single secret-write command in §3b.
+2. Paste into the agent for the single secret-write command in 3b.
 3. Agent does **not** commit the PAT to Git.
 
-For **manual-secret** flow, hand the user the exact backend command from §3b with `<PAT>` left as a placeholder; agent waits for them to run it. Then verify with §3c.
+For **manual-secret** flow, hand the user the exact backend command from 3b with `<PAT>` left as a placeholder; agent waits for them to run it. Then verify with 3c.
 
 For repos under heavy automation, two separate PATs (one read-only for source, one read/write for GitOps) is the more secure pattern.
 
@@ -165,7 +165,7 @@ For repos under heavy automation, two separate PATs (one read-only for source, o
 
 - **`flux install` is cluster-altering.** Always confirm with the user before running.
 - **`flux bootstrap` is even heavier** — it creates a sibling Git repo (or commits to one) for Flux's own config. Don't use it unless the user asked for `bootstrap`.
-- **Public repos don't need `git-credentials`.** Skip §2 if the repo is public; uncommenting `secretRef` with no secret in place will fail.
+- **Public repos don't need `git-credentials`.** Skip 2 if the repo is public; uncommenting `secretRef` with no secret in place will fail.
 - **`git-token` and `gitops-token` are workflow-plane concerns.** They're separate from `git-credentials` (which is Flux-controller-side). All three may need to exist on the same cluster.
 - **PATs leak via shell history.** Use `read -s` or paste into a `kubectl exec -i` interactive session if the cluster supports it. Never commit a PAT to Git.
 

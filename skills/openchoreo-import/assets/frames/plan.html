@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenChoreo · proposed plan</title>
+<script src="/__cd/cellDiagram.js" defer></script>
+</head>
+<body>
+<div class="app app-plan">
+  <header class="app-bar">
+    <img class="oc-logo" src="/__logo.svg" alt="OpenChoreo">
+    <span class="oc-name">OpenChoreo Import Tool</span>
+    <div class="app-bar-actions" data-slot="nav"></div>
+  </header>
+
+  <main>
+    <header class="report-header">
+      <div class="report-title">Proposed Plan</div>
+      <div class="report-meta" data-slot="meta"></div>
+    </header>
+    <div class="tabs grow">
+      <div class="tabs-nav">
+        <button data-tab="architecture">Architecture</button>
+        <button data-tab="types">ComponentTypes, ResourceTypes &amp; Traits</button>
+        <button data-tab="projects">Projects &amp; Components</button>
+        <button data-tab="caveats">Caveats</button>
+      </div>
+      <div class="tabs-body">
+        <div class="tab-pane" data-tab="architecture" data-slot="architecture"></div>
+        <div class="tab-pane" data-tab="types"        data-slot="types"></div>
+        <div class="tab-pane" data-tab="projects"     data-slot="projects"></div>
+        <div class="tab-pane" data-tab="caveats"      data-slot="caveats"></div>
+      </div>
+    </div>
+    <!-- CONTENT -->
+  </main>
+</div>
+
+</body>
+</html>

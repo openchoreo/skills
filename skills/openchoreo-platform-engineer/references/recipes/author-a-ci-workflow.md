@@ -22,7 +22,7 @@ For an off-the-shelf builder, OpenChoreo ships `dockerfile-builder`, `gcp-buildp
 
 ## Recipe
 
-The 3-step authoring process from [`../workflows.md`](../workflows.md) §3, mapped to which tool surface owns each step:
+The 3-step authoring process from [`../workflows.md`](../workflows.md) 3, mapped to which tool surface owns each step:
 
 | Step | What | Where | Tool |
 |---|---|---|---|
@@ -54,7 +54,7 @@ For buildpack-based builds (Paketo, GCP Buildpacks, Ballerina), `containerfile-b
 
 ### Step 2 — Design the Argo Workflow shape
 
-Decide the pipeline before writing the CR. Categorize each parameter into one of three types — see [`../workflows.md`](../workflows.md) §3 *Step 2* for the full breakdown:
+Decide the pipeline before writing the CR. Categorize each parameter into one of three types — see [`../workflows.md`](../workflows.md) 3 *Step 2* for the full breakdown:
 
 - **Hard-coded** — platform engineer locks the value (`trivy-scan: "true"`, registry hostname, image-tag scheme)
 - **Developer-provided** — filled in via `WorkflowRun.spec.workflow.parameters` (repo URL, branch, appPath)
@@ -157,7 +157,7 @@ metadata:
     openchoreo.dev/workflow-type: "component"
 ```
 
-Pass this through the MCP `create_workflow` call (`scope: "cluster"`; the tool accepts a `metadata.labels` field on the resource). Without it, UI / CLI won't categorize the workflow as CI and auto-build won't pick it up. See [`../workflows.md`](../workflows.md) §7.
+Pass this through the MCP `create_workflow` call (`scope: "cluster"`; the tool accepts a `metadata.labels` field on the resource). Without it, UI / CLI won't categorize the workflow as CI and auto-build won't pick it up. See [`../workflows.md`](../workflows.md) 7.
 
 For the full body — including the registry-push ExternalSecret, the per-step CEL expressions, and the proper `runTemplate.spec.arguments.parameters`-to-CWT-arg wiring — inspect a Workflow already on the cluster: `get_workflow scope: cluster, name: dockerfile-builder` (the platform usually ships this and the three buildpack alternatives). Adapt the returned spec.
 

@@ -1,0 +1,36 @@
+/* OpenChoreo brand tokens — auto-injected by the server before </head> on every HTML response.
+   Frames reference these as `var(--primary)` etc.; don't redeclare them per-frame. */
+:root {
+  --primary:        #2B8CF7;
+  --primary-dark:   #157EF5;
+  --primary-deep:   #0860D4;
+  --primary-light:  #75B6FA;
+  --primary-soft:   #eaf3ff;
+  --navy:           #002a69;
+
+  --bg:             #ffffff;
+  --bg-soft:        #f8fafc;
+  --bg-sunk:        #f1f5f9;
+  --border:         #e2e8f0;
+  --border-strong:  #cbd5e1;
+
+  --ink:            #0f172a;
+  --ink-soft:       #334155;
+  --ink-mute:       #64748b;
+  --ink-faint:      #94a3b8;
+
+  --ok:             #16a34a;
+  --ok-soft:        #f0fdf4;
+  --warn:           #d97706;
+  --warn-soft:      #fffbeb;
+  --danger:         #dc2626;
+  --danger-soft:    #fef2f2;
+
+  /* type stacks match openchoreo.dev / Docusaurus Infima defaults */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  --font-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --r:         8px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow:    0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 14px -4px rgba(15, 23, 42, 0.08);
+}

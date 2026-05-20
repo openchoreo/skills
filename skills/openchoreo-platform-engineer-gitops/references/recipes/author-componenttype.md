@@ -41,7 +41,7 @@ Five load-bearing fields:
 - **`workloadType`** — primary kind. Exactly one `resources[].id` must match this string.
 - **`parameters.openAPIV3Schema`** — fields developers fill on `Component.spec.parameters`. Required unless a `default` is set.
 - **`environmentConfigs.openAPIV3Schema`** — fields per `ReleaseBinding.spec.componentTypeEnvironmentConfigs` (replicas, resources, imagePullPolicy — anything per-env).
-- **`resources[]`** — K8s resource templates with CEL. `id`, `template`, optional `includeWhen` / `forEach` / `var`. CEL context: [`../cel.md`](../cel.md) §5.
+- **`resources[]`** — K8s resource templates with CEL. `id`, `template`, optional `includeWhen` / `forEach` / `var`. CEL context: [`../cel.md`](../cel.md) 5.
 - **`validations[]`** — CEL expressions checked at admission for cross-field invariants (`size(workload.endpoints) > 0`).
 
 Plus allow-lists:
@@ -141,5 +141,5 @@ Flux re-applies the full file every reconcile. **Anything not in the file is rem
 - **`ClusterComponentType` may only reference `ClusterTrait` / `ClusterWorkflow`.** Mixing scopes fails validation.
 - **`allowedWorkflows[]` must point at GitOps-compatible Workflows.** The vanilla CI workflows in `samples/getting-started/all.yaml` (`dockerfile-builder` etc.) write the `Workload` to the cluster directly — Flux reverts. Use the GitOps variants (`docker-gitops-release` etc.) discoverable via `./scripts/extract-resources.sh gitops-workflows --list`. See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 - **Required-by-default in JSON Schema.** Every property is required unless it has `default`. Use object-level `default: {}` on container objects so adding a required nested field doesn't silently break every existing Component.
-- **CEL context.** `parameters` / `environmentConfigs` always available; `workload` / `configurations` / `dependencies` / `dataplane` / `gateway` in scope for `resources[]` and `validations[]`. See [`../cel.md`](../cel.md) §5.
+- **CEL context.** `parameters` / `environmentConfigs` always available; `workload` / `configurations` / `dependencies` / `dataplane` / `gateway` in scope for `resources[]` and `validations[]`. See [`../cel.md`](../cel.md) 5.
 - **`metadata.namespace`:** cluster-scoped CRDs reject it; namespace-scoped CRDs require it.

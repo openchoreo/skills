@@ -45,7 +45,7 @@ Returns the schema for the `spec` body — `parameters`, `environmentConfigs`, `
 | **`patches[]`** | The trait *modifies* a resource the ComponentType already produces — inject a sidecar, add a volume mount, append a label, set an annotation |
 | **Both** | Common for capabilities that need both — a persistent-volume trait creates the PVC (`creates`) and adds the volume + volume-mount to the existing Deployment (`patches`) |
 
-See [`../component-types-and-traits.md`](../component-types-and-traits.md) §3 for the full `patches` operation set (JSON Patch + array filtering + CEL paths and values), and [`../cel.md`](../cel.md) for context variables (note `resource` is only available inside a patch's `where` filter).
+See [`../component-types-and-traits.md`](../component-types-and-traits.md) 3 for the full `patches` operation set (JSON Patch + array filtering + CEL paths and values), and [`../cel.md`](../cel.md) for context variables (note `resource` is only available inside a patch's `where` filter).
 
 ### 4. Compose the spec
 
@@ -107,7 +107,7 @@ create_trait
               mountPath: ${parameters.mountPath}
 ```
 
-Note the use of `${trait.instanceName}` in resource names — that's how the same trait can attach multiple times to one component without name collisions (one PVC per instance). See [`../component-types-and-traits.md`](../component-types-and-traits.md) §3 *Trait `instanceName`*.
+Note the use of `${trait.instanceName}` in resource names — that's how the same trait can attach multiple times to one component without name collisions (one PVC per instance). See [`../component-types-and-traits.md`](../component-types-and-traits.md) 3 *Trait `instanceName`*.
 
 ### 5. List the trait on at least one ComponentType
 

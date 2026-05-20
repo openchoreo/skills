@@ -42,9 +42,9 @@ Returns the full JSON schema for the `spec` body — `workloadType`, `allowedWor
 Five fields drive almost everything:
 
 - **`workloadType`** — primary kind. The entry in `resources[]` whose `id` matches this string is the *primary workload*. If `workloadType: deployment`, exactly one `resources[].id: deployment` is required.
-- **`parameters.openAPIV3Schema`** — what developers fill in on `Component.spec.parameters`. **Required-by-default** unless a field has a `default`. See [`../component-types-and-traits.md`](../component-types-and-traits.md) §4 for the full schema syntax.
+- **`parameters.openAPIV3Schema`** — what developers fill in on `Component.spec.parameters`. **Required-by-default** unless a field has a `default`. See [`../component-types-and-traits.md`](../component-types-and-traits.md) 4 for the full schema syntax.
 - **`environmentConfigs.openAPIV3Schema`** — per-environment values from `ReleaseBinding.spec.componentTypeEnvironmentConfigs`. Same syntax. Use this for replicas, resource limits — anything that varies between dev / staging / prod.
-- **`resources[]`** — Kubernetes resource templates with CEL expressions. `id`, `template`, optional `includeWhen` / `forEach` / `var`. CEL contexts available here are documented in [`../cel.md`](../cel.md) §5 (look at the *availability matrix*).
+- **`resources[]`** — Kubernetes resource templates with CEL expressions. `id`, `template`, optional `includeWhen` / `forEach` / `var`. CEL contexts available here are documented in [`../cel.md`](../cel.md) 5 (look at the *availability matrix*).
 - **`validations[]`** — CEL expressions that must evaluate true at admission time. Use to enforce cross-field invariants the schema can't (e.g. "production needs ≥ 2 replicas").
 
 `allowedWorkflows` and `allowedTraits` gate which CI workflows and traits developers can attach. **Must list at least one workflow** if you expect source-build to be possible, and at least one trait if developers should attach any.
@@ -165,7 +165,7 @@ Use cases: regulated tenants needing stricter limits, per-team experimental shap
 - **`ClusterComponentType` may only reference `ClusterTrait` / `ClusterWorkflow`.** A `ClusterComponentType` listing a namespace-scoped `Trait` in `allowedTraits` will fail.
 - **`ClusterComponentType` manifests must not include `metadata.namespace`.** Cluster-scoped CRDs reject it.
 - **Required-by-default.** Every property in `parameters` and `environmentConfigs` is required unless it has `default`. Object-level defaults (`default: {}`) matter — without them, adding a required nested field silently breaks every existing Component.
-- **Validation rule context varies.** `parameters` and `environmentConfigs` are always available; `workload`, `configurations`, `dependencies`, `dataplane`, `gateway` are also in scope for ComponentType validations. See [`../cel.md`](../cel.md) §5.
+- **Validation rule context varies.** `parameters` and `environmentConfigs` are always available; `workload`, `configurations`, `dependencies`, `dataplane`, `gateway` are also in scope for ComponentType validations. See [`../cel.md`](../cel.md) 5.
 - **Trait `instanceName` collisions are *per-component*, not platform-wide.** That's a developer concern — but if your validations check for it, scope the rule to a single component's traits.
 
 ## Related

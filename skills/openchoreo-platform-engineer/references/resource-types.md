@@ -66,7 +66,7 @@ spec:
   parameters:
     openAPIV3Schema:
       type: object
-      properties: { ... }                # see Schema syntax in component-types-and-traits.md §4
+      properties: { ... }                # see Schema syntax in component-types-and-traits.md 4
 
   # Per-environment overrides applied through ResourceReleaseBinding.
   environmentConfigs:
@@ -102,7 +102,7 @@ spec:
 - **`parameters`** — values from `Resource.spec.parameters`. **Static across environments.** Frozen into the `ResourceRelease` snapshot at the moment the controller cuts the release. Editing `Resource.spec.parameters` cuts a new release; existing bindings stay pinned until promoted.
 - **`environmentConfigs`** — values from `ResourceReleaseBinding.spec.resourceTypeEnvironmentConfigs`. **Per-environment.** Re-evaluated on every binding reconcile; changes do not require a new release, just an update to the binding.
 
-Both use the same `openAPIV3Schema` shape documented in [`component-types-and-traits.md`](./component-types-and-traits.md) §4. Same validation rules, same defaulting, same `x-oc-*` extension fields. Defaults are applied before CEL evaluation, so `${parameters.version}` resolves to the schema default when the developer omits the field.
+Both use the same `openAPIV3Schema` shape documented in [`component-types-and-traits.md`](./component-types-and-traits.md) 4. Same validation rules, same defaulting, same `x-oc-*` extension fields. Defaults are applied before CEL evaluation, so `${parameters.version}` resolves to the schema default when the developer omits the field.
 
 ### `retainPolicy`
 
@@ -124,7 +124,7 @@ List of named manifest entries, each with a stable `id` referenced by `outputs[]
 
 ### `outputs[]`
 
-List of named values consumers bind via `Workload.spec.dependencies.resources[].envBindings` / `.fileBindings`. Each output has a unique `name` and exactly one source kind: `value`, `secretKeyRef`, or `configMapKeyRef`. See §5 for the contract and security model.
+List of named values consumers bind via `Workload.spec.dependencies.resources[].envBindings` / `.fileBindings`. Each output has a unique `name` and exactly one source kind: `value`, `secretKeyRef`, or `configMapKeyRef`. See 5 for the contract and security model.
 
 ---
 

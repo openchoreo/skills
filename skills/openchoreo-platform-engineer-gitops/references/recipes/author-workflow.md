@@ -37,7 +37,7 @@ Don't copy from the vanilla CI workflows in `samples/getting-started/all.yaml` (
 Key pieces:
 
 - **`parameters.openAPIV3Schema`** — what the `WorkflowRun` carries.
-- **`runTemplate`** — the Argo Workflow that materialises per run. Templating context differs from ComponentType — see [`../cel.md`](../cel.md) §5 *Workflow-only variables*. Available: `metadata.workflowRunName`, `metadata.namespace`, `metadata.namespaceName`, `parameters.*`, `workflowplane.secretStore`, `externalRefs[id]`.
+- **`runTemplate`** — the Argo Workflow that materialises per run. Templating context differs from ComponentType — see [`../cel.md`](../cel.md) 5 *Workflow-only variables*. Available: `metadata.workflowRunName`, `metadata.namespace`, `metadata.namespaceName`, `parameters.*`, `workflowplane.secretStore`, `externalRefs[id]`.
 - **`resources[]`** — auxiliary resources per run (usually `ExternalSecret`s for git tokens).
 
 Skeleton (generic workflow):

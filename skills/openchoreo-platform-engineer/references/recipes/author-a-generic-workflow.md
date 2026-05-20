@@ -19,7 +19,7 @@ For workflows that build images for OpenChoreo Components (developer triggers `t
 1. The control-plane MCP server is configured (`list_namespaces` returns).
 2. `kubectl` access to the WorkflowPlane cluster (for the Argo `ClusterWorkflowTemplate` half).
 3. A `WorkflowPlane` (or `ClusterWorkflowPlane`) registered and healthy.
-4. Familiarity with the Workflow CRD shape — see [`../workflows.md`](../workflows.md) §1–§6 for the parts shared with CI workflows.
+4. Familiarity with the Workflow CRD shape — see [`../workflows.md`](../workflows.md) 1–6 for the parts shared with CI workflows.
 
 ## Recipe
 
@@ -107,7 +107,7 @@ create_workflow
           metadata:
             name: ${metadata.workflowRunName}-cloud-creds
             namespace: ${metadata.namespace}
-          spec: { ... }              # standard ExternalSecret pattern; see workflows.md §5
+          spec: { ... }              # standard ExternalSecret pattern; see workflows.md 5
 ```
 
 **Notable differences from a CI workflow:**
