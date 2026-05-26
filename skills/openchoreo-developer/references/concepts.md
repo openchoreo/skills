@@ -11,6 +11,9 @@ Namespace (tenant boundary)
   │     │     ├── Workload (runtime spec: image, ports, env, dependencies)
   │     │     ├── ComponentRelease (immutable snapshot)
   │     │     └── ReleaseBinding (deploys release to environment)
+  │     ├── Resource (managed infrastructure: database, queue, cache)
+  │     │     ├── ResourceRelease (immutable snapshot)
+  │     │     └── ResourceReleaseBinding (deploys resource to environment)
   │     └── WorkflowRun (build execution)
   ├── Environment (dev/staging/prod, maps to DataPlane)
   ├── DeploymentPipeline (promotion paths between environments)
@@ -21,6 +24,7 @@ Platform-managed (read-only for developers):
   ├── WorkflowPlane (CI/build cluster, formerly BuildPlane)
   ├── ObservabilityPlane (logging)
   ├── ComponentType / ClusterComponentType (deployment templates)
+  ├── ResourceType / ClusterResourceType (infrastructure templates)
   ├── Trait / ClusterTrait (composable capabilities)
   ├── Workflow / ClusterWorkflow (build/automation templates)
   └── RenderedRelease (rendered deployment artifact on DataPlane)
@@ -159,6 +163,44 @@ Binds a ComponentRelease to an Environment. This is what triggers actual deploym
 - `workloadOverrides`: Extra env vars, files for specific environments
 - `state`: `Active` (running) or `Undeploy` (removed)
 
+### Resource
+
+A managed-infrastructure dependency for the project — database, message queue, cache, object storage. References a ResourceType the way a Component references a ComponentType. Lives under a Project as a sibling of Component, not nested inside one. Same Resource is shared across all consumers in the same Project + Environment.
+
+**Key fields**:
+
+- `type`: `{ kind, name }` — `kind` is `ResourceType` or `ClusterResourceType`; `name` matches the template
+- `owner.projectName`: Which project owns this resource
+- `parameters`: Config values matching the ResourceType's schema (database size, instance class, etc.)
+
+**Example**: A `postgres` Resource named `orders-db` consumed by `order-service` and `payment-handler` Components in the same Project.
+
+Consumed by Components via `Workload.spec.dependencies.resources[].envBindings` / `.fileBindings` — the same shape as endpoint deps. The platform resolves outputs (host, port, credentials, connection strings) and injects them as env vars or mounted files on the consumer's container. Manage with `create_resource` / `get_resource` / `list_resources` / `delete_resource`; advance a release into an environment with the promote flow (see ResourceReleaseBinding below).
+
+### ResourceType / ClusterResourceType
+
+Platform-engineer-defined template for an infrastructure resource. Mirrors ComponentType: cluster-scoped or namespace-scoped, picked from the available types and filled in with `parameters`. View with `list_resource_types` — pass `scope: "cluster"` for platform-wide types (most installs ship `postgres`, `valkey`, `nats` as ClusterResourceTypes out of the box). Inspect with `get_resource_type` / `get_resource_type_schema`.
+
+Each ResourceType declares `outputs[]` — named values that Resources of that type expose to consumers (e.g., `host`, `port`, `password`, `url`). Output kinds: literal `value`, `secretKeyRef`, or `configMapKeyRef`. Credentials never leave the data plane — only the reference (`{name, key}`) travels.
+
+### ResourceRelease
+
+Immutable snapshot of `{Resource, ResourceType}` at a point in time — the lock file for an infrastructure deploy, parallel to `ComponentRelease`. Named `{resource}-{hash}`. The Resource controller cuts a new release automatically whenever `Resource.spec` or the referenced template's spec changes. Read the latest release name from `Resource.status.latestRelease.name`.
+
+### ResourceReleaseBinding
+
+Binds a ResourceRelease to an Environment — deploys the resource on that env's data plane. One binding per Resource per environment. The Resource controller never fans these out automatically; each binding is authored explicitly via `create_resource_release_binding`, the Backstage UI's Deploy action, or a GitOps commit.
+
+**Promote a new release into an environment** is a two-call flow: `get_resource` → read `status.latestRelease.name` → `update_resource_release_binding` with that name in `spec.resourceRelease`. Mirrors how component-side promotes update `ReleaseBinding.spec.releaseName`.
+
+**Key fields**:
+
+- `spec.resourceRelease`: Which `ResourceRelease` is pinned to this env. The promote knob.
+- `spec.resourceTypeEnvironmentConfigs`: Per-env overrides (replica count, storage size, admin-tools-enabled flag, etc. — schema defined by the ResourceType).
+- `spec.retainPolicy`: `Delete` (default) or `Retain`. Controls whether deleting the binding cascades the data-plane resource. PEs sometimes set `Retain` on prod for stateful infra.
+
+**Status surfaces** `status.outputs[]` — the single source of truth for resolved outputs that consuming components read at render time. `Ready=True` aggregates `Synced`, `ResourcesReady`, and `OutputsResolved`.
+
 ### Workflow / WorkflowRun
 
 Workflow is a build template defined by platform engineers (backed by Argo Workflows). WorkflowRun is an execution. Component workflows build container images from source; standalone workflows handle automation like migrations.
@@ -185,8 +227,11 @@ As a developer, you control this through endpoint `visibility` on Workloads. The
 ## Deployment Flow
 
 ```text
-Component → Workload → ComponentRelease → ReleaseBinding → RenderedRelease (on DataPlane)
+Component → Workload → ComponentRelease → ReleaseBinding         → RenderedRelease (on DataPlane)
+Resource             → ResourceRelease  → ResourceReleaseBinding → RenderedRelease (on DataPlane)
 ```
+
+Component side:
 
 1. Define Component (what to deploy, which type)
 2. Define Workload (image, ports, dependencies) — manually or via build
@@ -195,6 +240,14 @@ Component → Workload → ComponentRelease → ReleaseBinding → RenderedRelea
 5. Platform renders templates, creates Kubernetes resources
 
 For `autoDeploy: true` components, steps 3–4 happen automatically when the Workload changes.
+
+Resource side (mirrors the component flow without the Workload step):
+
+1. Define Resource (which infra, which type, what parameters)
+2. Resource controller auto-cuts a `ResourceRelease` whenever `Resource.spec` or the referenced `ResourceType.spec` changes
+3. Author one `ResourceReleaseBinding` per environment where the resource should run; promote later by updating `spec.resourceRelease`
+4. Platform renders templates, creates Kubernetes resources on the data plane
+5. Resolved outputs surface on `ResourceReleaseBinding.status.outputs[]`; consuming components pick them up via `dependencies.resources[]`
 
 ## Infrastructure Planes
 
@@ -233,6 +286,34 @@ Two ways to bridge the gap:
 - **Stitch together in the consumer's app code.** Inject `host` and `port` (and any other parts) as separate env vars via `envBindings`; let the app construct the DSN at startup. No platform-side override needed. Requires a small code change in the consumer.
 
 The first scales across environments and namespaces; the second is fine for one-off / single-env work but worth flagging to the user as a shortcut. Pick based on the situation. Embedded credentials in either approach should still come from a `SecretReference` via `valueFrom.secretKeyRef`.
+
+## Resource Dependencies
+
+To consume a managed-infrastructure Resource (database, queue, cache) from a Component, declare it under `Workload.spec.dependencies.resources[]`:
+
+```yaml
+dependencies:
+  resources:
+    - ref: orders-db           # name of a Resource in the same Project
+      envBindings:
+        host: DB_HOST
+        port: DB_PORT
+        username: DB_USER
+        password: DB_PASSWORD
+        database: DB_NAME
+      fileBindings:
+        ca-cert: /etc/ssl/db-ca.pem   # for secretKeyRef / configMapKeyRef outputs
+```
+
+- `ref` is the Resource name in the same Project (required, immutable).
+- `envBindings`: maps a ResourceType `output` name → an env var name on the container.
+- `fileBindings`: maps a ResourceType `output` name → a file mount path. The output's source kind must be `secretKeyRef` or `configMapKeyRef` (a literal `value:` output has no DP-side object to mount and will be rejected).
+
+The platform resolves outputs from the consuming environment's `ResourceReleaseBinding.status.outputs[]` and injects them at render time. Credentials never round-trip through the control plane — the consumer pod gets a normal K8s `valueFrom.secretKeyRef` and the kubelet resolves it on the data plane.
+
+A consumer is blocked while any referenced Resource has no Ready `ResourceReleaseBinding` in the consumer's environment. Failure shows as `ReleaseBinding.status.conditions[ResourceDependenciesReady] = False` with `Reason=ResourceDependenciesPending`, plus a per-entry breakdown in `status.pendingResourceDependencies[]`. Common causes: PE hasn't authored the binding for this env yet, the binding is pinned to a release whose outputs don't resolve, or the `ref` typo. See `./recipes/use-a-resource.md`.
+
+The `ref` must name a Resource in the same Project (same `owner.projectName` as the consumer Component).
 
 ## Discovery-first workflow (per task)
 
