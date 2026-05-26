@@ -1,6 +1,6 @@
 # CEL Reference (OpenChoreo Templates)
 
-OpenChoreo's templating system embeds [CEL](https://github.com/google/cel-spec) expressions in YAML. Use this reference when authoring **ComponentType templates**, **Trait `creates` / `patches`**, and **Workflow `runTemplate` / `resources`**.
+OpenChoreo's templating system embeds [CEL](https://github.com/google/cel-spec) expressions in YAML. Use this reference when authoring **ComponentType templates**, **Trait `creates` / `patches`**, **Workflow `runTemplate` / `resources`**, and **ResourceType templates / outputs**.
 
 This file covers:
 
@@ -27,6 +27,10 @@ For the full upstream reference: <https://openchoreo.dev/docs/reference/cel/>
 | Trait | `patches[].where` | Filter patch targets via CEL on `resource` |
 | Workflow | `runTemplate` | Argo workflow spec with parameter substitution |
 | Workflow | `resources[].template` | Auxiliary resources (ExternalSecret, etc.) |
+| ResourceType | `resources[].template` | Generate K8s manifests for managed infrastructure |
+| ResourceType | `resources[].includeWhen` | Conditional resource creation (rendered DP-side) |
+| ResourceType | `resources[].readyWhen` | Custom readiness predicate against applied DP status |
+| ResourceType | `outputs[].value` / `.secretKeyRef.{name,key}` / `.configMapKeyRef.{name,key}` | Named values surfaced on `ResourceReleaseBinding.status.outputs[]` |
 
 ---
 
@@ -284,20 +288,24 @@ Different surfaces expose different variables.
 
 ### Availability matrix
 
-| Variable | Workflow | ComponentType | Trait `creates` | Trait `patches` |
-|---|---|---|---|---|
-| `metadata.*` | yes | yes | yes | yes |
-| `parameters.*` | yes | yes | yes | yes |
-| `environmentConfigs.*` | — | yes | yes | yes |
-| `workload.*` | — | yes | — | — |
-| `configurations.*` | — | yes | — | — |
-| `dependencies.*` | — | yes | yes | yes |
-| `dataplane.*` | — | yes | yes | yes |
-| `gateway.*` | — | yes | yes | yes |
-| `trait.*` | — | — | yes | yes |
-| `externalRefs.*` | yes | — | — | — |
-| `workflowplane.*` | yes | — | — | — |
-| `resource` | — | — | — | yes (in `where`) |
+| Variable | Workflow | ComponentType | Trait `creates` | Trait `patches` | ResourceType `template` / `includeWhen` | ResourceType `readyWhen` / `outputs` |
+|---|---|---|---|---|---|---|
+| `metadata.*` | yes | yes | yes | yes | yes (resource-side fields; see below) | yes |
+| `parameters.*` | yes | yes | yes | yes | yes | yes |
+| `environmentConfigs.*` | — | yes | yes | yes | yes | yes |
+| `workload.*` | — | yes | — | — | — | — |
+| `configurations.*` | — | yes | — | — | — | — |
+| `dependencies.*` | — | yes | yes | yes | — | — |
+| `dataplane.*` | — | yes | yes | yes | yes | yes |
+| `gateway.*` | — | yes | yes | yes | yes | yes |
+| `environment.*` | — | — | — | — | yes | yes |
+| `applied.<id>.*` | — | — | — | — | **no** | yes |
+| `trait.*` | — | — | yes | yes | — | — |
+| `externalRefs.*` | yes | — | — | — | — | — |
+| `workflowplane.*` | yes | — | — | — | — | — |
+| `resource` | — | — | — | yes (in `where`) | — | — |
+
+**`applied.<id>.*` is rendering-phase-gated.** Resource templates render before the data plane has applied anything, so `applied.*` references in `resources[].template` or `resources[].includeWhen` fail validation. It's available in `resources[].readyWhen` and `outputs[]` because both run after the binding controller observes status from the data plane.
 
 ### `metadata` (ComponentType / Trait)
 
@@ -316,6 +324,25 @@ Different surfaces expose different variables.
 | `metadata.labels` | map | Common labels for all generated resources |
 | `metadata.annotations` | map | Common annotations |
 | `metadata.podSelectors` | map | Platform-injected pod identity selectors |
+
+### `metadata` (ResourceType)
+
+ResourceType templates have resource-side identity fields instead of component-side. No `componentName` / `componentUID` / `componentNamespace` / `podSelectors` — references to those fail validation.
+
+| Field | Type | Description |
+|---|---|---|
+| `metadata.name` | string | Platform-computed base name for rendered DP objects (`r-{resource}-{env}-{hash}`) |
+| `metadata.namespace` | string | Target namespace on the data plane (project-env namespace) |
+| `metadata.resourceName` | string | `Resource.metadata.name` |
+| `metadata.resourceNamespace` | string | `Resource.metadata.namespace` |
+| `metadata.resourceUID` | string | `Resource` UID |
+| `metadata.projectName` | string | Project name |
+| `metadata.projectUID` | string | Project UID |
+| `metadata.environmentName` | string | Environment name (`development`, `production`, …) |
+| `metadata.environmentUID` | string | Environment UID |
+| `metadata.dataPlaneName` / `dataPlaneUID` | string | Data plane identity |
+| `metadata.labels` | map | Common labels (includes `openchoreo.dev/resource`, `openchoreo.dev/project`, `openchoreo.dev/environment`, and `*-uid` keys) |
+| `metadata.annotations` | map | Common annotations |
 
 ### `parameters` and `environmentConfigs`
 
@@ -371,13 +398,28 @@ The flat `envVars` list is the typical injection point:
 env: ${dependencies.toContainerEnvs()}    # macro — equivalent to dependencies.envVars
 ```
 
-### `dataplane` (ComponentType / Trait)
+### `dataplane` (ComponentType / Trait / ResourceType)
 
 | Field | Description |
 |---|---|
 | `dataplane.secretStore` | Name of the ClusterSecretStore (use in `ExternalSecret.spec.secretStoreRef.name`) |
+| `dataplane.observabilityPlaneRef.kind` / `.name` | Linked ObservabilityPlane (`ResourceType`-side: usable to thread observability config into emitted manifests) |
+| `dataplane.gateway.*` | Raw DataPlane-level gateway config (pre-merge). Same shape as `gateway.*` below |
 
-### `gateway` (ComponentType / Trait)
+`gateway.*` is the **effective** gateway — Environment-level overrides merged onto the DataPlane-level defaults. Use `gateway.*` in templates. `dataplane.gateway.*` is exposed for cases where you need the raw DP-level value before merge.
+
+### `environment` (ResourceType)
+
+| Field | Description |
+|---|---|
+| `environment.name` | Environment name |
+| `environment.gateway.*` | Environment-level gateway override (pre-merge). Same shape as `gateway.*` below |
+
+The effective `gateway.*` exposed to templates is `dataplane.gateway` overridden by `environment.gateway` (field-by-field merge). Reach for `environment.gateway.*` directly only when you need to detect "this env has an override" — most templates should use `gateway.*`.
+
+### `gateway` (ComponentType / Trait / ResourceType)
+
+Effective gateway = `dataplane.gateway` overridden by `environment.gateway` (ResourceType context) or just the data-plane value (ComponentType / Trait context).
 
 | Field | Description |
 |---|---|
@@ -390,6 +432,39 @@ parentRefs:
   - name: ${gateway.ingress.external.name}
     namespace: ${gateway.ingress.external.namespace}
 ```
+
+### `applied.<id>.*` (ResourceType `readyWhen` / `outputs` only)
+
+Status of resources after they've been applied to the data plane. Keyed by the `id` field of the entry in `spec.resources[]`, **not** the rendered K8s object's `metadata.name`. The value under each id is the raw observed object — typically you reach into `.status.*`:
+
+| Path | Description |
+|---|---|
+| `applied.<id>.metadata.*` | Observed metadata (uid, resourceVersion, labels, …) |
+| `applied.<id>.spec.*` | Observed spec (post-defaulting) |
+| `applied.<id>.status.*` | Observed status — the most useful surface for `readyWhen` / `outputs` |
+
+Both dot and bracket access compile: `applied.statefulset.status.readyReplicas` and `applied["statefulset"].status.readyReplicas` are equivalent. The webhook AST-walks references and reports unknown ids with the list of declared ones.
+
+Examples:
+
+```yaml
+# readyWhen — explicit StatefulSet quorum (default heuristic is fine for most cases)
+- id: statefulset
+  readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+
+# readyWhen — Crossplane claim readiness
+- id: claim
+  readyWhen: "${applied.claim.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')}"
+
+# outputs — Crossplane-emitted Secret name
+outputs:
+  - name: password
+    secretKeyRef:
+      name: "${applied.claim.status.connectionDetails.secretName}"
+      key: password
+```
+
+`applied.<id>.*` is **not** in scope for `resources[].template` or `resources[].includeWhen` — the data plane hasn't applied anything yet at render time. Webhook rejects template / includeWhen references to `applied.*`.
 
 ### `trait` (Trait only)
 
@@ -501,6 +576,21 @@ Macro returning the flat env-var list. Equivalent to `dependencies.envVars`:
 ```yaml
 env: ${dependencies.toContainerEnvs()}
 ```
+
+### `dependencies.toContainerVolumeMounts()` / `dependencies.toVolumes()`
+
+Build `volumeMounts` and `volumes` arrays for resource-dependency `fileBindings`. Volume names use a deterministic FNV-1a 32-bit hash with `r-` prefix — disjoint from the `file-mount-` prefix `configurations.toVolumes()` produces, so the two outputs concatenate cleanly into a single Pod spec:
+
+```yaml
+containers:
+  - name: main
+    volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
+```
+
+The shipped `service` / `webapp` / `worker` / `scheduled-task` ClusterComponentTypes render both lists this way — a Workload combining `container.files[]` (configurations side) and `dependencies.resources[].fileBindings` (dependencies side) produces a single Pod with disjoint volume names.
+
+> **Type-compat note**: the underlying `dependencies.volumes` / `dependencies.volumeMounts` lists carry the same JSON shape as `corev1.Volume` / `corev1.VolumeMount` but use OpenChoreo's typed entries (`VolumeEntry`, `VolumeMountEntry`). The concat with `configurations.*` is type-checked by the ComponentType webhook; both sides must produce the same typed list — which the helpers do.
 
 ### `workload.toServicePorts()`
 

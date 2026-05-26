@@ -1,8 +1,8 @@
 ---
 name: openchoreo-platform-engineer
-description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ComponentTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ComponentType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
+description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ComponentTypes / ResourceTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ComponentType', 'add a ResourceType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
 metadata:
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # OpenChoreo Platform Engineer Guide
@@ -20,6 +20,7 @@ Before authoring or modifying any platform resource, read [`./references/concept
 For each task you take on, also load the matching reference *before* acting on the task:
 
 - **Authoring or updating a `ComponentType` / `ClusterComponentType` or a `Trait` / `ClusterTrait`** → [`./references/component-types-and-traits.md`](./references/component-types-and-traits.md).
+- **Authoring or updating a `ResourceType` / `ClusterResourceType`** (managed-infrastructure template — databases, queues, caches) → [`./references/resource-types.md`](./references/resource-types.md).
 - **Authoring or updating a `Workflow` / `ClusterWorkflow`** (CI build template or generic automation) → [`./references/workflows.md`](./references/workflows.md).
 - **Writing CEL expressions** in templates / patches / validations → [`./references/cel.md`](./references/cel.md).
 - **Authorization (`AuthzRole` / `ClusterAuthzRole` and bindings)** → [`./references/authz.md`](./references/authz.md).
@@ -32,6 +33,7 @@ For PE topics not bundled in these references — TLS / external CA, container r
 These are the platform-engineering tasks this skill supports.
 
 - **ComponentType / ClusterComponentType authoring** — schema, base workload type, resource templates, patches, validation rules, `allowedWorkflows` gating → [`component-types-and-traits.md`](./references/component-types-and-traits.md), [`recipes/author-a-componenttype.md`](./references/recipes/author-a-componenttype.md)
+- **ResourceType / ClusterResourceType authoring** — parameter + environmentConfigs schemas, K8s manifest templates with CEL, outputs (`value` / `secretKeyRef` / `configMapKeyRef`), `includeWhen` / `readyWhen`, `retainPolicy` → [`resource-types.md`](./references/resource-types.md)
 - **Trait / ClusterTrait authoring** — `creates[]` / `patches[]`, parameter schemas, environment-config overrides → [`component-types-and-traits.md`](./references/component-types-and-traits.md), [`recipes/author-a-trait.md`](./references/recipes/author-a-trait.md)
 - **Workflow / ClusterWorkflow authoring** — Argo `runTemplate` shape, `allowedWorkflows` gating, ExternalRefs for secrets → [`workflows.md`](./references/workflows.md), [`recipes/author-a-ci-workflow.md`](./references/recipes/author-a-ci-workflow.md) for component-bound builds, [`recipes/author-a-generic-workflow.md`](./references/recipes/author-a-generic-workflow.md) for standalone automation
 - **CEL expressions** in templates / patches / validations → [`cel.md`](./references/cel.md)
@@ -55,7 +57,7 @@ Two surfaces: **MCP** (`openchoreo-cp` server) for OpenChoreo CRDs, and **`kubec
 
 > **Tool naming.** Throughout this skill, MCP tools are referenced by their bare name (e.g. `create_environment`). The actual callable name carries an agent-specific prefix wrapping the server name — Claude Code uses `mcp__openchoreo-cp__<tool>`. Other coding agents use different prefixes. Apply whatever your agent expects.
 
-> **Scope-collapsed tools.** ComponentType / Trait / Workflow, the three plane families, and the Authz role / binding families are each a single tool that takes a `scope` arg — `"namespace"` (default; requires `namespace_name`) or `"cluster"` for the platform-wide `Cluster*` resource. This skill uses the canonical name + `scope`; e.g. `create_component_type` with `scope: "cluster"` authors a `ClusterComponentType`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — prefer the canonical form.
+> **Scope-collapsed tools.** ComponentType / ResourceType / Trait / Workflow, the three plane families, and the Authz role / binding families are each a single tool that takes a `scope` arg — `"namespace"` (default; requires `namespace_name`) or `"cluster"` for the platform-wide `Cluster*` resource. This skill uses the canonical name + `scope`; e.g. `create_component_type` with `scope: "cluster"` authors a `ClusterComponentType`, and `create_resource_type` with `scope: "cluster"` authors a `ClusterResourceType`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — prefer the canonical form.
 
 ## Working style
 
