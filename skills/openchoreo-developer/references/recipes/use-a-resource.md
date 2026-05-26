@@ -238,12 +238,12 @@ Discover available output names with `get_resource_type` → `spec.outputs[].nam
 ## Gotchas
 
 - **`ref` is a Resource name in the same Project**, not a name of a `ResourceType`. The Resource is the dev-facing instance; the type is what the platform engineer authored. Confusing the two surfaces as `ResourceNotFound`.
-- **`ResourceDependenciesReady=False, Reason=ResourceDependenciesPending`** is the most common error. Read `status.pendingResourceDependencies[]` for the per-entry reason:
-  - `NotFound` — the `ref` doesn't match a Resource in this Project.
-  - `NoBindingForEnv` — Resource exists but no `ResourceReleaseBinding` in the consumer's environment. Deploy it (or escalate to PE).
-  - `ProviderNotReady` — the binding exists but isn't `Ready` yet. Check `ResourceReleaseBinding.status` for the actual failure.
-  - `OutputNotResolved` — the binding is Ready but an output you bound doesn't exist on the type, or its CEL didn't evaluate. Confirm output names against `get_resource_type` → `spec.outputs[].name`.
-  - `InvalidFileBinding` — `fileBindings` references a `value:`-kind output (only `secretKeyRef` / `configMapKeyRef` outputs can be mounted as files).
+- **`ResourceDependenciesReady=False, Reason=ResourceDependenciesPending`** is the most common error. Each entry on `status.pendingResourceDependencies[]` carries a free-form `reason` message (not an enum). Common message prefixes:
+  - `"ResourceReleaseBinding not found for <project>/<ref> in environment <env>"` — no binding has been authored for this Resource in this env. Author one (`create_resource_release_binding`) or ask PE / GitOps to.
+  - `"multiple ResourceReleaseBindings found for <project>/<ref> in environment <env>"` — duplicate bindings for the same `(resource, env)`. Delete the extras.
+  - `"ResourceReleaseBinding <name> not ready"` — binding exists but its `Ready` condition isn't True. Drill in with `get_resource_release_binding` → `status.conditions[]`; the actual failure shows up as one of `RenderingFailed`, `ResourcesProgressing`, `ResourcesDegraded`, `ResourceApplyFailed`, or `OutputResolutionFailed` on `Synced` / `ResourcesReady` / `OutputsResolved`.
+  - `"output not resolved on resource release binding: <output-name>"` — the binding is Ready but an output you bound isn't present on `status.outputs[]`. Confirm output names against `get_resource_type` → `spec.outputs[].name`.
+  - `"output kind cannot be mounted as file: <output-name>"` — `fileBindings` references a `value:`-kind output. Only `secretKeyRef` / `configMapKeyRef` outputs can be mounted as files. Switch to `envBindings` for `value:` outputs.
 - **A Resource is shared by every consumer in the same Project + Environment.** Editing `Resource.spec.parameters` cuts a new `ResourceRelease`; existing bindings stay pinned until promoted, but a new binding picks up the new release. Don't mutate `spec.parameters` for a one-consumer concern — that's what `ResourceReleaseBinding.spec.resourceTypeEnvironmentConfigs` is for (per-env override), or `workloadOverrides.env` on the consumer's `ReleaseBinding` (single-consumer per-env literal).
 - **`update_workload` sends the full spec** — read first, append the resource dep, send back. Same gotcha as `connect-components.md`.
 - **Dependency declaration is what shows the link in the cell topology.** An env var set only via `workloadOverrides.env` doesn't. If `envBindings` can't produce the exact name your app reads, bind to a dummy env var (e.g. `_DEP_DB_PASSWORD`) so the dependency stays visible, and set the real env var separately.

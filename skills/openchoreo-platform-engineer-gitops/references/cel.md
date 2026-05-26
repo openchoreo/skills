@@ -410,10 +410,9 @@ env: ${dependencies.toContainerEnvs()}    # macro — equivalent to dependencies
 
 | Field | Description |
 |---|---|
-| `environment.name` | Environment name |
 | `environment.gateway.*` | Environment-level gateway override (pre-merge). Same shape as `gateway.*` below |
 
-The effective `gateway.*` exposed to templates is `dataplane.gateway` overridden by `environment.gateway` (field-by-field merge). Reach for `environment.gateway.*` directly only when you need to detect "this env has an override" — most templates should use `gateway.*`.
+The effective `gateway.*` exposed to templates is `dataplane.gateway` overridden by `environment.gateway` (field-by-field merge). Reach for `environment.gateway.*` directly only when you need to detect "this env has an override" — most templates should use `gateway.*`. For the env-name string use `metadata.environmentName`.
 
 ### `gateway` (ComponentType / Trait / ResourceType)
 

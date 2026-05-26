@@ -172,7 +172,7 @@ The platform-engineering side of resource abstractions. Defines the Kubernetes m
 
 Author with `create_resource_type` / `update_resource_type` (both take `scope: "cluster"` for `ClusterResourceType`). For CEL surface, output shapes, and a worked authoring walkthrough see `./resource-types.md`. Most installs ship `postgres`, `valkey`, and `nats` as `ClusterResourceType`s in `samples/getting-started/cluster-resource-types/` — useful as reference templates.
 
-**Cross-scope rule**: a `ClusterResourceType` may only reference cluster-scoped operators / cluster-scoped Secrets at render time; namespace-scoped `ResourceType` is unconstrained. Pick the scope based on whether the template needs to be platform-wide.
+**Cross-scope rule**: a `ClusterResourceType` may only emit cluster-scoped manifests or namespace-scoped manifests that pick their target namespace from `${metadata.namespace}` (the binding's project-env namespace). Namespace-scoped `ResourceType` is also free to target the binding namespace this way. Pick the scope based on whether the template needs to be platform-wide.
 
 ### ResourceRelease
 
@@ -180,7 +180,7 @@ Immutable snapshot of `{Resource, ResourceType}` at a point in time, named `{res
 
 ### ResourceReleaseBinding
 
-Binds a ResourceRelease to an Environment — the deploy-here resource for infrastructure. **PE/GitOps-authored** in the design: a PE creates one binding per env where the Resource should run (Backstage UI's Deploy action also creates one on demand via `create_resource_release_binding`). The Resource controller never fans bindings out automatically.
+Binds a ResourceRelease to an Environment — the deploy-here resource for infrastructure. One binding per Resource per environment. The Resource controller never fans these out automatically; each binding is authored explicitly via `create_resource_release_binding`, the Backstage UI's Deploy action, or a GitOps commit. In practice PE / GitOps owns the lifecycle, but the surface is open to dev.
 
 **Key fields**:
 

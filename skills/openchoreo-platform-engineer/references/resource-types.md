@@ -43,7 +43,7 @@ Resource (developer) → ResourceRelease (auto-cut, immutable) →
   ResourceReleaseBinding (per-env) → RenderedRelease (on DataPlane) → actual K8s objects
 ```
 
-Developer authors a `Resource` referencing a ResourceType + parameters. The Resource controller cuts an immutable `ResourceRelease` (snapshot of `{Resource.spec, ResourceType.spec}`). PE / GitOps authors a `ResourceReleaseBinding` per environment, pinning a `ResourceRelease`. The binding controller renders the ResourceType's templates with the snapshot + env overrides, applies the result to the data plane, then surfaces declared outputs on `status.outputs` so consuming Workloads can read them.
+Developer authors a `Resource` referencing a ResourceType + parameters. The Resource controller cuts an immutable `ResourceRelease` (snapshot of `{Resource.spec, ResourceType.spec}`). A `ResourceReleaseBinding` per environment pins a `ResourceRelease` and triggers the actual deploy — authored explicitly via `create_resource_release_binding`, the Backstage UI's Deploy action, or a GitOps commit (PE / GitOps owns the lifecycle in practice, but the surface is open to dev too). The Resource controller never fans bindings out automatically. The binding controller renders the ResourceType's templates with the snapshot + env overrides, applies the result to the data plane, then surfaces declared outputs on `status.outputs` so consuming Workloads can read them.
 
 ### Defaults that ship
 
@@ -462,12 +462,17 @@ After authoring a ResourceType, walk the chain in order:
 
 ### When the type doesn't render
 
-Common failure modes:
+Common failure modes on the consuming `ResourceReleaseBinding`:
 
-- **`Synced=False, Reason=RenderingFailed`** — CEL eval error at render time. Check the message; usually a missing field in `parameters` / `environmentConfigs` after defaulting, or a reference to a field outside the CEL surface for `template` / `includeWhen` (e.g., `applied.*` in a template).
-- **`Synced=False, Reason=SchemaValidationFailed`** — `Resource.spec.parameters` doesn't match the type's schema. The dev side hit this, not the PE; fix the parameter value or relax the schema.
+- **`Synced=False, Reason=RenderingFailed`** — CEL eval error at render time. Check the condition message; usually a missing field in `parameters` / `environmentConfigs` after defaulting, or a reference to a field outside the CEL surface for `template` / `includeWhen` (e.g., `applied.*` in a template).
+- **`Synced=False, Reason=ReleaseOwnershipConflict`** — a `RenderedRelease` with the same name already exists owned by something else (typically a Component named the same as the Resource). Resource-side rendered names carry an `r-` prefix to avoid this; if you hit it, two Resources collided on hash.
+- **Other `Synced=False` reasons** flag earlier-chain problems: `ResourceReleaseNotSet`, `ResourceReleaseNotFound`, `InvalidReleaseConfiguration`, `EnvironmentNotFound`, `DataPlaneNotFound`, `ResourceNotFound`, `ProjectNotFound`. Each names what's missing.
 - **`ResourcesReady=False, Reason=ResourcesDegraded`** — a rendered manifest applied but its per-Kind health probe reports Degraded (e.g., Deployment with `progressDeadlineSeconds` exhausted on a bad image). Drop to `kubectl describe` / `kubectl logs` on the data plane.
-- **`OutputsResolved=False`** — output CEL refers to a path not present in `applied.<id>.status.*`. Check the actual status shape with `kubectl get <kind> -o jsonpath='{.status}'`.
+- **`ResourcesReady=False, Reason=ResourcesProgressing`** — manifest applied but not Ready yet (rolling). Wait, then re-check.
+- **`ResourcesReady=False, Reason=ResourceApplyFailed`** — the `RenderedRelease` controller couldn't apply a manifest on the data plane (cluster-agent connectivity, RBAC, K8s validation). Check `RenderedRelease.status` on the CP and `kubectl describe` on the DP.
+- **`OutputsResolved=False, Reason=OutputResolutionFailed`** — output CEL refers to a path not present in `applied.<id>.status.*`. Check the actual status shape with `kubectl get <kind> -o jsonpath='{.status}'`.
+
+> **Parameter-schema mismatches show up as webhook admission errors**, not as a `Synced` reason. If `Resource.spec.parameters` violates the type's `parameters.openAPIV3Schema`, `create_resource` / `update_resource` fails outright with a `field.Invalid` from the `resourcerelease` webhook (it validates the snapshot embedded in the cut release). The dev fixes the parameter or the PE relaxes the schema.
 
 ### `kubectl` quick reference
 

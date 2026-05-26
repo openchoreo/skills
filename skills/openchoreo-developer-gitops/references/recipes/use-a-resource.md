@@ -292,12 +292,12 @@ occ resourcereleasebinding list -n <ns> --resource orders-db
 ## Gotchas
 
 - **`ref` is a Resource name in the same Project**, not a `ResourceType` name. The Resource is the dev-facing instance; the type is what the platform engineer authored. Confusing them surfaces as `ResourceNotFound`.
-- **`ResourceDependenciesReady=False, Reason=ResourceDependenciesPending`** is the most common error on the consumer side. Read `status.pendingResourceDependencies[]` for the per-entry reason:
-  - `NotFound` — `ref` doesn't match a Resource in this Project.
-  - `NoBindingForEnv` — Resource exists but no `ResourceReleaseBinding` in the consumer's env. Commit the binding.
-  - `ProviderNotReady` — binding exists but isn't `Ready`. Check `occ resourcereleasebinding get` for the actual failure.
-  - `OutputNotResolved` — binding is Ready but the output you bound doesn't exist on the type, or its CEL didn't evaluate. Confirm output names against the ResourceType.
-  - `InvalidFileBinding` — `fileBindings` references a `value:`-kind output (only `secretKeyRef` / `configMapKeyRef` can be mounted).
+- **`ResourceDependenciesReady=False, Reason=ResourceDependenciesPending`** is the most common error on the consumer side. Each entry on `status.pendingResourceDependencies[]` carries a free-form `reason` message (not an enum). Common message prefixes:
+  - `"ResourceReleaseBinding not found for <project>/<ref> in environment <env>"` — no binding committed for this Resource in this env. Author one in Git.
+  - `"multiple ResourceReleaseBindings found for <project>/<ref> in environment <env>"` — duplicate bindings for the same `(resource, env)`. Remove the extras.
+  - `"ResourceReleaseBinding <name> not ready"` — binding exists but its `Ready` condition isn't True. `occ resourcereleasebinding get <name> -n <ns>` → `status.conditions[]`; the failure shows up as one of `RenderingFailed`, `ResourcesProgressing`, `ResourcesDegraded`, `ResourceApplyFailed`, or `OutputResolutionFailed` on `Synced` / `ResourcesReady` / `OutputsResolved`.
+  - `"output not resolved on resource release binding: <output-name>"` — binding is Ready but the output you bound isn't on `status.outputs[]`. Confirm output names against the ResourceType.
+  - `"output kind cannot be mounted as file: <output-name>"` — `fileBindings` references a `value:`-kind output. Only `secretKeyRef` / `configMapKeyRef` outputs can be mounted as files. Switch to `envBindings` for `value:` outputs.
 - **The Resource is shared by every consumer in the same Project + Environment.** Editing `Resource.spec.parameters` cuts a new release; existing bindings stay pinned until promoted. Don't mutate it for a one-consumer concern — use `ResourceReleaseBinding.spec.resourceTypeEnvironmentConfigs` (per-env override) or `workloadOverrides.env` on the consumer's `ReleaseBinding` (single-consumer per-env literal).
 - **`spec.resourceRelease` empty = nothing deployed.** A binding committed without `spec.resourceRelease` set is valid but doesn't deploy until you fill it. The two-step "commit empty, then fill" is intentional — the first reconcile cuts the release, then you advance the binding.
 - **`Resource.spec.type` and `Resource.spec.owner` are immutable.** Renaming or re-pointing requires delete + recreate. With `retainPolicy: Delete` on the binding, that cascades the data-plane object (potentially destroying data). For stateful infra, set `retainPolicy: Retain` on the binding before deleting.
