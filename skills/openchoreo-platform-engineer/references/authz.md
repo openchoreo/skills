@@ -68,14 +68,17 @@ Each binding has `effect: allow | deny` (default `allow`). A `deny` is an explic
 
 ## 2. Resource hierarchy and scope
 
-Resources form a four-level ownership hierarchy:
+Resources form an ownership hierarchy with sibling branches under Project:
 
 ```text
 Cluster (everything)
   └── Namespace
         └── Project
-              └── Component
+              ├── Component (and its ComponentRelease / ReleaseBinding / Workload / WorkflowRun)
+              └── Resource  (and its ResourceRelease / ResourceReleaseBinding)
 ```
+
+**Component and Resource are sibling sub-scopes under Project, not parent-child.** A grant on a Component does not cover sibling Resources, and vice versa.
 
 **Scope** is the boundary that controls _where_ a binding's permissions apply. Resources outside the scope are invisible to that binding — as if the binding doesn't exist for them.
 
@@ -83,13 +86,17 @@ Cluster (everything)
 |---|---|---|
 | Cluster-wide | omit `scope` on a `ClusterAuthzRoleBinding` | all resources at every level |
 | Namespace | `scope.namespace: acme` | the `acme` namespace and everything inside it |
-| Project | `scope.namespace: acme`, `scope.project: crm` | the `crm` project in `acme` and everything inside it |
-| Component | `scope.namespace: acme`, `scope.project: crm`, `scope.component: backend` | only the `backend` component and its resources |
+| Project | `scope.namespace: acme`, `scope.project: crm` | the `crm` project — both its Components and its Resources |
+| Component | `scope.namespace: acme`, `scope.project: crm`, `scope.component: backend` | only the `backend` component and its sub-resources (ComponentRelease, ReleaseBinding, Workload) |
+| Resource | `scope.namespace: acme`, `scope.project: crm`, `scope.resource: orders-db` | only the `orders-db` resource and its sub-resources (ResourceRelease, ResourceReleaseBinding) |
+
+`scope.component` and `scope.resource` are mutually exclusive — a single role mapping cannot scope to both at once (the CRD CEL rejects bindings that set both).
 
 ### Cascade rules
 
-- **Permissions cascade downward.** A binding scoped to namespace `acme` covers every project and component within it.
-- **Permissions do not cascade upward.** A binding scoped to project `crm` does **not** grant access to the namespace itself or to other projects. If you need that, add a separate role mapping at the appropriate scope.
+- **Permissions cascade downward.** A binding scoped to namespace `acme` covers every project, component, and resource within it.
+- **Permissions do not cascade upward.** A binding scoped to project `crm` does **not** grant access to the namespace itself or to other projects.
+- **Sibling branches don't cascade across.** A binding scoped to `scope.component: backend` does **not** cover sibling Resources under the same Project; a binding scoped to `scope.resource: orders-db` does **not** cover sibling Components. Grant at the Project level to cover both branches.
 
 ### Effective permissions
 
@@ -99,9 +106,15 @@ Example — a `developer` role granting `component:create` and `project:view`:
 
 | Binding scope | Effective permissions |
 |---|---|
-| `namespace: acme, project: crm` | Create components and view the project, only inside `crm`. Other projects in `acme` are unaffected. |
+| `namespace: acme, project: crm` | Create components and view the project, only inside `crm`. Other projects in `acme` are unaffected. Sibling Resources are also visible at this scope. |
 | `namespace: acme` | Create components and view projects across every project in `acme`. |
 | (no scope, cluster) | Create components and view projects across the entire cluster. |
+
+Example — a per-resource grant, `resource-admin` role granting `resource:update` + `resourcereleasebinding:*`:
+
+| Binding scope | Effective permissions |
+|---|---|
+| `namespace: acme, project: crm, resource: orders-db` | Update only the `orders-db` resource and CRUD its bindings. Other Resources in `crm` are unaffected. Sibling Components are unaffected. |
 
 ---
 
@@ -147,7 +160,12 @@ actions:
   - "componentrelease:*"
   - "releasebinding:*"
   - "workload:*"
+  - "resource:*"
+  - "resourcerelease:*"
+  - "resourcereleasebinding:*"
   - "project:view"
+  - "resourcetype:view"
+  - "clusterresourcetype:view"
   - "environment:view"
   - "secretreference:view"
   - "logs:view"
@@ -163,7 +181,12 @@ actions:
   - "componentrelease:view"
   - "releasebinding:view"
   - "workload:view"
+  - "resource:view"
+  - "resourcerelease:view"
+  - "resourcereleasebinding:view"
   - "project:view"
+  - "resourcetype:view"
+  - "clusterresourcetype:view"
   - "environment:view"
   - "logs:view"
   - "metrics:view"
@@ -366,7 +389,12 @@ These are the actions defined in the system. Use exact strings in role `spec.act
 | ReleaseBinding | `releasebinding:view`, `releasebinding:create`, `releasebinding:update`, `releasebinding:delete` |
 | Workload | `workload:view`, `workload:create`, `workload:update`, `workload:delete` |
 | WorkflowRun | `workflowrun:view`, `workflowrun:create`, `workflowrun:update` |
+| Resource | `resource:view`, `resource:create`, `resource:update`, `resource:delete` |
+| ResourceRelease | `resourcerelease:view`, `resourcerelease:create`, `resourcerelease:delete` |
+| ResourceReleaseBinding | `resourcereleasebinding:view`, `resourcereleasebinding:create`, `resourcereleasebinding:update`, `resourcereleasebinding:delete` |
 | Secrets | `secretreference:view`, `secretreference:create`, `secretreference:update`, `secretreference:delete` |
+
+`resource:create` evaluates at `ScopeProject` (the Resource doesn't exist yet at create time, same pattern as `component:create`). View / Update / Delete on `Resource`, and all actions on `ResourceRelease` / `ResourceReleaseBinding`, evaluate at `ScopeResource` — bindings can scope down via `scope.resource: <name>`.
 
 ### Platform resources (PE)
 
@@ -374,6 +402,8 @@ These are the actions defined in the system. Use exact strings in role `spec.act
 |---|---|
 | ComponentType | `componenttype:view`, `componenttype:create`, `componenttype:update`, `componenttype:delete` |
 | ClusterComponentType | `clustercomponenttype:view`, `clustercomponenttype:create`, `clustercomponenttype:update`, `clustercomponenttype:delete` |
+| ResourceType | `resourcetype:view`, `resourcetype:create`, `resourcetype:update`, `resourcetype:delete` |
+| ClusterResourceType | `clusterresourcetype:view`, `clusterresourcetype:create`, `clusterresourcetype:update`, `clusterresourcetype:delete` |
 | Trait | `trait:view`, `trait:create`, `trait:update`, `trait:delete` |
 | ClusterTrait | `clustertrait:view`, `clustertrait:create`, `clustertrait:update`, `clustertrait:delete` |
 | Workflow | `workflow:view`, `workflow:create`, `workflow:update`, `workflow:delete` |

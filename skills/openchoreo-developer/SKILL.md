@@ -1,8 +1,8 @@
 ---
 name: openchoreo-developer
-description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'promote to staging', 'rollback', or 'why is my pod crashing'.
+description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', or 'why is my pod crashing'.
 metadata:
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # OpenChoreo Developer Guide
@@ -24,7 +24,7 @@ Then load the matching reference for the task:
 
 ## Step 2 — Load the PE skill for platform tasks
 
-If the request touches `ComponentType` / `Trait` / `Workflow` (or cluster variants) or anything under *What this skill cannot do*, also load [`../openchoreo-platform-engineer/SKILL.md`](../openchoreo-platform-engineer/SKILL.md). If the PE skill isn't installed, escalate.
+If the request touches `ComponentType` / `ResourceType` / `Trait` / `Workflow` (or cluster variants) or anything under *What this skill cannot do*, also load [`../openchoreo-platform-engineer/SKILL.md`](../openchoreo-platform-engineer/SKILL.md). If the PE skill isn't installed, escalate.
 
 ## What this skill can do
 
@@ -35,17 +35,18 @@ If the request touches `ComponentType` / `Trait` / `Workflow` (or cluster varian
 - **Workloads** — image, ports, endpoints, env vars, files → [`configure-workload.md`](./references/recipes/configure-workload.md)
 - **Attach Traits** — pick from the platform's catalog → [`configure-workload.md`](./references/recipes/configure-workload.md)
 - **Connect components** — endpoint dependencies; platform injects env vars → [`connect-components.md`](./references/recipes/connect-components.md)
+- **Consume Resources** — managed-infrastructure dependencies (databases, queues, caches); platform injects outputs as env vars and file mounts via `dependencies.resources[]` → [`use-a-resource.md`](./references/recipes/use-a-resource.md)
 - **SecretReferences** — CRUD + `secretKeyRef` consumption → [`manage-secrets.md`](./references/recipes/manage-secrets.md). The `ClusterSecretStore` is PE-owned.
 - **Deploy and promote** — bind a `ComponentRelease` to an Environment, promote along the DeploymentPipeline → [`deploy-and-promote.md`](./references/recipes/deploy-and-promote.md)
 - **Per-environment overrides** — replicas, resources, env vars, trait config on the ReleaseBinding → [`override-per-environment.md`](./references/recipes/override-per-environment.md)
 - **Soft-undeploy / rollback** — `update_release_binding release_state: Undeploy`, or rebind to a prior `ComponentRelease`.
 - **Hard-delete developer resources** — `delete_component`, `delete_workload`, `delete_release_binding`, `delete_project`, `delete_component_release`. Destructive; confirm first. **No `delete_namespace`** — PE-side.
 - **Inspect runtime** — Component / ReleaseBinding `status.conditions[]` and `status.endpoints[]`; `get_resource_tree` to map a binding to its rendered K8s resources; `get_resource_events` / `get_resource_logs` for pod-level evidence; WorkflowRun logs and events → [`inspect-and-debug.md`](./references/recipes/inspect-and-debug.md)
-- **Discover platform resources** (read-only) — ComponentTypes, Traits, Workflows, Environments, DeploymentPipelines, planes.
+- **Discover platform resources** (read-only) — ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, planes.
 
 ## What this skill cannot do
 
-Platform-side work: authoring ComponentTypes / Traits / Workflows, Environments, DeploymentPipelines, planes, authorization, gateway / secret-store / IdP config, observability setup, longer-horizon log / metric / trace queries (pod-level events and current logs *are* covered via `get_resource_events` / `get_resource_logs`).
+Platform-side work: authoring ComponentTypes / ResourceTypes / Traits / Workflows, Environments, DeploymentPipelines, planes, authorization, gateway / secret-store / IdP config, observability setup, longer-horizon log / metric / trace queries (pod-level events and current logs *are* covered via `get_resource_events` / `get_resource_logs`).
 
 Load `../openchoreo-platform-engineer/SKILL.md` if it's installed; otherwise tell the user to escalate to a platform engineer. PE scope catalog: <https://openchoreo.dev/docs/platform-engineer-guide/>.
 
@@ -53,7 +54,9 @@ Load `../openchoreo-platform-engineer/SKILL.md` if it's installed; otherwise tel
 
 One MCP server: `openchoreo-cp`. Throughout this skill, tools are referenced by bare name (e.g. `get_component`); your agent wraps with its prefix (Claude Code uses `mcp__openchoreo-cp__<tool>`).
 
-ComponentType / Trait / Workflow and the plane tools are **scope-collapsed**: one tool with a `scope` arg — `"namespace"` (default) or `"cluster"` for the platform-wide `Cluster*` resource. This skill always uses the canonical name + `scope`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — but prefer the canonical form.
+ComponentType / ResourceType / Trait / Workflow and the plane tools are **scope-collapsed**: one tool with a `scope` arg — `"namespace"` (default) or `"cluster"` for the platform-wide `Cluster*` resource. This skill always uses the canonical name + `scope`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — but prefer the canonical form.
+
+The `resource` toolset (dev-facing, enabled by default) covers `Resource` CRUD plus scope-collapsed reads on `(Cluster)ResourceType`. `ResourceReleaseBinding` CRUD sits in the `deployment` toolset alongside `ReleaseBinding`. The `resource_release_binding` create/update calls are how a Resource gets deployed into an env (or promoted to a new release).
 
 ## Working style
 

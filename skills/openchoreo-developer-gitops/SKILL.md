@@ -1,8 +1,8 @@
 ---
 name: openchoreo-developer-gitops
-description: Application-developer GitOps work for OpenChoreo — onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a component to the GitOps repo', 'release my service via Git', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
+description: Application-developer GitOps work for OpenChoreo — onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # OpenChoreo Developer GitOps Guide
@@ -44,6 +44,7 @@ Load other references **on-demand**:
 - **Configure a Workload** — endpoints, env, files, secrets → [`recipes/configure-workload.md`](./references/recipes/configure-workload.md)
 - **Attach a PE-authored Trait** → [`recipes/attach-trait.md`](./references/recipes/attach-trait.md)
 - **Wire component dependencies** — `dependencies.endpoints[]` with env-var injection → [`recipes/connect-components.md`](./references/recipes/connect-components.md)
+- **Use a Resource** — managed-infrastructure dependency (databases, queues, caches); author `Resource` + `ResourceReleaseBinding` YAML, wire `dependencies.resources[]` on a Workload → [`recipes/use-a-resource.md`](./references/recipes/use-a-resource.md)
 - **Generate ComponentReleases / ReleaseBindings via `occ` file-mode** — produced through the onboard recipes.
 - **Promote releases** — single component or bulk (project / all) → [`recipes/promote.md`](./references/recipes/promote.md), [`recipes/bulk-promote.md`](./references/recipes/bulk-promote.md)
 - **Per-environment overrides** — replicas, resources, env vars, trait config → [`recipes/override-per-environment.md`](./references/recipes/override-per-environment.md)
@@ -53,7 +54,7 @@ Load other references **on-demand**:
 ## What this skill cannot do
 
 - **Repo scaffolding or Flux wiring.** Out of scope; assumes the repo is already scaffolded and Flux is wired.
-- **Authoring ComponentTypes / Traits / Workflows.** Platform-side. Pick from what `occ clustercomponenttype list` / `occ clustertrait list` / `occ clusterworkflow list` show; the developer attaches what the platform offers.
+- **Authoring ComponentTypes / ResourceTypes / Traits / Workflows.** Platform-side. Pick from what `occ clustercomponenttype list` / `occ clusterresourcetype list` / `occ clustertrait list` / `occ clusterworkflow list` show; the developer references what the platform offers.
 - **Plane registration, AuthzRole / SecretReference authoring.** Platform-side.
 - **Imperative ops** — triggering a `WorkflowRun`, runtime log tail, pod-level debugging via `kubectl exec`. `WorkflowRun` does not go in Git (per `gitops/overview.md`); trigger via the UI, webhook, or `occ component workflow run`. For pod-level runtime debugging, use `kubectl` directly against the data plane or the cluster's observability backend.
 - **Editing GitOps-managed resources via `occ apply -f` or any other direct write path** — Flux reverts them on the next reconcile. Always go through Git.
@@ -61,10 +62,10 @@ Load other references **on-demand**:
 ## Working style
 
 - **Git is the source of truth.** Application resources change only through Git. `occ apply -f` is reserved for pre-Flux bootstrap (which is a PE concern; this skill rarely needs it).
-- **Use `occ` file-mode generators for the four kinds they own** (Workload, ComponentRelease, ReleaseBinding, Component scaffold). For everything else (Project, dependency wiring on a Workload, ReleaseBinding overrides), fetch the full schema with `./scripts/fetch-page.sh --exact --title "<Kind>"`.
+- **Use `occ` file-mode generators for the four kinds they own** (Workload, ComponentRelease, ReleaseBinding, Component scaffold). For everything else (Project, dependency wiring on a Workload, ReleaseBinding overrides, Resource + ResourceReleaseBinding — no generators exist for these), fetch the full schema with `./scripts/fetch-page.sh --exact --title "<Kind>"`.
 - **Always `git commit -s`** (DCO is required upstream; harmless on forks).
 - **Every change is a feature branch + PR.** `git checkout -b <branch>` first, push that branch, open a PR.
-- **`occ` over `kubectl` for OpenChoreo CRDs.** When reading / writing Project, Component, Workload, ComponentRelease, ReleaseBinding, Environment, ComponentType, Trait, Workflow, SecretReference — use `occ <kind> get/list/delete`. For runtime logs / build logs, prefer `occ component logs` / `occ workflowrun logs`. Reach for `kubectl` only for non-OpenChoreo resources (Flux CRDs, raw K8s pod state).
+- **`occ` over `kubectl` for OpenChoreo CRDs.** When reading / writing Project, Component, Workload, ComponentRelease, ReleaseBinding, Resource, ResourceRelease, ResourceReleaseBinding, Environment, ComponentType, ResourceType, Trait, Workflow, SecretReference — use `occ <kind> get/list/delete`. For runtime logs / build logs, prefer `occ component logs` / `occ workflowrun logs`. Reach for `kubectl` only for non-OpenChoreo resources (Flux CRDs, raw K8s pod state).
 - **Verify, don't assume.** Reconciliation is interval-based (`GitRepository: 1m`, `Kustomization: 5m`). Read the result back with `occ <kind> get` after merge.
 - **Don't open a PR or push without explicit user confirmation.** Local commits are reversible; remote-visible actions are not.
 - **Path A vs Path B for source-build Workloads.** Decide once whether `workload.yaml` in the source repo is the source of truth (Path A) or direct edits to the Workload CR in the GitOps repo are (Path B). Mixing them is a one-way migration trap. See [`recipes/onboard-component-source-build.md`](./references/recipes/onboard-component-source-build.md).
@@ -72,6 +73,7 @@ Load other references **on-demand**:
 ## Stable guardrails
 
 - **`ComponentRelease` is immutable.** Regenerate with `occ componentrelease generate`; never hand-edit.
+- **`ResourceRelease` is auto-cut and never in Git.** The Resource controller hashes `Resource.spec + ResourceType.spec` and cuts a new release on every change. Promote a binding by advancing `ResourceReleaseBinding.spec.resourceRelease` in Git — do not use `occ resource promote` against a GitOps-managed cluster (it patches the binding imperatively and Flux reverts).
 - **`Workload.spec.owner` (projectName + componentName) is immutable** after creation. Pick names carefully.
 - **`Component.spec.componentType` and `spec.workflow` kinds default to cluster-scoped** when omitted. Set `kind: ComponentType` / `kind: Workflow` explicitly when referencing namespace-scoped variants.
 - **`Project.spec.deploymentPipelineRef` is an object** (since v1.0.0), not a plain string. `kind` defaults to `DeploymentPipeline`.
