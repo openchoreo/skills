@@ -1,6 +1,7 @@
-# Reference sample for the openchoreo-import skill — shows what a
-# Trait can express. Read it to see the shape; the skill plans
-# migrations and never authors CT / RT / Trait YAML itself.
+# Shape reference for the openchoreo-import skill — shows what a
+# Trait can express. If applicable, recommend authoring a new Trait
+# modelled on this shape. Never reference this YAML's name as if it were
+# already shipped — the skill has zero install introspection.
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:

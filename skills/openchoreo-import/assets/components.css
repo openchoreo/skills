@@ -157,7 +157,7 @@ oc-tag[kind="danger"]{background:var(--danger-soft);color:var(--danger)}
 
 .app-report header.app-bar{z-index:5}
 .app-report main{overflow-y:auto;background:var(--bg)}
-.doc{max-width:780px;margin:0 auto;padding:3.25rem 2.5rem 3.5rem}
+.doc{max-width:960px;margin:0 auto;padding:3.25rem 2.5rem 3.5rem}
 .doc .report-header{margin-bottom:2rem}
 .doc > section{padding:1.85rem 0;border-top:1px solid var(--border)}
 .doc > section:first-of-type{border-top:none;padding-top:0}

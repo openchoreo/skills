@@ -2,7 +2,7 @@
 name: openchoreo-import
 description: Plans an OpenChoreo migration from a Helm chart, Kustomize overlay, Docker Compose file, or raw Kubernetes YAML. Triggers on "how can we migrate X into openchoreo", "onboard Y into openchoreo", "bring this app into openchoreo", "model this as openchoreo components", "what would X look like in openchoreo".
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenChoreo Import
@@ -75,15 +75,16 @@ Deliver the verdict + findings **in chat** — a short headline (good-fit / part
 
 These apply every turn, every step — not "during planning." Treat them as session-wide rules.
 
-- **Don't sample.** Sweep exhaustively — every workload, every config / secret, every parameterization file (values.yaml / kustomize patches / compose env), every grouping (subchart / base / overlay / service / directory). Render first (helm template / kustomize build / read raw YAML), then classify; static parsing misses values-conditional shapes.
-- **Use sub-agents for sweeps at scale.** If your host exposes one, shard inventory + dependency capture in parallel, and run the adversarial re-read with a fresh-context agent — no shared blind spot.
+- **Don't sample.** Read every workload, config, parameterization file, and grouping. Render before classifying — static parsing misses values-conditional shapes.
+- **Delegate sweeps to sub-agents at scale.** >5 groupings, >10 files this turn, or verdicting a large source → fan out one sub-agent per shard, each returns a summary, collapse back. Concurrent main-context Bash/Read still consumes *your* context — not sharding. (Claude Code: `Agent` tool; `ToolSearch select:Agent` if not loaded.)
+- **Never `cd`.** Absolute paths in every Bash. `cd` mutates `$PWD`; the next `preview.sh new "$PWD"` then scaffolds `.openchoreo-import/` wherever you last `cd`-ed (including inside the skill install).
 - **Don't author per-Component.** A CT / RT / Trait captures a pattern; many Components instantiate one. Visibility, replicas, sizes, env values are *parameters*, not different types.
-- **Don't ask type internals.** What a CT / RT / Trait renders is PE-side authoring. The plan recommends the pattern; what's inside is the pattern's definition.
-- **Don't ask intent.** Whether they'll apply, lift-and-shift vs re-model, exploring vs committing — none of it changes the plan. The skill always produces a plan; forks ask about source ambiguity, never about user goals.
-- **Don't thin the diagram.** Every dependency renders. Density is information — split into more Projects to drill down, never drop edges for readability.
+- **Don't ask type internals.** What a CT / RT / Trait renders is PE-side authoring. The plan recommends the pattern.
+- **Don't ask intent.** Lift-and-shift vs re-model, applying vs exploring — none of it changes the plan. Forks ask about source ambiguity, never user goals.
+- **Don't thin the diagram.** Every dependency renders. Split into more Projects to drill down, never drop edges for readability.
 - **Don't take silence as acceptance.** If a fork wasn't answered, re-ask.
 - **Don't build the page before forks are answered.** Forks are chat-only.
-- **Don't fabricate shipped names.** Default to *recommending authoring* — name the concrete CT / RT / Trait and say what it should render. A foreign CR (apiVersion outside standard K8s + `openchoreo.dev/*` + `gateway.networking.k8s.io/*`) implies an external controller — treat it as one.
-- **Don't flag runtime concerns as plan-time blockers.** Image-pull credentials, private-registry access, source licensing, who-can-pull-when — all apply-time, not plan-time. Same for calls into in-flight legacy peers: phased migration is the norm, so model the legacy peer as `external` with a *swap-when-onboarded* note; never call it a fit failure.
-- **Loud about gaps; hand off conclusions, not disclaimers.** Quietly unmapped resources mislead. Don't preface the plan with what you didn't do or might be wrong about — genuine forks belong in the verdict-beat ask, never as hedges in the finished plan.
-- **Run the end-of-turn checklist before closing any planning turn.** See [`./references/build-the-plan.md`](./references/build-the-plan.md) → *End-of-turn checklist*. A failed item means re-do, not ship.
+- **Always recommend authoring CT / RT / Trait — never reference shipped.** The skill can't know what ships (no install introspection). Bundled samples in `references/sample-types/` are *shape reference*, not a menu. A foreign CR (apiVersion outside standard K8s + `openchoreo.dev/*` + `gateway.networking.k8s.io/*`) implies an external controller.
+- **Don't flag runtime concerns as blockers.** Image-pull / registry access / licensing → apply-time. Calls into in-flight legacy peers → `external` with *swap-when-onboarded*; not a fit failure.
+- **Loud about gaps; conclusions, not disclaimers.** Quietly unmapped resources mislead. Don't preface the plan with hedges — genuine forks go in the verdict-beat ask.
+- **Run the end-of-turn checklist before closing.** See [`build-the-plan.md`](./references/build-the-plan.md) → *End-of-turn checklist*; a failed item = re-do.
