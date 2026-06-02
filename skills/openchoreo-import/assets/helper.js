@@ -74,6 +74,18 @@
     }
   }
 
+  // Hide plan.md-dependent affordances if it's not written yet (broken Copy button
+  // + broken disclosure are jarring; better to surface them only when usable).
+  fetch('/plan.md', { method: 'HEAD' })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .then((ok) => {
+      if (ok) return;
+      document.querySelectorAll('[data-local="copy-plan"], details.plan-preview').forEach((el) => {
+        el.hidden = true;
+      });
+    });
+
   document.querySelectorAll('details.plan-preview').forEach((d) => {
     let slot = d.querySelector('.preview-slot');
     if (!slot) {

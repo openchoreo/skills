@@ -28,7 +28,7 @@ The importer **doesn't touch but must know exists** (so the hand-off makes sense
 - **Environment** — a delivery stage (dev/staging/prod), bound to a **DataPlane** (a target Kubernetes cluster). Created by the platform engineer.
 - **DeploymentPipeline** — the directed graph of allowed environment promotions.
 - **ComponentRelease / ResourceRelease** — immutable snapshots of (Component + Workload + Traits) and (Resource + parameters) respectively, at a point in time. Lockfiles.
-- **ReleaseBinding** — binds a ComponentRelease to an Environment with per-environment overrides (see *Per-environment overrides* below).
+- **ReleaseBinding** — binds a ComponentRelease to an Environment with per-environment overrides.
 - **ResourceReleaseBinding** — binds a ResourceRelease to an Environment with per-environment Resource overrides + a per-env retain policy. Apply-time concern; the importer doesn't author these.
 
 ## How they connect
@@ -90,7 +90,7 @@ The cell diagram derives its directional gateways from these visibility values p
 - The `gateway.ingress.{external,internal}.*` contract a CT references is **module-agnostic** — populated from the DataPlane (Environment-level gateway config, when set, fully shadows it). The same template works across any installed gateway Module (kgateway, kong, traefik, envoy, wso2, …) — don't recommend per-module CT variants. Gateway-specific features the source uses (provider-specific annotations, plugins, mesh policies) are only expressible if the install's gateway Module supports them — surface mismatches as caveats.
 - Drop the source's hand-rolled Service / Ingress / HTTPRoute / Gateway **only when the recommended CT renders the replacement**. If the recommended CT doesn't, the endpoint isn't reachable through the platform — say so in the plan rather than letting it silently break.
 
-Be precise about what is **not** auto-wired today, so the plan doesn't overclaim: there is no automatic mTLS or service-mesh sidecar, no egress filtering (egress is open), and application-level auth (OAuth2 / OIDC / JWT) is a Trait concern (e.g. an `api-management` Trait), not core platform behaviour. Don't list those as "handled" unless the catalog actually ships the Trait.
+Be precise about what is **not** auto-wired today, so the plan doesn't overclaim: there is no automatic mTLS or service-mesh sidecar, no egress filtering (egress is open), and application-level auth (OAuth2 / OIDC / JWT) is a Trait concern, not core platform behaviour. Recommend authoring a Trait for those, or call them out as gaps — don't list them as platform-handled.
 
 ## Resource dependencies
 
@@ -125,7 +125,7 @@ The narrowness is deliberate: the platform owns runtime concerns, the workload o
 
 ## What the Workload model does NOT carry
 
-The source will have some of these. The Workload won't carry them — which doesn't mean they're dropped; each maps to a ComponentType-template field or a Trait (see below). Surface every one.
+The source will have some of these. The Workload won't carry them — which doesn't mean they're dropped; each maps to a ComponentType-template field or a Trait. Surface every one.
 
 - Probes (liveness / readiness / startup)
 - Init containers, multi-container Pods (one container per workload)
@@ -141,9 +141,9 @@ Each of these is delivered by the **ComponentType template** (baked into the wor
 
 ## ComponentType shapes and validation
 
-The Workload API supports five shapes: `deployment`, `statefulset`, `cronjob`, `job`, `proxy`. The default is to author a CT tailored to the workload's shape; Step 2's fetch shows what shipped CTs look like as reference.
+The Workload API supports five shapes: `deployment`, `statefulset`, `cronjob`, `job`, `proxy`. The default is to author a CT tailored to the workload's shape.
 
-Catalogued CTs carry their own validation rules (e.g. some require at least one endpoint, some don't; a cronjob-shaped type tends to keep schedule and limits in Component parameters rather than the Workload). Honor whatever the CT you pick declares — Step 2's fetch has its schema — and if the source violates a rule, surface it as a gap.
+CTs carry their own validation rules (e.g. some require at least one endpoint, some don't; a cronjob-shaped type tends to keep schedule and limits in Component parameters rather than the Workload). Honor whatever the CT you pick declares, and if the source violates a rule, surface it as a gap.
 
 ## Defaults
 

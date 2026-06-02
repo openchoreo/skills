@@ -2,7 +2,7 @@
 name: openchoreo-developer
 description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', or 'why is my pod crashing'.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenChoreo Developer Guide
@@ -71,6 +71,7 @@ The `resource` toolset (dev-facing, enabled by default) covers `Resource` CRUD p
 
 ## Anti-patterns
 
+- **Skipping the recipe.** Before any new operation (new CRD kind this turn, lifecycle action, runtime inspection) — re-scan the recipe index above, load the matching recipe (one Read call), THEN call MCP / kubectl. Skipping is how kubectl falls multiply and existing MCP tools get missed. Concept references aren't enough — recipes name the right tool calls in sequence.
 - Running every discovery call before checking the resource already implicated.
 - Writing specs from memory when `get_*_schema` / `get_*` can reveal the current shape.
 - Guessing deployed URLs instead of reading `ReleaseBinding.status.endpoints[]`.

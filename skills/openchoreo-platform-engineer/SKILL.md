@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer
 description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ComponentTypes / ResourceTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ComponentType', 'add a ResourceType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenChoreo Platform Engineer Guide
@@ -80,6 +80,7 @@ The full per-task discovery flow is in `concepts.md` (loaded at *Step 1*). Durab
 
 ## Anti-patterns
 
+- **Skipping the recipe.** Before any new operation (new CRD kind this turn, lifecycle action, authoring task) — re-scan the recipe index above, load the matching recipe (one Read call), THEN call MCP / kubectl. Skipping is how kubectl falls multiply and existing MCP tools get missed. Concept references aren't enough — recipes name the right tool calls in sequence.
 - Loading every reference file before identifying the actual problem.
 - Repeating stale examples without checking the current cluster or resource schema.
 - Performing wide cluster sweeps before checking the affected object and logs.

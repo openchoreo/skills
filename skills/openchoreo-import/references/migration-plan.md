@@ -11,7 +11,11 @@ The `plan` preview and the migration plan are **separate content files** so neit
 - `content/index.html` — the `plan` preview (`<!-- oc-frame: plan -->`), the iteration target.
 - `content/migration-plan.html` — this document (`<!-- oc-frame: report -->`).
 
-The `report` frame ships **← Back to plan** and **Copy plan.md** buttons in the top app-bar. When you write the migration plan, also surface a **View migration plan →** button on the plan preview's `nav` slot (`<div data-fill="nav"><a class="btn ghost" href="/migration-plan.html">View migration plan →</a></div>`). Both files persist; the user toggles between them via the nav buttons.
+The `report` frame ships **← Back to plan** and **Copy plan.md** buttons in the top app-bar. **The migration plan write is atomic — three files in lockstep:**
+
+1. `content/migration-plan.html` — the rendered report page (this file).
+2. `content/plan.md` — the markdown twin. The `Copy plan.md` button and the optional `<details class="plan-preview">` disclosure both fetch `/plan.md` — if it's missing, the UI hides both controls.
+3. `content/index.html` — add the **View migration plan →** button to the plan page's `nav` slot: `<div data-fill="nav"><a class="btn ghost" href="/migration-plan.html">View migration plan →</a></div>`.
 
 ## Sections (in order)
 
@@ -67,7 +71,7 @@ What must exist at the cluster level before any project migrates. A standard Ope
 
 - **External Secrets Operator (ESO) + `ClusterSecretStore`** — required as soon as any Workload consumes a secret (almost always). OpenChoreo's secret path runs through ESO: secret material lives in an external store (OpenBao by default, or whatever 1.1 picked), and a `ClusterSecretStore` connects ESO to it. The DataPlane references the store via `spec.secretStoreRef: {name: <store>}`. If the install lacks ESO + a `ClusterSecretStore`, this is a hard prerequisite — install ESO (`helm upgrade --install external-secrets …`), create a `ClusterSecretStore`, wire `spec.secretStoreRef` on the DataPlane.
 - **WorkflowPlane + ClusterWorkflowTemplates** — required if any Component builds from source. Default install ships the four default builders (see 1.4); flag only custom workflow templates the app needs.
-- **ObservabilityPlane + NotificationChannel** — required only if the app uses observability Traits (e.g. `observability-alert-rule`). Each alert Trait needs at least one notification channel — either the Environment's default or a per-Trait one. Flag the channels by name + type (Slack / email / webhook / …).
+- **ObservabilityPlane + NotificationChannel** — required only if the app uses an observability-alerting Trait. Each alert Trait needs at least one notification channel — either the Environment's default or a per-Trait one. Flag the channels by name + type (Slack / email / webhook / …).
 - **Secret Management API gating** (`features.secretManagement.enabled` on the `openchoreo-control-plane` chart) — required to use the `occ secret create` / Backstage path from 1.2. Enabled by default in the k3d single-cluster install and quickstart; for any other deployment, `helm upgrade … --set features.secretManagement.enabled=true`. Without it, only the direct-provider-CLI / pre-seeded paths from 1.2 work.
 
 ### 3. Shared types (cluster-scoped, authored once)
@@ -103,7 +107,7 @@ Recommend authoring at the pattern level. The plan lists the CTs / RTs / Traits 
 - `spec.parameters` (OpenAPIv3 schema): Trait-instance config.
 - `spec.environmentConfigs` (OpenAPIv3 schema): per-env override (`enabled`, channels, etc.).
 - `spec.validations[]`: CEL rules + plain-English messages.
-- `spec.creates[]`: new K8s resources the Trait emits. Each entry: `targetPlane` (`dataplane` | `observabilityplane`, defaults to `dataplane`), optional `includeWhen`, plus the templated resource. E.g. `observability-alert-rule` creates an `ObservabilityAlertRule` on the observability plane gated by `has(dataplane.observabilityPlaneRef)`.
+- `spec.creates[]`: new K8s resources the Trait emits. Each entry: `targetPlane` (`dataplane` | `observabilityplane`, defaults to `dataplane`), optional `includeWhen`, plus the templated resource. E.g. an alerting Trait that creates an `ObservabilityAlertRule` on the observability plane, gated by `has(dataplane.observabilityPlaneRef)`.
 - `spec.patches[]`: RFC-6902 ops (`op: add|replace|remove`, `path`, `value`) on resources the Component's CT already rendered. E.g. a `persistent-volume` Trait might `add` a `volumeMounts` entry to the Deployment's main container and `add` a `volumes` entry to the pod spec, plus `creates` a PVC.
 
 Don't dump full CEL templates inline — describe each `id`'s purpose and the load-bearing fields. The plan's reader writes the YAML using the shipped types as structural references.

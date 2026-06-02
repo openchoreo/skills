@@ -4,7 +4,7 @@ The post-verdict playbook: map → ask the forks → drive the page → iterate 
 
 ## Sources for shape recommendations
 
-Before naming any CT / RT / Trait in the plan — shipped or authored — read the relevant bundled sample. Recommending shapes from memory drifts silently from what the install actually renders. **These are capability reference; authoring the YAML isn't part of this skill.**
+Before naming any CT / RT / Trait in the plan — shipped or authored — read the relevant bundled sample. Recommending shapes from memory drifts silently from real CT/RT/Trait shapes. **These are capability reference; authoring the YAML isn't part of this skill.**
 
 - `references/sample-types/component-types/service.yaml` — sample CT (renders Service + HTTPRoutes).
 - `references/sample-types/component-types/webapp.yaml` — sample CT (renders Service + HTTPRoutes).
@@ -20,8 +20,7 @@ Online catalog (only when the bundled samples don't cover the shape, or to confi
 
 ## Working style on this path
 
-- **The page is the channel.** Don't dump the plan into chat. Update the run's `content/index.html` (absolute path — see *Drive the page* below); the user reads the page. Chat is for short hand-offs and feedback.
-- **Stay put — never `cd`.** Run `preview.sh` by its absolute path (under the skill's base directory), and read/write the run's files by absolute path. The `.openchoreo-import/` temp folder is created under your unchanged cwd — `cd`-ing into it, or into the skill directory, misplaces the preview state.
+- **The page is the channel.** Don't dump the plan into chat. Update the run's `content/index.html` (absolute path); the user reads the page. Chat is for short hand-offs and feedback.
 
 ## Map the source
 
@@ -62,15 +61,15 @@ The cell model and the *Types & Traits* / *Projects & Components* tabs are **der
 
 Classify each and record it on the consuming Workload (and the cell model):
 - depends on something **in this import** (in-cluster Service DNS) → a `dependencies.endpoints[]` entry naming the target Component + endpoint + `envBindings: {address|host|port|basePath → ENV_VAR}` (the env var names are the consumer's choice). Cross-project: add `project: "<other>"`. Drop the literal address env from the source — the platform re-injects it via the binding.
-- depends on a **managed-infrastructure thing** (database, cache, queue / broker, object store, search engine) → **Resource** → `resources` + `dependencies.resources[]`. Default doctrine (see *Managed-infrastructure dependency* above) — not asked. External calls (transactional one-off, legacy peer, future peer) → `external` (workload env var + SecretReference).
+- depends on a **managed-infrastructure thing** (database, cache, queue / broker, object store, search engine) → **Resource** → `resources` + `dependencies.resources[]`. Default doctrine — not asked. External calls (transactional one-off, legacy peer, future peer) → `external` (workload env var + SecretReference).
 
 **Then reconcile — a completeness gate, before the verdict.** Go down the ledger row by row: every address-like env / connection string you found must resolve to an edge — a `calls` (target in this import), a `resources` (managed store), or an `external` (egress). If something names a host and has no edge, that's a miss — add it. **A component with zero edges is a red flag** when other components in this import clearly call each other — re-check before accepting it as standalone. **Before any zero-edge Component lands in the plan, answer in writing:** what concrete evidence (a config flag, a deliberately-isolated subchart, an explicit "no upstream" note in source) says this is standalone, not under-swept? "Couldn't find any signals" is *not* evidence of standalone — it's evidence of a shallow sweep. Under-wiring the graph is the most common failure on big sets — orphans usually mean a shallow sweep. Conversely, **don't invent edges**: every dependency must trace to runtime wiring the container actually consumes. The test before adding an edge: *can I name the path from this string to the running container?* When wiring is **bulk** (`envFrom`, broad config mounts), YAML reveals injection, not consumption — over-attribute keys to every consumer, but tag the dep with its bulk source so they show as bundled-not-confirmed.
 
 **Multi-container Pods** — a Workload runs a single container. Surface every other container (init / sidecar) and recommend the path: a Trait that patches the extra container in (per-app, optional), a custom ComponentType that bakes the extras into its template (when always present), or the containers split into separate Components. Not a silent drop.
 
-**Project boundary.** A Project is a cohesion boundary (shared lifecycle / team / domain), not a catch-all. A small, cohesive app is one Project — propose it. A large or multi-domain set isn't — read the grouping the source already implies (subcharts, namespaces, `part-of` labels, directory layout, ownership) and present a split + the axis as a fork (see *Ask the forks* below) for the user. Resources live in the same Project as their consumers, so the split also decides where shared infra lands.
+**Project boundary.** A Project is a cohesion boundary (shared lifecycle / team / domain), not a catch-all. A small, cohesive app is one Project — propose it. A large or multi-domain set isn't — read the grouping the source already implies (subcharts, namespaces, `part-of` labels, directory layout, ownership) and present a split + the axis as a fork for the user. Resources live in the same Project as their consumers, so the split also decides where shared infra lands.
 
-**Doubt the analysis before the verdict.** A confident reading isn't a complete one — on a big chart you've almost certainly under-swept somewhere. Re-read your own ledger adversarially, trying to *disprove* it rather than confirm it: which `depends on` cell is suspiciously empty? which datastore category never appeared though the app clearly needs one? which dependency did you infer with no concrete signal (a flag, a name)? do the cell model, *Types & Traits*, and *Projects & Components* tabs agree? is the project grouping defensible or a hunch? Run the *Red flags & rationalizations* (below) as questions you must answer, not a list you skim. For any large source, beat self-review — it shares your blind spot. Dispatch a **fresh-context reviewer** to diff source against plan page; ask for: workloads the plan doesn't account for; cell-model edges the plan asserts but the source doesn't support; cross-component calls the plan missed.
+**Doubt the analysis before the verdict.** A confident reading isn't a complete one — on a big chart you've almost certainly under-swept somewhere. Re-read your own ledger adversarially, trying to *disprove* it rather than confirm it: which `depends on` cell is suspiciously empty? which datastore category never appeared though the app clearly needs one? which dependency did you infer with no concrete signal (a flag, a name)? do the cell model, *Types & Traits*, and *Projects & Components* tabs agree? is the project grouping defensible or a hunch? Run the *Red flags & rationalizations* checklist as questions you must answer, not a list you skim. For any large source, beat self-review — it shares your blind spot. Dispatch a **fresh-context reviewer** to diff source against plan page; ask for: workloads the plan doesn't account for; cell-model edges the plan asserts but the source doesn't support; cross-component calls the plan missed.
 
 ## Ask about the genuine forks (what the source can't decide)
 
@@ -83,7 +82,7 @@ Most of the mapping is settled by the source plus the catalog — apply it and m
 - **Anything apply-time.** This skill plans, period. Auto-deploy vs GitOps mode, which environment to deploy to first, rollout strategy, kubectl / occ workflow — all out of scope. The user takes the plan and applies it however they want.
 - **User intent / strategy / authorization.** "Lift-and-shift vs re-model natively," "are you committed to applying," "exploring vs proceeding" — all fake forks. The skill always produces a plan; the *pattern-level CT / RT / Trait recommendations in that plan ARE native re-modeling*, not a separate mode. There is nothing to authorize.
 - **Per-environment overrides.** Listing what the platform CAN override per env is fine; asking the user to define values is not.
-- **The obvious single-Project case** — a *small, cohesive* app → one Project; propose it, don't ask. (A large or multi-domain set is the opposite — its grouping is a fork, see below.)
+- **The obvious single-Project case** — a *small, cohesive* app → one Project; propose it, don't ask. (A large or multi-domain set is the opposite — its grouping is a genuine fork to ask about.)
 - **Mappings already documented in the catalog or concepts.md.** Apply the default and surface it as a decision; let the user push back via feedback.
 - **External-secret-store integrations** → **SecretReference** (see [`concepts.md`](concepts.md)).
 - **Managed-infrastructure deps** → **Resource** — every time. **Component-vs-Resource is not a fork; never ask.** Resource is the canonical abstraction for any persistent-connection managed dep (see [`concepts.md`](concepts.md)).
@@ -125,7 +124,7 @@ The server splices your body into the matching frame and reloads the browser (vi
 For the per-frame content contract see [`frames.md`](frames.md); for the migration-plan content see [`migration-plan.md`](migration-plan.md); for the server / lifecycle / event details see [`plan-preview.md`](plan-preview.md).
 
 **Flow:**
-- **good-fit / partial-fit:** verdict + findings **in chat** → the user returns to chat, where you ask any genuine questions → `plan` (iterate in `index.html`) → on approval, write the **migration plan** to `migration-plan.html` (keep `index.html`, add a *View migration plan →* button to the plan's top app-bar `nav` slot; the migration plan has *← Back to plan* and *Copy plan.md* in its own app-bar)
+- **good-fit / partial-fit:** sweep the source **exhaustively** first → verdict + findings **in chat** → ask forks in chat → iterate the plan in `index.html` → on approval, write `migration-plan.html`, `plan.md`, and the *View migration plan →* nav button on `index.html` — together.
 - **not-a-fit:** verdict + findings **in chat** — terminal, nothing to proceed to (no server, no browser)
 
 **Server lifecycle** — nothing needs the server until there's a plan to show, so it spins up on the turn you first build the `plan` (not for the verdict, which is chat-only).
