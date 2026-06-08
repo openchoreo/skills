@@ -22,9 +22,9 @@ The guide's "Try it out" sections (deploy a sample, build from source) are opt-i
 Run from the skill root:
 
 ```bash
-./scripts/fetch-page.sh --title "On K3d Locally"
-./scripts/fetch-page.sh --title "On K3d Locally" --version v1.0.x   # pin a minor
-./scripts/fetch-page.sh --title "On K3d Locally" --version next     # bleeding edge
+./scripts/fetch-page.sh --title "Run Locally on K3d"
+./scripts/fetch-page.sh --title "Run Locally on K3d" --version v1.0.x   # pin a minor
+./scripts/fetch-page.sh --title "Run Locally on K3d" --version next     # bleeding edge
 ```
 
 If the script exits non-zero, it has printed the version's `llms.txt`; pick the right URL and fetch it directly.

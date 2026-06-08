@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetch an OpenChoreo docs page by title; print rendered Markdown to stdout.
-# Resolves the title against openchoreo.dev/llms.txt (a `- [Title](URL)` index).
+# Resolves the title against the versioned llms-<minor>.txt index on openchoreo.dev.
 #
 # Usage:
 #   fetch-page.sh --title "<title>" [--exact] [--section "<name>"] [--version <minor>|next]
@@ -16,7 +16,6 @@
 set -euo pipefail
 
 REPO_RAW="https://raw.githubusercontent.com/openchoreo/openchoreo.github.io/main"
-LLMS_URL="https://openchoreo.dev/llms.txt"
 
 die() { echo "fetch-page: $*" >&2; exit "${2:-1}"; }
 
@@ -51,7 +50,6 @@ done
 
 [[ $list_only -eq 1 || -n "$title" ]] || die "missing --title (or --list)"
 
-# "next" = the unreleased docs/ tree: its own index, URLs already prefixed.
 if [[ "$version" == "next" ]]; then
   llms=$(curl -fsSL "https://openchoreo.dev/llms-next.txt") || die "could not fetch llms-next.txt"
   echo "fetch-page: using bleeding-edge (next) docs" >&2
@@ -63,7 +61,6 @@ else
   [[ ${#available[@]} -gt 0 ]] || die "versions.json was empty or unparsable"
 
   if [[ -z "$version" ]]; then
-    # default: newest minor that isn't a pre-release
     for v in "${available[@]}"; do
       [[ "$v" =~ -(alpha|beta|rc|pre|dev) ]] || { version="$v"; break; }
     done
@@ -74,16 +71,10 @@ else
       || die "version '$version' not in versions.json (${available[*]} or 'next')"
   fi
 
-  llms=$(curl -fsSL "$LLMS_URL") || die "could not fetch $LLMS_URL"
+  llms=$(curl -fsSL "https://openchoreo.dev/llms-${version}.txt") \
+    || die "could not fetch llms-${version}.txt"
 fi
 
-# current version is named in the llms.txt header: "# OpenChoreo Documentation (vX)"
-current_version=$(printf '%s' "$llms" \
-  | grep -m1 -oE 'OpenChoreo Documentation \([^)]+\)' | sed -E 's/.*\((.*)\)/\1/' || true)
-
-# --section scopes the search to that heading's subtree; without it, the
-# default search drops the ## Ecosystem section (catalog links, not docs).
-# current_version was read above, from the full header.
 if [[ -n "$section" ]]; then
   search_index=$(printf '%s' "$llms" | section_filter "$section" keep)
   [[ -n "$search_index" ]] \
@@ -119,15 +110,6 @@ if [[ "$match_count" -ne 1 ]]; then
 fi
 
 url=$(printf '%s' "$matches" | sed -E 's/^- \[[^]]+\]\(([^)]+)\).*$/\1/')
-
-# non-current versions: /docs/<path> → /docs/<version>/<path> (docs root is special)
-if [[ "$version" != "next" && -n "$current_version" && "$version" != "$current_version" ]]; then
-  if [[ "$url" == *"/docs.md" ]]; then
-    url="${url%/docs.md}/docs/${version}.md"
-  else
-    url="$(printf '%s' "$url" | sed "s|/docs/|/docs/${version}/|")"
-  fi
-fi
 
 page=$(curl -fsSL "$url") \
   || { echo "fetch-page: could not fetch $url; dumping index" >&2; printf '%s\n' "$search_index"; exit 3; }

@@ -23,7 +23,7 @@ Apply silent defaults unless the user opted out. Summarise resolved choices befo
 Run from the skill root:
 
 ```bash
-./scripts/fetch-page.sh --title "On Your Environment"           # per-cluster install steps
+./scripts/fetch-page.sh --title "Run in Your Environment"       # per-cluster install steps
 ./scripts/fetch-page.sh --title "Multi-Cluster Connectivity"    # trust establishment + remote plane registration
 ./scripts/fetch-page.sh --title "Deployment Topology"           # topology background, prerequisite matrix, plane resource hierarchy
 ```
