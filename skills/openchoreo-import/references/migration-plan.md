@@ -31,7 +31,7 @@ ESO → `ClusterSecretStore` → backend. Default in shipped installs is **OpenB
 
 #### 2. Secret seeding mechanism
 How secret material reaches the backend. Options:
-- `occ secret create` — when `features.secretManagement.enabled` is on (default for k3d + quickstart). Control plane writes through to the target plane's store.
+- `occ secret create` — when `features.secretManagement.enabled` is on (default for k3d + quickstart) and `occ` ≥ v1.1. Control plane writes through to the target plane's store.
 - Backstage Secrets UI — same path, browser-driven.
 - Direct provider CLI — `bao kv put`, `vault kv put`, `aws secretsmanager put-secret-value`, etc.
 - Pre-seeded by another process — the plan only authors `SecretReference`s.
@@ -40,7 +40,7 @@ How secret material reaches the backend. Options:
 
 #### 3. ResourceType implementation strategy (per Resource)
 How each `ResourceType`'s `resources[]` provisions the infra:
-- **In-cluster K8s primitives** — StatefulSet / Deployment + Service / ConfigMap / ExternalSecret, like the shipped `postgres` / `valkey` / `nats` RTs.
+- **In-cluster K8s primitives** — StatefulSet / Deployment + Service / ConfigMap / ExternalSecret (the pattern `references/sample-types/resource-types/postgres.yaml` shows).
 - **Crossplane Compositions** — declarative cloud infra via Crossplane.
 - **Cloud operators** — AWS Controllers for K8s / Azure Service Operator / GCP Config Connector.
 - **Terraform / Pulumi via a Workflow CR** — imperative provisioning kicked off by the platform.
@@ -89,7 +89,7 @@ Recommend authoring at the pattern level. The plan lists the CTs / RTs / Traits 
 - `spec.parameters` (OpenAPIv3 schema): developer-facing knobs on the Component (often empty for simple CTs).
 - `spec.environmentConfigs` (OpenAPIv3 schema): per-env override surface (typically `replicas`, `resources` requests/limits, `imagePullPolicy` — but it's whatever the CT exposes).
 - `spec.validations[]`: list each CEL `rule` + `message` in plain English (e.g. "Service components must have at least one endpoint", "external visibility requires `gateway.ingress.external`").
-- `spec.resources[]`: enumerate every `id` the CT renders and what K8s it produces. The shipped `service` CT renders, for reference: `deployment`, `service` (gated by endpoint count), `httproute-external` (per external endpoint), `httproute-internal` (per internal endpoint), `env-config` ConfigMap (per env-var group), `file-config` ConfigMap (per file), `secret-env-external` ExternalSecret (per secret env group), `secret-file-external` ExternalSecret (per secret file). For each: note `includeWhen` / `forEach` gating and what fields are templated from `workload` / `parameters` / `environmentConfigs` / `gateway` / `dependencies`.
+- `spec.resources[]`: enumerate every `id` the CT renders and what K8s it produces (shape reference: `references/sample-types/component-types/`). For each: note `includeWhen` / `forEach` gating and what fields are templated from `workload` / `parameters` / `environmentConfigs` / `gateway` / `dependencies`.
 
 #### For each ResourceType to author
 
@@ -99,7 +99,7 @@ Recommend authoring at the pattern level. The plan lists the CTs / RTs / Traits 
 - `spec.environmentConfigs` (OpenAPIv3 schema): per-env (e.g. `memory`, `replicas`, `adminEnabled`).
 - `spec.retainPolicy`: `Delete` (cascade on unbind) or `Retain` (keep the provisioned infra).
 - `spec.outputs[]`: the consumer wiring contract — each output has a `name` plus a source: a literal CEL `value:`, a `configMapKeyRef: {name, key}` to a rendered ConfigMap, or a `secretKeyRef: {name, key}` to a rendered Secret / ExternalSecret. Typical outputs: `host`, `port`, `database`, `username`, `password`, `url`. **Mark which are secret-backed** — Workloads bind them via `fileBindings` or env vars.
-- `spec.resources[]`: enumerate every `id` and what each provisions. The shipped `postgres` RT renders, for reference: `config` ConfigMap, `init-scripts` ConfigMap (initdb scripts), `password-gen-postgres` ESO Password generator, `creds-postgres` ExternalSecret (postgres superuser), `password-gen-app` generator, `creds` ExternalSecret with templated URL (app user), `service`, `statefulset` (with `readyWhen` CEL: ready when replicas match), optional `admin-deployment` / `admin-service` / `admin-route` (gated by `environmentConfigs.adminEnabled && has(gateway.ingress.external)`). Note `includeWhen` / `readyWhen` per `id`. (If 1.3 picked **already-managed**, `resources[]` may be empty and `outputs[]` references a pre-existing SecretReference / ConfigMap.)
+- `spec.resources[]`: enumerate every `id` and what each provisions (shape reference: `references/sample-types/resource-types/postgres.yaml`). Note `includeWhen` / `readyWhen` per `id`. (If 1.3 picked **already-managed**, `resources[]` may be empty and `outputs[]` references a pre-existing SecretReference / ConfigMap.)
 
 #### For each Trait to author
 
@@ -110,7 +110,7 @@ Recommend authoring at the pattern level. The plan lists the CTs / RTs / Traits 
 - `spec.creates[]`: new K8s resources the Trait emits. Each entry: `targetPlane` (`dataplane` | `observabilityplane`, defaults to `dataplane`), optional `includeWhen`, plus the templated resource. E.g. an alerting Trait that creates an `ObservabilityAlertRule` on the observability plane, gated by `has(dataplane.observabilityPlaneRef)`.
 - `spec.patches[]`: RFC-6902 ops (`op: add|replace|remove`, `path`, `value`) on resources the Component's CT already rendered. E.g. a `persistent-volume` Trait might `add` a `volumeMounts` entry to the Deployment's main container and `add` a `volumes` entry to the pod spec, plus `creates` a PVC.
 
-Don't dump full CEL templates inline — describe each `id`'s purpose and the load-bearing fields. The plan's reader writes the YAML using the shipped types as structural references.
+Don't dump full CEL templates inline — describe each `id`'s purpose and the load-bearing fields. The plan's reader writes the YAML using `references/sample-types/` as structural reference. **In the plan text, every CT / RT / Trait is "to author" — never "the shipped X"; the plan can't know what the target install ships.**
 
 ### 4. Migration order
 

@@ -22,9 +22,9 @@ Apply silent defaults unless the user opted out. Summarise resolved choices befo
 Run from the skill root:
 
 ```bash
-./scripts/fetch-page.sh --title "On Your Environment"
-./scripts/fetch-page.sh --title "On Your Environment" --version v1.0.x   # pin a minor
-./scripts/fetch-page.sh --title "On Your Environment" --version next     # bleeding edge
+./scripts/fetch-page.sh --title "Run in Your Environment"
+./scripts/fetch-page.sh --title "Run in Your Environment" --version v1.0.x   # pin a minor
+./scripts/fetch-page.sh --title "Run in Your Environment" --version next     # bleeding edge
 ```
 
 If the script exits non-zero, it has printed the version's `llms.txt`; pick the right URL and fetch it directly.

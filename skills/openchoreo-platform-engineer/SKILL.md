@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer
 description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ComponentTypes / ResourceTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ComponentType', 'add a ResourceType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
 metadata:
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # OpenChoreo Platform Engineer Guide
@@ -77,6 +77,9 @@ The full per-task discovery flow is in `concepts.md` (loaded at *Step 1*). Durab
 - **Scope matters.** Cluster-scoped and namespace-scoped resources are not interchangeable. `ClusterComponentType` may only reference `ClusterTrait` and `ClusterWorkflow`, not their namespace-scoped counterparts. On the scope-collapsed MCP tools this is the `scope` arg — `scope: "cluster"` operates on the `Cluster*` resource, `scope: "namespace"` (default) on the namespaced one.
 - **`status.conditions`, live resource YAML, and current controller logs are better truth sources than memory.** When a task needs exact controller behavior or CRD fields, inspect the repo or current docs instead of guessing.
 - **Prefer reversible, inspectable changes** over broad edits across many planes or namespaces.
+- **A handed-over migration plan is the spec.** When the user supplies a migration/onboarding plan, take namespace, type names, author-vs-reuse decisions, and per-env overrides from it. Deviate only out loud — state what you're changing and why (cluster reality differs, simplification) *before* acting, never silently substitute.
+- **Never mutate a shared type to fit one app.** `update_component_type` / `update_trait` / `update_workflow` on an existing shared (especially cluster-scoped) type is full-spec replacement visible to every consumer. To fit one app's needs, author a new type modelled on the existing shape instead.
+- **A missing tool means version skew, not absence.** When a documented MCP tool or `occ` subcommand isn't found, check the installed CLI / server version against the cluster before concluding the surface doesn't exist — report the mismatch to the user, then fall back.
 
 ## Anti-patterns
 
