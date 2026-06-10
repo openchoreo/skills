@@ -2,7 +2,7 @@
 name: openchoreo-developer
 description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', or 'why is my pod crashing'.
 metadata:
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # OpenChoreo Developer Guide
@@ -68,6 +68,8 @@ The `resource` toolset (dev-facing, enabled by default) covers `Resource` CRUD p
 - All work goes through the control-plane MCP server. If a task can't be done via MCP, it's platform-side — hand off.
 - **Third-party / public apps: default to BYO image.** Source builds commonly fail on third-party Dockerfiles using `ARG BUILDPLATFORM` (exit 125). Switch to BYO immediately if you see it.
 - **Before deploying any third-party app:** fetch the official manifests and extract every required env var — dependencies inject service addresses but not `PORT`, feature flags, or vendor SDK disable flags.
+- **A handed-over migration plan is the spec.** When the user supplies a migration/onboarding plan, take namespace, env var placement (static Workload env vs per-env `workloadOverrides`), and wiring decisions from it. Deviate only out loud — state what you're changing and why *before* acting, never silently substitute.
+- **A missing tool means version skew, not absence.** When a documented MCP tool isn't found, check the server version against the cluster before concluding the surface doesn't exist — report the mismatch to the user, then fall back or escalate.
 
 ## Anti-patterns
 

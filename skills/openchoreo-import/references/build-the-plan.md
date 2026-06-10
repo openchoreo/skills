@@ -182,7 +182,7 @@ You've under-analyzed the source if:
 
 ## End-of-turn checklist
 
-Run through this before closing any turn that does planning work. Silently is fine — but **a failed item means re-do, not ship**. Report failures in chat; don't paper over them.
+Run through this before closing any turn that does planning work. Silently is fine on iteration turns — but **on the approval turn (the turn that writes `migration-plan.html`), run it out loud: list each item with pass / fail in chat before writing the three files.** A failed item means re-do, not ship.
 
 - **Sweep coverage.** Did I read every workload? every parameterization file (values.yaml / kustomize patches / compose env / overlay files)? every grouping (subchart / base / overlay / service / directory)? Cite counts. "Most of them" isn't a count.
 - **Zero-edge Components.** For every Component with no outgoing edges, did I name concrete evidence it's standalone? "Couldn't find any" isn't evidence — re-sweep.
