@@ -135,15 +135,20 @@ Use cluster roles for cross-cutting concerns (PE-level access, organization-wide
 
 ## 4. Role authoring
 
-MCP-first flow:
+Gather the inputs **in this order** — `create_authz_role` needs all three. Ask only for what the user hasn't already given; never ask in a different order or invent a fixed menu of roles to choose from.
 
-1. `list_authz_actions` — discover valid `spec.actions[]` values before composing the spec.
-2. `get_authz_role_creation_schema` (with `scope: "cluster"` for the `ClusterAuthzRole` variant) — fetch the spec shape.
-3. `create_authz_role` — pass `name`, the `spec` object, optional `display_name` / `description`. `scope: "cluster"` creates a `ClusterAuthzRole`; omit it (or `scope: "namespace"` + `namespace_name`) for a namespaced `AuthzRole`.
+1. **Scope** — cluster (`ClusterAuthzRole`) or namespace (`AuthzRole`)? This decides the CRD and whether `namespace_name` is required. Resolve this first; if the user said "cluster role" / "ClusterAuthzRole", it's already answered.
+2. **Name** — what the role is called (e.g. `platform-admin`).
+3. **Actions** — ask what the role should be able to *do*. Only if that answer is vague, run `list_authz_actions` and surface the catalogue so the user can pick concrete `resource:verb` values. Do **not** make the user choose from the example specs below.
 
-The `spec` is `{ actions: [...] }` (min 1 action), with an optional `description`.
+Then, MCP-first flow:
 
-### `ClusterAuthzRole`
+- `get_authz_role_creation_schema` (with `scope: "cluster"` for the `ClusterAuthzRole` variant) — fetch the spec shape.
+- Build the `spec` (`{ actions: [...] }`, min 1 action, optional `description`), **confirm the resolved spec with the user**, then call `create_authz_role` — pass `name`, the `spec` object, optional `display_name` / `description`. `scope: "cluster"` creates a `ClusterAuthzRole`; omit it (or `scope: "namespace"` + `namespace_name`) for a namespaced `AuthzRole`.
+
+The `spec` examples below are **illustrative patterns, not a menu** — `platform-admin` / `developer` / `viewer` are common starting points to adapt, not the only roles you can create. Build the actual `spec` from the actions the user asked for.
+
+### `ClusterAuthzRole` — example specs
 
 `create_authz_role` with `scope: "cluster"`, `name: platform-admin`, and this `spec`:
 
