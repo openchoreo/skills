@@ -2,7 +2,7 @@
 name: openchoreo-setup
 description: Fresh install of OpenChoreo onto local k3d, an existing Kubernetes cluster (k3s/GKE/EKS/AKS/DOKS/self-managed), or across multiple clusters. Use when the user says "install OpenChoreo", "set up OpenChoreo on k3d", "bootstrap OpenChoreo on my cluster(s)", "spin up OpenChoreo locally", or "install the OpenChoreo platform".
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenChoreo Setup
