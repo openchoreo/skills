@@ -61,8 +61,11 @@ else
   [[ ${#available[@]} -gt 0 ]] || die "versions.json was empty or unparsable"
 
   if [[ -z "$version" ]]; then
+    # stable = a plain vX.Y.x / vX.Y.Z with no pre-release suffix. Match
+    # positively rather than denylisting suffixes (alpha/beta/rc/m/…) — the
+    # project mints new ones (e.g. -m.N milestones) that a denylist misses.
     for v in "${available[@]}"; do
-      [[ "$v" =~ -(alpha|beta|rc|pre|dev) ]] || { version="$v"; break; }
+      [[ "$v" =~ ^v?[0-9]+\.[0-9]+\.([0-9]+|x)$ ]] && { version="$v"; break; }
     done
     [[ -n "$version" ]] || die "no stable version in versions.json (${available[*]})"
     echo "fetch-page: defaulting to latest stable: $version" >&2
