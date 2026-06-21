@@ -94,9 +94,11 @@ For the descriptor schema and source-build flow, see `./recipes/build-from-sourc
 Controls who can reach your service. Declared as a *list* on each target endpoint (`endpoints.<name>.visibility: [...]`); every endpoint implicitly has `project`:
 
 - `project`: Same project and environment (implicit for all endpoints)
-- `namespace`: All projects in the same namespace and environment
-- `internal`: All namespaces in the deployment
+- `namespace`: All projects in the same OpenChoreo namespace and environment
+- `internal`: All OpenChoreo namespaces in the deployment
 - `external`: Public internet — exposed through the platform's ingress gateway
+
+"Namespace" here is the OpenChoreo (control-plane) namespace that holds the Project/Component resources — not a shared runtime namespace. Each Project runs in its own isolated Cell namespace at runtime; a cross-project `namespace`-visibility call still resolves because the platform routes it to the target's Cell.
 
 `project` and `namespace` reachability is resolved by the platform within the data plane: a cross-project call at `namespace` visibility gets the target's in-cluster address injected, with no extra gateway setup. `external` is exposed through the platform's ingress gateway, which a standard install usually configures. If an endpoint you exposed doesn't resolve on your install, verify the data plane's gateway configuration rather than assuming the visibility is blocked.
 
