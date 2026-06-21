@@ -62,7 +62,7 @@ The importer's deliverable is the upper half: Project + Component + Workload + (
 
 Components talk to each other through declared workload dependencies — not hard-coded Service hostnames. The consumer declares a dependency on a target Component's endpoint and names the env vars it wants the connection details bound into (`address`, `host`, `port`, `basePath`); the platform resolves the endpoint and injects those env vars at deploy time. The importer turns each cross-service reference into a named binding.
 
-A dependency is project-visible by default (same-Project calls) or namespace-visible (cross-Project calls within the same namespace). These endpoint dependencies live under the Workload's `spec.dependencies.endpoints[]`.
+A dependency is project-visible by default (same-Project calls) or namespace-visible (cross-Project calls within the same OpenChoreo namespace — see *Endpoint visibility* below for what "same namespace" means here). These endpoint dependencies live under the Workload's `spec.dependencies.endpoints[]`.
 
 **Consuming a Resource** is the sibling mechanism, under `spec.dependencies.resources[]`. Each entry is `{ ref: <Resource name>, envBindings: { <outputName>: <ENV_VAR> } }` — `envBindings` maps a ResourceType **output** name (left, e.g. `host`, `port`, `username`, `password`, `database`, `url`) to an env-var name the developer chooses (right). `fileBindings` mounts an output as a file instead. So for each source dependency that lands as a Resource, the importer recommends a ResourceType to author for it and adds a `dependencies.resources[]` entry that rebinds the source's expected connection env vars to the Resource's outputs.
 
@@ -70,9 +70,11 @@ A dependency is project-visible by default (same-Project calls) or namespace-vis
 
 Every endpoint is reachable within its own Project + Environment — `project` visibility is the implicit floor (you don't declare it). Endpoints opt into broader scopes via the `visibility` array (it's additive, not exclusive):
 
-- `namespace` — also reachable across all Projects in the **same Kubernetes namespace** (and same Environment).
-- `internal` — also reachable across **all namespaces in the deployment** (the cluster's intranet).
+- `namespace` — also reachable across all Projects in the **same OpenChoreo namespace** (and same Environment).
+- `internal` — also reachable across **all OpenChoreo namespaces in the deployment** (the cluster's intranet).
 - `external` — also reachable from **outside the deployment**, including the public internet.
+
+> **"Namespace" here is the OpenChoreo (control-plane) namespace — the tenant namespace that holds the Project / Component resources — not a shared runtime namespace.** At runtime each Project becomes its own isolated Cell with its *own* data-plane namespace, so two Projects at `namespace` visibility do **not** share a runtime namespace; the platform routes the cross-Project call to the target's Cell for them. The constraint that matters for a plan: cross-Project endpoint dependencies resolve only when the Projects live in the **same OpenChoreo namespace** (a dependency can name a different Project, but not a different namespace). So Projects that call each other this way must be created in one OpenChoreo namespace — phrase it that way, never as "the same Kubernetes/runtime namespace."
 
 Dependencies (the consuming side) can only consume `project` or `namespace` visibility — anything broader is hit by its public address, not through `dependencies.endpoints[]`.
 

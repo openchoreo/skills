@@ -191,11 +191,13 @@ Every endpoint **implicitly carries `project` visibility**. The `visibility` arr
 | Visibility   | Reachable from                                          | Notes                                          |
 | ------------ | ------------------------------------------------------- | ---------------------------------------------- |
 | `project`    | Same Project + same Environment (implicit, always)      | Replaces ClusterIP `Service` in-Cell.          |
-| `namespace`  | All Projects in same namespace + same env               | Resolved in-cluster; no extra gateway setup.   |
-| `internal`   | All namespaces in the deployment                        | Reachable to other projects in the deployment. |
+| `namespace`  | All Projects in same OpenChoreo namespace + same env     | Resolved in-cluster; no extra gateway setup.   |
+| `internal`   | All OpenChoreo namespaces in the deployment              | Reachable to other projects in the deployment. |
 | `external`   | Public internet                                         | Through the ingress gateway (usually set up).  |
 
 A single endpoint can carry multiple visibilities (e.g. `[namespace, external]`). `visibility: [external]` implies both `project` (implicit) and `external`.
+
+"Namespace" here is the OpenChoreo (control-plane) namespace holding the Project resources — not a shared runtime namespace. Each Project runs in its own Cell namespace; a `namespace`-visibility call across Projects in the same OpenChoreo namespace is routed to the target's Cell.
 
 **Dependency entries are different.** When a Component declares a *dependency* on another component's endpoint (`dependencies.endpoints[*].visibility`), only `project` and `namespace` are valid — the API rejects `internal` and `external` there. Cross-namespace dependencies are not supported via this mechanism.
 
