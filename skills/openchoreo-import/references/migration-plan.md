@@ -94,6 +94,7 @@ Recommend authoring at the pattern level. The plan lists the CTs / RTs / Traits 
 #### For each ResourceType to author
 
 - `name` and kind (`ClusterResourceType` vs `ResourceType`).
+- **What it must reproduce** (decides reuse vs. author) — the backing image (a vanilla engine vs a project-specific image with schema / seed data baked into init), the init env those scripts gate on (e.g. a demo-data or bootstrap flag), and the credential / output semantics the app expects (a whole connection URL vs host + port + user + password, and the exact URL scheme). A shipped RT is reusable only if it satisfies these; otherwise author a tailored one. State that verdict here rather than assuming a generic engine RT suffices.
 - **Implementation strategy** — from 1.3 (in-cluster primitives / Crossplane / cloud operator / Terraform-via-Workflow / already-managed). Names the templating mechanism the `resources[]` below use.
 - `spec.parameters` (OpenAPIv3 schema): developer-facing (e.g. `database` name, engine version, sizing tier).
 - `spec.environmentConfigs` (OpenAPIv3 schema): per-env (e.g. `memory`, `replicas`, `adminEnabled`).
@@ -189,12 +190,13 @@ For each secret in this project, the plan lists: name, target plane, what fields
 #### Components + Workloads
 For each Component in this project:
 
-- **Component** (`spec.componentType {kind, name}` in `{workloadType}/{typeName}` form, e.g. `deployment/service`, `kind: ClusterComponentType`; `spec.parameters`; `spec.traits[]` — each `{kind, name, instanceName, parameters}`; `spec.autoDeploy` (typically `true` for app workloads, `false` for shared infra the migrator wants to roll out deliberately)).
+- **Component** (`spec.componentType {kind, name}` in `{workloadType}/{typeName}` form, e.g. `deployment/service`, `kind: ClusterComponentType`; `spec.parameters`; `spec.traits[]` — each `{kind, name, instanceName, parameters}`; `spec.autoDeploy` (typically `true` for app workloads, `false` for shared infra the migrator wants to roll out deliberately)). Note the requirement that fixes the chosen ComponentType — a browser-facing UI needs root-host routing (so its absolute paths like `/login` resolve), an API is fine on path/host routing; this is why two superficially similar workloads may not share one CT.
 - **Workload** (1:1 with its Component):
   - `spec.container` — `image` (and `command`/`args` if explicit).
   - `spec.endpoints` (map keyed by endpoint name) — each: `type` (`HTTP` | `gRPC` | `GraphQL` | `Websocket` | `TCP` | `UDP`), `port`, `targetPort`, `visibility[]` (`project` implicit; add `namespace` / `internal` / `external`), `basePath`. **List every endpoint with port + visibility.**
   - `spec.dependencies.endpoints[]` — calls to other Components: `{component, name (target endpoint), visibility (project|namespace), project (if cross-project — see 4), envBindings: {address|host|port|basePath → ENV_VAR}}`. The platform resolves the in-cluster address into the named env var.
   - `spec.dependencies.resources[]` — managed-infra use: `{ref (Resource name), envBindings: {<RT output> → ENV_VAR}, fileBindings: {<RT output> → /path/in/container}}`. **List which outputs (`host`/`port`/`username`/`password`/`url`/…) bind to which env var or file.**
+  - **Sizing & probes** (per workload, exact from source — never generalized across siblings) — resource requests / limits and probe paths + ports. These aren't Workload-spec fields; they're supplied through the ComponentType's `environmentConfigs` (sizing) and probe parameters or a Trait (probes). Carry the source's values, and call out any that would break as-is (a JVM heap above the memory limit; a CPU limit too low for a crypto / cold-start path). Recommend defaults that won't OOM or throttle.
 
 #### Resources
 For each platform-managed dependency in this project:
@@ -227,8 +229,8 @@ Before starting the next project, verify:
 
 - `kubectl get releasebindings -n <ns> -o wide` shows all `Ready` for every Environment this project deploys to.
 - `kubectl get resourcereleasebindings -n <ns>` shows all `Ready` for every Resource.
-- Each Component endpoint smoke-tests at its visibility-appropriate URL (the gateway URL for `external`/`internal`; the in-cluster Service for `project`/`namespace`).
-- **Project-specific functional check** — list one or two concrete behaviors the migrator should trigger (a login flow completes, an ingest job produces output to the database, a webhook fires correctly, etc.). The plan must spell these out per project, not leave them generic.
+- Each Component endpoint smoke-tests at its visibility-appropriate URL (the gateway URL for `external`/`internal`; the in-cluster Service for `project`/`namespace`). For a browser-facing app, exercise the **real entry path a user hits** — the app's own root URL, following its redirects — not just an internal probe; a path-prefix mismatch passes a warm internal curl but 404s the user.
+- **Project-specific functional check** — list one or two concrete behaviors the migrator should trigger (a login flow completes, an ingest job produces output to the database, a webhook fires correctly, etc.). The plan must spell these out per project, not leave them generic. Run the check more than once and after a cold start — a path that succeeds warm can still throttle past a client timeout on the first hit.
 
 If any of these fail, fix here — don't start the next project until this one passes.
 

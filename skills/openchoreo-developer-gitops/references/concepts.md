@@ -91,7 +91,7 @@ Same `ComponentRelease` can be bound to multiple Environments via separate `Rele
 
 ## Project
 
-A **Project** is a bounded context (DDD) — a cohesive set of Components implementing one business capability. Each Project becomes a runtime **Cell**: its own namespace on the DataPlane, automatic network policies (Cilium), and directional gateways (north / south / east / west). Components inside a Cell talk freely; cross-Cell traffic flows through gateways the platform configures.
+A **Project** is a bounded context (DDD) — a cohesive set of Components implementing one business capability. Each Project becomes a runtime **Cell**: its own namespace on the DataPlane, automatic network policies, and platform-managed gateways. Components inside a Cell talk freely; reachability beyond the Cell is governed by endpoint visibility (below).
 
 Key fields:
 
@@ -191,9 +191,9 @@ Every endpoint **implicitly carries `project` visibility**. The `visibility` arr
 | Visibility   | Reachable from                                          | Notes                                          |
 | ------------ | ------------------------------------------------------- | ---------------------------------------------- |
 | `project`    | Same Project + same Environment (implicit, always)      | Replaces ClusterIP `Service` in-Cell.          |
-| `namespace`  | All Projects in same namespace + same env               | Needs westbound gateway (PE-configured).       |
-| `internal`   | All namespaces in the deployment                        | Needs westbound gateway.                       |
-| `external`   | Public internet                                         | Needs northbound gateway (typical).            |
+| `namespace`  | All Projects in same namespace + same env               | Resolved in-cluster; no extra gateway setup.   |
+| `internal`   | All namespaces in the deployment                        | Reachable to other projects in the deployment. |
+| `external`   | Public internet                                         | Through the ingress gateway (usually set up).  |
 
 A single endpoint can carry multiple visibilities (e.g. `[namespace, external]`). `visibility: [external]` implies both `project` (implicit) and `external`.
 

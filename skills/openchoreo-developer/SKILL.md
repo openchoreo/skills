@@ -2,7 +2,7 @@
 name: openchoreo-developer
 description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', or 'why is my pod crashing'.
 metadata:
-  version: "1.1.2"
+  version: "1.1.3"
 ---
 
 # OpenChoreo Developer Guide

@@ -2,7 +2,7 @@
 name: openchoreo-developer-gitops
 description: Application-developer GitOps work for OpenChoreo — onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenChoreo Developer GitOps Guide

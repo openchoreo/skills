@@ -21,7 +21,7 @@ Walk the code first; questions come after (3). For each candidate service, infer
 
 - **Project + component layout.** One service → one Component. A multi-service repo may need multiple Components, often grouped under one Project.
 - **Endpoints — port + protocol.** Server bind code (`app.listen`, `http.ListenAndServe`, `uvicorn --port`), Dockerfile `EXPOSE`, framework defaults. Protocol per endpoint: HTTP/REST, GraphQL, gRPC, WebSocket, TCP, UDP.
-  > **Gateway gotcha.** External (public) ingress uses the northbound gateway — usually configured. `namespace` / `internal` visibility uses the westbound gateway, which may not be. WebSocket endpoints also depend on whichever gateway routes them supporting upgrades. If the visibility you want isn't `external` or `project`, verify the gateway exists with PE before authoring.
+  > **Gateway note.** `external` (public) ingress goes through the platform's ingress gateway, which a standard install usually configures. `namespace` / `internal` visibility is resolved by the platform for cross-project calls without extra setup. WebSocket endpoints depend on the routing gateway supporting upgrades. If an endpoint you exposed doesn't resolve, verify the data plane's gateway config on your install.
 - **Dependencies.** HTTP / gRPC clients to other services, DB / cache / broker connection strings.
 - **Env vars.** `process.env.X`, `os.Getenv("X")`, framework config schemas (Pydantic settings, Viper, Spring `application.yml`, …).
 - **Secrets + mounted files.** API keys / DB credentials (→ `SecretReference`), runtime config files (`fs.readFileSync('/etc/...')`, common in SPAs).

@@ -143,8 +143,8 @@ kubectl describe httproute <name> -n <ns>
 
 Common causes:
 
-- Northbound gateway not configured (for external endpoints)
-- Westbound gateway not configured (for internal/namespace endpoints)
+- Ingress gateway not configured on the DataPlane (for `external` endpoints)
+- Endpoint visibility not set to `external` for a publicly-reached endpoint
 - TLS certificate not provisioned
 - DNS not pointing to LoadBalancer
 

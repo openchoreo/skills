@@ -34,9 +34,9 @@ Platform-managed (read-only for developers):
 
 ### Project
 
-A bounded context grouping related components. At runtime, each Project becomes a **Cell** with its own isolated namespace, network policies (Cilium), and security controls.
+A bounded context grouping related components. At runtime, each Project becomes a **Cell** with its own isolated namespace, network policies, and security controls.
 
-Components within a project communicate freely. Cross-project communication requires gateways, which platform engineers configure.
+Components within a project communicate freely. Cross-project reachability is governed by endpoint visibility (see below).
 
 **Example**: An e-commerce app might have "order-management" (order-service, payment-handler) and "user-management" (auth-service, profile-service) as separate projects.
 
@@ -93,12 +93,12 @@ For the descriptor schema and source-build flow, see `./recipes/build-from-sourc
 
 Controls who can reach your service. Declared as a *list* on each target endpoint (`endpoints.<name>.visibility: [...]`); every endpoint implicitly has `project`:
 
-- `project`: Same project and environment (implicit for all endpoints, no gateway needed)
-- `namespace`: All projects in same namespace and environment (needs westbound gateway)
-- `internal`: All namespaces in deployment (needs westbound gateway)
-- `external`: Public internet (needs northbound gateway, usually configured)
+- `project`: Same project and environment (implicit for all endpoints)
+- `namespace`: All projects in the same namespace and environment
+- `internal`: All namespaces in the deployment
+- `external`: Public internet — exposed through the platform's ingress gateway
 
-The northbound gateway for external traffic is typically set up. The westbound gateway for internal/namespace traffic may not be. If you need internal visibility and get rendering errors, it's likely because the westbound gateway isn't configured. Escalate to platform engineering.
+`project` and `namespace` reachability is resolved by the platform within the data plane: a cross-project call at `namespace` visibility gets the target's in-cluster address injected, with no extra gateway setup. `external` is exposed through the platform's ingress gateway, which a standard install usually configures. If an endpoint you exposed doesn't resolve on your install, verify the data plane's gateway configuration rather than assuming the visibility is blocked.
 
 > **Dependency entries are different.** When a Component declares a *dependency* on another component's endpoint (`dependencies.endpoints[*].visibility`), only `project` and `namespace` are valid — the API rejects `internal` and `external` there. Cross-namespace dependencies are not supported via this mechanism. See `recipes/connect-components.md`.
 
@@ -215,14 +215,12 @@ Points to secrets stored in an external secret store (like OpenBao or HashiCorp 
 
 ## Cell Architecture (Runtime)
 
-At runtime, each Project becomes a Cell. Traffic between cells flows through directional gateways:
+At runtime, each Project becomes a Cell. Components within a Cell communicate freely; reachability beyond the Cell is governed by endpoint `visibility`:
 
-- **Northbound**: Ingress from public internet → maps to `external` endpoint visibility
-- **Southbound**: Egress to external services
-- **Westbound**: Ingress from other cells within the org → maps to `internal` / `namespace` visibility
-- **Eastbound**: Egress to other cells
+- `external` is exposed to the public internet through the platform's ingress gateway.
+- `namespace` / `internal` make an endpoint reachable to other projects; the platform resolves these to in-cluster addresses.
 
-As a developer, you control this through endpoint `visibility` on Workloads. The gateways themselves are configured by platform engineers on the DataPlane.
+You control this through endpoint `visibility` on Workloads. Gateways and network policy are configured by platform engineers on the DataPlane; what a given install supports is verifiable there.
 
 ## Deployment Flow
 
