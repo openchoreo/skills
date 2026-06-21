@@ -239,17 +239,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && url === '/plan.md') {
-    const run = currentRunDir();
-    if (!run) { res.writeHead(404); res.end('no current run'); return; }
-    fs.readFile(path.join(run, 'plan.md'), (err, data) => {
-      if (err) { res.writeHead(404); res.end('plan.md not found'); return; }
-      res.writeHead(200, { 'Content-Type': MIME['.md'], 'Content-Length': data.length, 'Cache-Control': 'no-store' });
-      res.end(data);
-    });
-    return;
-  }
-
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405); res.end('method not allowed'); return;
   }
