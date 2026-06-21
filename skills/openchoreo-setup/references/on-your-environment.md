@@ -81,3 +81,7 @@ Both are in Rancher Desktop → Preferences → Kubernetes. If `rdctl` is on PAT
 ### EKS — patch the observability-plane gateway
 
 If the obs plane is installed, also patch its gateway to `internet-facing`. The guide has the patch under `<details>` for the control-plane and data-plane gateways but not for the observability-plane gateway, so the obs LB stays internal otherwise.
+
+### GKE — fluent-bit logs module clashes with `fluentbit-gke`
+
+Applies to any fluent-bit-based logs module — the default `opensearch` one, `openobserve`, `aws-cloudwatch` — not just to a module override. GKE's managed `fluentbit-gke` DaemonSet owns host port 2020, so install the logs module's fluent-bit with `hostNetwork: false`. That then breaks kubelet-based metadata enrichment — set the Kubernetes metadata filter to `Use_Kubelet Off` (API-server enrichment) or records ship with no `kubernetes.*` fields and the logs adapter rejects them (surfaces as observer 500s). Apply on every cluster running the logs collector.
