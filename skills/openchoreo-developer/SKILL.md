@@ -2,7 +2,7 @@
 name: openchoreo-developer
 description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', or 'why is my pod crashing'.
 metadata:
-  version: "1.1.3"
+  version: "1.1.4"
 ---
 
 # OpenChoreo Developer Guide
@@ -69,6 +69,9 @@ The `resource` toolset (dev-facing, enabled by default) covers `Resource` CRUD p
 - **Third-party / public apps: default to BYO image.** Source builds commonly fail on third-party Dockerfiles using `ARG BUILDPLATFORM` (exit 125). Switch to BYO immediately if you see it.
 - **Before deploying any third-party app:** fetch the official manifests and extract every required env var — dependencies inject service addresses but not `PORT`, feature flags, or vendor SDK disable flags.
 - **A handed-over migration plan is the spec.** When the user supplies a migration/onboarding plan, take namespace, env var placement (static Workload env vs per-env `workloadOverrides`), and wiring decisions from it. Deviate only out loud — state what you're changing and why *before* acting, never silently substitute.
+- **Author types to fit the app — never re-shape the app to fit shipped types.** When the plan (or the app) needs a `ComponentType` / `ResourceType` / `Trait` that isn't installed *or that ships but doesn't meet the requirement*, the fix is to **author it** — load `../openchoreo-platform-engineer/SKILL.md` and create a fit-for-purpose type. Do **not** work around the gap by: re-modeling a managed dependency as a plain Component because the shipped `ResourceType` doesn't fit (it's still a Resource — author a `ResourceType` that reproduces what the dependency needs); dropping a capability the app needs because no shipped Trait provides it (author the Trait); or forcing the workload onto a shipped `ComponentType` whose shape or defaults don't fit (author the `ComponentType`). Reuse a shipped type **only** when it genuinely meets the contract. The needs drive the types, not the reverse.
+- **Set resources from the source, not the ComponentType's defaults.** Use the workload's source-declared requests/limits (CPU *and* memory). If the source declares none, pick a plausible default for the workload class — never inherit a generic CT's defaults, which are typically demo-grade and under-provision. When you author the CT, bake sensible defaults into its `environmentConfigs`; otherwise set them via the ReleaseBinding's per-env config.
+- **Injected connection values are literal — there is no `$(VAR)` interpolation.** Dependency `envBindings` inject each connection value (`address` / `host` / `port` / `basePath`) as the literal env var you name; the platform does **not** expand shell/Kubernetes `$(VAR)` references inside other env values, so `value: "http://$(HOST):$(PORT)"` reaches the container verbatim. Bind the exact env var the app reads. If the app needs a composed string the injected vars don't directly provide (a full URI, a bare `host:port` with no scheme, a scheme prefix), set that composed value as a literal env var — typically a per-env `workloadOverride` using the resolved address — rather than referencing `$(VAR)`.
 - **A missing tool means version skew, not absence.** When a documented MCP tool isn't found, check the server version against the cluster before concluding the surface doesn't exist — report the mismatch to the user, then fall back or escalate.
 
 ## Anti-patterns

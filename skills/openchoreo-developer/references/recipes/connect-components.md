@@ -203,7 +203,7 @@ The right side of each `envBindings` entry is the env var name in the consumer.
 - **Max 50 endpoint dependencies per Workload.** A consumer pulling from more than 50 components is a design smell — split it.
 - **Connection refused after deploy?** Confirm the target's endpoint visibility list includes the level the consumer is asking for. Most "it deployed but can't connect" issues trace to this.
 - **The injected `address` already includes the scheme (HTTP/WS).** Don't prepend `http://` in the consumer's code when using `address`. If you need just the host, use `envBindings.host` instead.
-- **Don't stitch values via `$(VAR)` substitution against dependency-injected env vars.** Doesn't reliably work; the placeholder ends up verbatim in the running container.
+- **Don't stitch values via `$(VAR)` substitution against dependency-injected env vars.** The platform does not expand shell/Kubernetes `$(VAR)` references in env values — `value: "http://$(HOST):$(PORT)"` reaches the container verbatim. Bind the exact env var the app reads, or set the composed value as a literal (per-env `workloadOverride` using the resolved address).
 
 ## Related recipes
 
