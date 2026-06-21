@@ -3,6 +3,7 @@
    carry label/kind, children carry the body. Authoring contract: references/frames.md. */
 
 *{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important} /* must beat .btn/details display rules */
 html,body{height:100%;overflow:hidden}
 body{font-family:var(--font-sans);font-size:14px;line-height:1.55;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
 ::selection{background:var(--primary);color:#fff}

@@ -14,7 +14,7 @@ For the per-frame content-writing guide, see [`frames.md`](frames.md). For the O
 │   └── <YYYYMMDD-HHMMSS-slug>/         one folder per plan
 │       ├── meta.json                   {id, name, started_at, status}
 │       ├── content/index.html          ★ THE THING YOU WRITE — body fragment with an oc-frame directive
-│       ├── plan.md                     human-readable deliverable (you write this too, on approve)
+│       ├── content/plan.md             human-readable deliverable (you write this too, on approve)
 │       ├── source-rendered/            helm template / kustomize build / raw YAML copy
 │       └── state/events.jsonl          user interactions (auto-cleared on every content/ write)
 └── server-state/                       global, per server process
