@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer
 description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ComponentTypes / ResourceTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ComponentType', 'add a ResourceType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
 metadata:
-  version: "1.1.2"
+  version: "1.1.3"
 ---
 
 # OpenChoreo Platform Engineer Guide

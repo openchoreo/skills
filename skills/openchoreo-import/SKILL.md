@@ -2,7 +2,7 @@
 name: openchoreo-import
 description: Plans an OpenChoreo migration from a Helm chart, Kustomize overlay, Docker Compose file, or raw Kubernetes YAML. Triggers on "how can we migrate X into openchoreo", "onboard Y into openchoreo", "bring this app into openchoreo", "model this as openchoreo components", "what would X look like in openchoreo".
 metadata:
-  version: "1.1.3"
+  version: "1.1.4"
 ---
 
 # OpenChoreo Import
