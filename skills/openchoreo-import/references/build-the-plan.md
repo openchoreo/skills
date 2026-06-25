@@ -91,12 +91,13 @@ Most of the mapping is settled by the source plus the catalog — apply it and m
 - **Managed-infrastructure deps** → **Resource** — every time. **Component-vs-Resource is not a fork; never ask.** Resource is the canonical abstraction for any persistent-connection managed dep (see [`concepts.md`](concepts.md)).
 - **Pipeline / Environment / DataPlane choice** — migration-time, not plan-time. The migrator picks when applying; don't surface as a fork.
 - **Type template internals** — PE-side authoring decisions baked into the CT / RT / Trait. The plan recommends the pattern; what's inside is the pattern's definition.
+- **ComponentType shape the source dictates** — when the source's signals settle which type fits, default it and surface it as a decision; only ask when two shapes are genuinely viable (parallel to *Component-vs-Resource is not a fork*).
 
 **Forks that recur** (illustrations — recognize the shape, then find the rest yourself; this is not the whole set):
 
 - **Project boundaries** — whenever the set is large or spans domains (past ~15 components, assume it does). Don't cram them into one Project *or* split arbitrarily: derive a grouping from the source's own structure (subcharts, namespaces, `part-of` labels, directory layout) and ask the user to confirm the split + the axis. **State each option's downstream consequence in the ask** — splitting components that call each other into separate Projects turns their in-cell calls into cross-project (cross-Cell) calls, which changes the deploy order and the wiring; one Project keeps them in-cell. The user is choosing runtime topology, not just a label. Only a small, cohesive app skips this.
 - **Exposure / visibility** — when the source's networking doesn't map cleanly onto OpenChoreo's visibility model.
-- **Component shape** — when something fits two ComponentTypes with material tradeoffs.
+- **Component shape** — only when **both** ComponentTypes are genuinely viable for the workload. If the source dictates the shape (one option would break the workload), it's settled: default it, don't ask. "Fits two types" with one of them broken is not a tradeoff.
 
 **At the verdict beat.** Surface the forks via the `AskUserQuestion` tool (or its host equivalent) — **in batches of up to 4 per turn** (the tool caps at 4 questions). If more forks remain, split across turns; lead with the most structural ones (Projects, Component shape) — the ones that change the most downstream. Each fork carries your recommendation so the user can rubber-stamp or flip in one click. Build the plan on their answers.
 
