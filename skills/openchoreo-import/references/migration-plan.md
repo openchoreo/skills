@@ -11,11 +11,12 @@ The `plan` preview and the migration plan are **separate content files** so neit
 - `content/index.html` — the `plan` preview (`<!-- oc-frame: plan -->`), the iteration target.
 - `content/migration-plan.html` — this document (`<!-- oc-frame: report -->`).
 
-The `report` frame ships **← Back to plan** and **Copy plan.md** buttons in the top app-bar. **The migration plan write is atomic — three files in lockstep:**
+The `report` frame ships **← Back to plan** and **Copy migration-plan.md** buttons in the top app-bar. **The migration plan write is atomic — four files in lockstep:**
 
 1. `content/migration-plan.html` — the rendered report page (this file).
-2. `content/plan.md` — the markdown twin. The `Copy plan.md` button and the optional `<details class="plan-preview">` disclosure both fetch `/plan.md` — if it's missing, the UI hides both controls.
-3. `content/index.html` — add the **View migration plan →** button to the plan page's `nav` slot: `<div data-fill="nav"><a class="btn ghost" href="/migration-plan.html">View migration plan →</a></div>`.
+2. `content/migration-plan.md` — the Markdown twin of the migration plan. The `Copy migration-plan.md` button fetches `/migration-plan.md` — if it's missing, the UI hides the button.
+3. `content/plan.md` — the architecture plan Markdown. The optional `<details class="plan-preview">` disclosure on the plan page fetches `/plan.md` — if it's missing, the UI hides the control.
+4. `content/index.html` — add the **View migration plan →** button to the plan page's `nav` slot: `<div data-fill="nav"><a class="btn ghost" href="/migration-plan.html">View migration plan →</a></div>`.
 
 ## Sections (in order)
 

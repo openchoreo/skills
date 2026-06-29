@@ -72,6 +72,12 @@
         r.text().then((t) => copy(t, 'plan.md copied'));
       }).catch(() => toast('Could not fetch plan.md'));
     }
+    if (el.dataset.local === 'copy-migration-plan') {
+      fetch('/migration-plan.md').then((r) => {
+        if (!r.ok) { toast('migration-plan.md not available'); return; }
+        r.text().then((t) => copy(t, 'migration-plan.md copied'));
+      }).catch(() => toast('Could not fetch migration-plan.md'));
+    }
   }
 
   // Hide plan.md-dependent affordances if it's not written yet (broken Copy button
@@ -82,6 +88,17 @@
     .then((ok) => {
       if (ok) return;
       document.querySelectorAll('[data-local="copy-plan"], details.plan-preview').forEach((el) => {
+        el.hidden = true;
+      });
+    });
+
+  // Hide migration-plan.md button until that file is written (same rationale).
+  fetch('/migration-plan.md', { method: 'HEAD' })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .then((ok) => {
+      if (ok) return;
+      document.querySelectorAll('[data-local="copy-migration-plan"]').forEach((el) => {
         el.hidden = true;
       });
     });
