@@ -2,7 +2,7 @@
 name: openchoreo-developer-gitops
 description: Application-developer GitOps work for OpenChoreo — onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
 metadata:
-  version: "1.1.3"
+  version: "1.1.4"
 ---
 
 # OpenChoreo Developer GitOps Guide
@@ -23,7 +23,30 @@ command -v occ && occ config context list && occ namespace list
 ls flux 2>/dev/null && ls platform-shared 2>/dev/null && ls namespaces 2>/dev/null
 ```
 
-If `occ` is missing / unconfigured, stop and tell the user to install + configure it. If the cwd isn't a scaffolded repo (no `flux/` or `clusters/<name>/`, no `platform-shared/`, no `namespaces/`), ask the user for the repo path; if no repo exists, the repo needs scaffolding upstream of this skill — don't start creating components in a non-scaffolded directory.
+If `occ` is missing, tell the user to install it. **If `occ` points at the wrong control plane, or `occ login` / `occ namespace list` fails**, configure it for the target before proceeding. Details: [CLI Configuration](https://openchoreo.dev/docs/platform-engineer-guide/cli-configuration) and [CLI Installation → Login](https://openchoreo.dev/docs/getting-started/cli-installation).
+
+- **Repoint the shipped `default`** — every install ships a `default` control plane + context; if you only need occ on this one cluster, just update its URL and log in:
+  ```bash
+  occ config controlplane update default --url https://api.<cp-domain>
+  occ login
+  ```
+- **Add a second control plane alongside an existing one** (e.g. keep a local k3d entry and add a remote cluster, switching between them with `occ config context use`) — `context add` requires **both** `--controlplane` and `--credentials`, each created first:
+  ```bash
+  occ config controlplane add <cp> --url https://api.<cp-domain>
+  occ config credentials add <cp>
+  occ config context add <cp> --controlplane <cp> --credentials <cp> --namespace <ns>
+  occ config context use <cp> && occ login
+  ```
+- **Self-signed certs** (`x509: certificate is not trusted` on login) — trust the CA in your OS trust store (extract, then import per OS — see the CLI Installation doc):
+  ```bash
+  kubectl get secret openchoreo-ca-secret -n cert-manager \
+    -o jsonpath='{.data.ca\.crt}' | base64 -d > openchoreo-ca.crt
+  # macOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain openchoreo-ca.crt
+  ```
+
+`occ login` is interactive (browser) — hand it to the user if you can't complete it.
+
+If the cwd isn't a scaffolded repo (no `flux/` or `clusters/<name>/`, no `platform-shared/`, no `namespaces/`), ask the user for the repo path; if no repo exists, the repo needs scaffolding upstream of this skill — don't start creating components in a non-scaffolded directory.
 
 **Always show the active `occ` context and confirm with the user** before any cluster-touching action.
 
