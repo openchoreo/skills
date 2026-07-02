@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer-gitops
 description: Platform-engineer GitOps work for OpenChoreo — scaffolding a GitOps repo (pristine, platform-only, or active cluster), wiring Flux CD, and authoring platform CRDs (ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, SecretReferences, AuthzRoles, alert rules, notification channels) via Git. Use when the user says 'set up GitOps for this cluster', 'move this cluster to GitOps', 'wire Flux', 'add a ComponentType / ResourceType / Trait / Workflow via Git', or operates a platform change inside a scaffolded GitOps repo.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenChoreo Platform-Engineer GitOps Guide
@@ -16,9 +16,32 @@ This skill is scoped to platform-engineer GitOps work — initial scaffold + ong
 `occ` must be configured against the target cluster:
 
 ```bash
-command -v occ && occ config context list      # occ configured?
-occ namespace list                              # cluster reachable?
+command -v occ && occ config context list      # occ configured? which control plane?
+occ namespace list                              # cluster reachable + logged in?
 ```
+
+**If `occ` points at the wrong control plane, or `occ login` / `occ namespace list` fails**, configure it for the target before proceeding. Details: [CLI Configuration](https://openchoreo.dev/docs/platform-engineer-guide/cli-configuration) and [CLI Installation → Login](https://openchoreo.dev/docs/getting-started/cli-installation).
+
+- **Repoint the shipped `default`** — every install ships a `default` control plane + context; if you only need occ on this one cluster, just update its URL and log in:
+  ```bash
+  occ config controlplane update default --url https://api.<cp-domain>
+  occ login
+  ```
+- **Add a second control plane alongside an existing one** (e.g. keep a local k3d entry and add a remote cluster, switching between them with `occ config context use`) — `context add` requires **both** `--controlplane` and `--credentials`, each created first:
+  ```bash
+  occ config controlplane add <cp> --url https://api.<cp-domain>
+  occ config credentials add <cp>
+  occ config context add <cp> --controlplane <cp> --credentials <cp> --namespace <ns>
+  occ config context use <cp> && occ login
+  ```
+- **Self-signed certs** (`x509: certificate is not trusted` on login) — trust the CA in your OS trust store (extract, then import per OS — see the CLI Installation doc):
+  ```bash
+  kubectl get secret openchoreo-ca-secret -n cert-manager \
+    -o jsonpath='{.data.ca\.crt}' | base64 -d > openchoreo-ca.crt
+  # macOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain openchoreo-ca.crt
+  ```
+
+`occ login` is interactive (browser) — hand it to the user if you can't complete it.
 
 ## Step 1 — Load concepts (MANDATORY)
 
