@@ -1,73 +1,57 @@
-# OpenChoreo workload descriptor — place at <src-repo>/<appPath>/workload.yaml
-# Read by the build pipeline's generate-workload step to build the Workload CR.
-#
-# Field-name reminder (descriptor → CR):
-#   configurations.env[].name      → container.env[].key
-#   configurations.files[].name    → container.files[].key
-#   endpoints[] (list with name)   → endpoints (map)
-#
-# The build always overrides metadata.name with <component>-workload.
+# OpenChoreo workload descriptor — lives at <appPath>/workload.yaml, alongside your source.
+# Converted to a Workload CR: the top-level fields here move under spec:, and the workload
+# is named <component>-workload.
 
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
+
 metadata:
-  name: <component>                                # overridden by the build
-spec:
-  owner:
-    componentName: <component>
-    projectName: <project>
+  name: <component>            # +required
 
-  # Endpoints — list with `name` (descriptor shape).
+# +optional Endpoints this workload exposes.
+endpoints:
+  - name: http                 # +required unique name
+    port: 8080                 # +required
+    type: HTTP                 # +required HTTP | GraphQL | gRPC | TCP | UDP | Websocket
+    visibility: [external]     # +optional project (implicit) | namespace | internal | external
+    # targetPort: 8080         # +optional defaults to port
+    # basePath: /api/v1        # +optional HTTP only
+    # schemaFile: docs/openapi.yaml   # +optional path relative to this file
+
+# +optional Consumed component endpoints and project Resources.
+dependencies:
   endpoints:
-    - name: http
-      type: HTTP                                   # HTTP | GraphQL | Websocket | gRPC | TCP | UDP
-      port: 8080
-      # targetPort: 8080                           # defaults to port
-      # basePath: /api/v1                          # HTTP only
-      visibility: [external]                       # project (implicit) | namespace | internal | external
-      # schema:
-      #   type: REST
-      #   content: |
-      #     openapi: 3.0.0
-      #     …
+    - component: backend       # +required
+      name: api                # +required target endpoint
+      visibility: project      # +required project | namespace
+      # project: other-project # +optional cross-project (with visibility: namespace)
+      envBindings:             # +required keys: address | host | port | basePath
+        address: BACKEND_URL
+  resources:
+    - ref: orders-db           # +required Resource in this project
+      envBindings:             # +optional output name -> env var
+        host: DB_HOST
+        password: DB_PASSWORD
+      # fileBindings:          # +optional output -> mount path (secretKeyRef/configMapKeyRef outputs)
+      #   ca-cert: /etc/ssl/db-ca.pem
 
-  # Env vars / files / secrets — descriptor uses "configurations" (CR uses "container.env" / "container.files").
-  configurations:
-    env:
-      - name: LOG_LEVEL
-        value: info
-      - name: PORT
-        value: "8080"
-    files:
-      - name: /etc/app/config.json
-        mountPath: /etc/app/config.json
-        value: |
-          {"feature_x": false}
-    secrets:
-      envs:
-        - name: DB_PASSWORD
-          remoteRef:
-            key: db-credentials
-            property: DB_PASSWORD
-      files:
-        - name: /etc/app/secret.json
-          mountPath: /etc/app/secret.json
-          remoteRef:
-            key: api-keys
-            property: STRIPE_KEY
-
-  # Dependencies — automatic service-discovery injection.
-  # visibility must be `project` or `namespace`; target visibility must be ≥ this.
-  dependencies:
-    endpoints:
-      - component: postgres
-        name: tcp
-        visibility: project
-        envBindings:
-          host: DB_HOST
-          port: DB_PORT
-      - component: nats
-        name: tcp
-        visibility: project
-        envBindings:
-          address: NATS_URL
+# +optional Env vars and mounted files.
+configurations:
+  env:
+    - name: LOG_LEVEL          # +required; set one of value / valueFrom
+      value: info
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: password
+  files:
+    - name: config.json        # +required
+      mountPath: /etc/app/config.json   # +required
+      value: |                 # one of value / valueFrom.secretKeyRef / valueFrom.path
+        {"feature_x": false}
+    - name: db-ca.pem
+      mountPath: /etc/ssl/db-ca.pem
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: ca-cert
