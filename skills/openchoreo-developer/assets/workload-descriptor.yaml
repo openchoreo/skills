@@ -1,19 +1,43 @@
+# OpenChoreo workload descriptor — lives at <appPath>/workload.yaml, alongside your source.
+# Converted to a Workload CR: the top-level fields here move under spec:, and the workload
+# is named <component>-workload.
+
 apiVersion: openchoreo.dev/v1alpha1
+
 metadata:
-  name: <COMPONENT_NAME>
+  name: <component>            # +required
 
+# +optional Endpoints this workload exposes.
 endpoints:
-  - name: http
-    visibility:
-      - external
-    port: 8080
-    type: HTTP
-    basePath: /api
-    schemaFile: docs/openapi.yaml
+  - name: http                 # +required unique name
+    port: 8080                 # +required
+    type: HTTP                 # +required HTTP | GraphQL | gRPC | TCP | UDP | Websocket
+    visibility: [external]     # +optional project (implicit) | namespace | internal | external
+    # targetPort: 8080         # +optional defaults to port
+    # basePath: /api/v1        # +optional HTTP only
+    # schemaFile: docs/openapi.yaml   # +optional path relative to this file
 
+# +optional Consumed component endpoints and project Resources.
+dependencies:
+  endpoints:
+    - component: backend       # +required
+      name: api                # +required target endpoint
+      visibility: project      # +required project | namespace
+      # project: other-project # +optional cross-project (with visibility: namespace)
+      envBindings:             # +required keys: address | host | port | basePath
+        address: BACKEND_URL
+  resources:
+    - ref: orders-db           # +required Resource in this project
+      envBindings:             # +optional output name -> env var
+        host: DB_HOST
+        password: DB_PASSWORD
+      # fileBindings:          # +optional output -> mount path (secretKeyRef/configMapKeyRef outputs)
+      #   ca-cert: /etc/ssl/db-ca.pem
+
+# +optional Env vars and mounted files.
 configurations:
   env:
-    - name: LOG_LEVEL
+    - name: LOG_LEVEL          # +required; set one of value / valueFrom
       value: info
     - name: DB_PASSWORD
       valueFrom:
@@ -21,20 +45,13 @@ configurations:
           name: db-credentials
           key: password
   files:
-    - name: app.json
-      mountPath: /etc/config
-      value: |
-        {"feature_flags": {"new_feature": true}}
-    - name: tls.conf
-      mountPath: /etc/app
+    - name: config.json        # +required
+      mountPath: /etc/app/config.json   # +required
+      value: |                 # one of value / valueFrom.secretKeyRef / valueFrom.path
+        {"feature_x": false}
+    - name: db-ca.pem
+      mountPath: /etc/ssl/db-ca.pem
       valueFrom:
-        path: configs/tls.conf
-
-dependencies:
-  endpoints:
-    - component: postgres-db
-      name: api
-      visibility: project
-      envBindings:
-        host: DB_HOST
-        port: DB_PORT
+        secretKeyRef:
+          name: db-credentials
+          key: ca-cert
