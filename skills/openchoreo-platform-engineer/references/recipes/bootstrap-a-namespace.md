@@ -83,9 +83,28 @@ create_project
   display_name: Default Project
   description: Default project for components in the acme namespace
   deployment_pipeline: default
+  # type_name / type_kind / parameters optional — omitted here, so the project
+  # references the cluster-scoped "default" ClusterProjectType (provisions just
+  # the cell namespace). Pass type_name (+ type_kind, parameters) for a richer
+  # ProjectType — see project-types.md.
 ```
 
 > **Note the parameter name.** The MCP tool's parameter is `deployment_pipeline` (a string), **not** `deployment_pipeline_ref` — the API server constructs the object reference internally with `kind` defaulting to `DeploymentPipeline`.
+
+### 4b. Make the project deployable — one ProjectReleaseBinding per environment
+
+`create_project` creates only the Project entity; the project's **cell namespace** for each environment is owned by a `ProjectReleaseBinding`, and **components can't deploy into an environment until that cell exists.** Create one binding per pipeline environment, with the release pin left empty — each stays pending and the controller fills the pin once the project's first `ProjectRelease` is cut, so a not-yet-existing release isn't a blocker:
+
+```yaml
+create_project_release_binding
+  namespace_name: acme
+  name: default-development                # convention: {project}-{environment}
+  project_name: default
+  environment: development
+  # project_release omitted → controller seeds it with the latest release
+```
+
+Repeat for `staging` and `production`. (Deploying/promoting a project is otherwise a developer / GitOps action — `occ project deploy`, Backstage, or a committed binding; see the developer skills. Doing it here just makes the bootstrapped namespace immediately usable.)
 
 ### 5. Verify
 
@@ -94,9 +113,10 @@ list_namespaces                                          # confirm acme appears
 list_environments namespace_name: acme                   # 3 envs
 list_deployment_pipelines namespace_name: acme           # 1 pipeline
 list_projects namespace_name: acme                       # 1 project; check the entry's deploymentPipelineRef
+list_project_release_bindings namespace_name: acme project_name: default   # 3 bindings, reaching Ready
 ```
 
-For deeper inspection (no single-`Project` MCP get): `kubectl get project default -n acme -o yaml`.
+For deeper inspection (no single-`Project` MCP get): `kubectl get project default -n acme -o yaml`. Cell namespaces show on each binding's `status.namespace` once Ready.
 
 Then have a developer create their first component in this namespace to confirm the cluster-scoped types are visible (the cluster-scoped `ClusterComponentType` / `ClusterTrait` / `ClusterWorkflow` resources are automatically inherited — no per-namespace copy needed unless you want isolation).
 
