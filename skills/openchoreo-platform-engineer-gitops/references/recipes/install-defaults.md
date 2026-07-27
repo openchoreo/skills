@@ -2,7 +2,7 @@
 
 Materialise the OpenChoreo defaults into a scaffolded GitOps repo. Two upstream sources, both routed through `./scripts/extract-resources.sh`:
 
-- **`defaults` mode** — fetches `samples/getting-started/all.yaml` from `openchoreo/openchoreo`. Contains the default `Project`, three `Environment`s, `DeploymentPipeline`, four `ClusterComponentType`s, the default `ClusterTrait`, and the four vanilla CI `ClusterWorkflow`s (the script refuses to extract those for GitOps by default — see *Steps* 4).
+- **`defaults` mode** — fetches `samples/getting-started/all.yaml` from `openchoreo/openchoreo`. Contains the default `ClusterProjectType`, the default `Project` (with `spec.type` + its three per-env `ProjectReleaseBinding`s), three `Environment`s, `DeploymentPipeline`, four `ClusterComponentType`s, the default `ClusterTrait`, and the four vanilla CI `ClusterWorkflow`s (the script refuses to extract those for GitOps by default — see *Steps* 4).
 - **`gitops-workflows` mode** — traverses `openchoreo.dev/ecosystem/workflows.md` filtered for `gitops`. Each match pairs the `Workflow` CR with its Argo `ClusterWorkflowTemplate`.
 
 `./scripts/extract-resources.sh --help` for the full surface. The script prints raw YAML to stdout — the agent applies scope swap, `allowedWorkflows[]` rewriting, and `runTemplate` parameter editing, then commits.
@@ -25,7 +25,7 @@ Three yes/no decisions, each with the default in brackets:
 3. **GitOps build-and-release workflows** (docker / google-cloud-buildpacks / react / bulk) [Yes]
    ⚠ Without these, developers can't build from source — only BYO image works.
 
-The Project / Environments / DeploymentPipeline trio is always installed (they're the entry point for everything else).
+The default `ClusterProjectType` and the Project / Environments / DeploymentPipeline set are always installed (they're the entry point for everything else). The Project references the `ClusterProjectType`, and its per-env `ProjectReleaseBinding`s create the project's cell namespaces — nothing deploys until those exist.
 
 Plus a single scope choice that applies to every bundle above:
 
@@ -38,25 +38,31 @@ If both **CCTs** and **GitOps workflows** are selected, the agent additionally r
 
 ## Steps
 
-### 0. Always — Project / Environments / DeploymentPipeline
+### 0. Always — default ClusterProjectType, Project (+ cell bindings), Environments, DeploymentPipeline
 
-These three go together (pipeline references env names, project references pipeline name). Scope doesn't apply — they're namespace-scoped resources already.
+These go together: the pipeline references env names, the Project references the pipeline **and** the `ClusterProjectType`, and the `ProjectReleaseBinding`s deploy the Project's cell per environment. The `ClusterProjectType` is cluster-scoped (`platform-shared/`); the rest are namespace-scoped already (scope choice doesn't apply).
 
 ```bash
 NS=<your-namespace>
-mkdir -p namespaces/$NS/projects/default
+mkdir -p platform-shared/project-types
+mkdir -p namespaces/$NS/projects/default/release-bindings
 mkdir -p namespaces/$NS/platform/infra/environments
 mkdir -p namespaces/$NS/platform/infra/deployment-pipelines
 
+./scripts/extract-resources.sh defaults --kind ClusterProjectType --name default \
+  > platform-shared/project-types/default.yaml
 ./scripts/extract-resources.sh defaults --kind Project --name default \
-  > namespaces/$NS/projects/default/project.yaml
+  > namespaces/$NS/projects/default/project.yaml          # carries spec.type + spec.parameters
 ./scripts/extract-resources.sh defaults --kind Environment \
   > namespaces/$NS/platform/infra/environments/environments.yaml
 ./scripts/extract-resources.sh defaults --kind DeploymentPipeline --name default \
   > namespaces/$NS/platform/infra/deployment-pipelines/default.yaml
+# The default Project's per-env ProjectReleaseBindings (default-development / -staging / -production):
+./scripts/extract-resources.sh defaults --kind ProjectReleaseBinding \
+  > namespaces/$NS/projects/default/release-bindings/default.yaml
 ```
 
-If `$NS != default`, update `metadata.namespace:` in each file. The shipped Environments target `ClusterDataPlane/default`; without that plane registered, Environments stay `Ready=False`.
+If `$NS != default`, update `metadata.namespace:` in each namespace-scoped file (not the cluster-scoped `ClusterProjectType`). The shipped Environments target `ClusterDataPlane/default`; without that plane registered, Environments stay `Ready=False`. The `ProjectReleaseBinding`s are application-side — installing them here just makes the default project's cells exist so components can deploy; a project-only install can skip them and let the developer-gitops skill add them.
 
 ### 1. `(Cluster)ComponentType`s
 

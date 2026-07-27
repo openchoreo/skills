@@ -92,10 +92,11 @@ On a miss (no match / multiple matches / fetch failure), the script dumps the in
 
 ## Cluster ↔ namespace scope
 
-ComponentType / Trait / Workflow each come in two scopes:
+ProjectType / ComponentType / Trait / Workflow each come in two scopes:
 
 | Cluster-scoped | Namespace-scoped |
 | --- | --- |
+| `ClusterProjectType` | `ProjectType` |
 | `ClusterComponentType` | `ComponentType` |
 | `ClusterTrait` | `Trait` |
 | `ClusterWorkflow` | `Workflow` |
