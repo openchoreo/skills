@@ -5,7 +5,7 @@ Deploy an existing container image — built elsewhere or pulled from a public r
 ## Prerequisites
 
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
-2. A Project exists. The `default` project is created during install — confirm with `list_projects` (`namespace_name: default`). If you need a new one, see [Variant: create a Project](#variant-create-a-project) below.
+2. A Project exists **and its cell is deployed for the target environment**. The `default` project is created during install — confirm with `list_projects` (`namespace_name: default`); confirm its cell for your environment with `list_project_release_bindings` (`namespace_name: default`, `project_name: default`), reaching `Ready`. A component only deploys into an environment once the project's cell exists there. If you need a new project, or the cell isn't deployed, see [Variant: create a Project](#variant-create-a-project) and *Deploy the project cell* in [`deploy-and-promote.md`](./deploy-and-promote.md).
 3. A ComponentType matching the workload shape exists. The platform may register either cluster-scoped (`ClusterComponentType`) or namespace-scoped (`ComponentType`) — **discover both** by calling `list_component_types` twice, once with `scope: "cluster"` and once with `scope: "namespace"` (+ `namespace_name`). Common cluster-scoped ones in default platform setups: `deployment/service`, `deployment/web-application`, `deployment/worker`, `cronjob/scheduled-task`. Pass the `{workloadType}/{name}` to `create_component`'s `component_type` — the server resolves the kind (namespace-scoped first, cluster-scoped fallback).
 
 ## Recipe
@@ -92,9 +92,10 @@ create_project
   name: online-store
   description: "E-commerce application components"
   deployment_pipeline: default              # optional, defaults to "default"
+  # type_name / type_kind / parameters optional → defaults to the "default" ProjectType
 ```
 
-Then change `project_name` on your Component and Workload calls to the new project name.
+Then deploy the project's cell for the target environment (a `ProjectReleaseBinding`, pin left empty → controller seeds it) **before** creating components in it — see *Deploy the project cell* in [`deploy-and-promote.md`](./deploy-and-promote.md). Change `project_name` on your Component and Workload calls to the new project name.
 
 ## When you're in the source repo
 

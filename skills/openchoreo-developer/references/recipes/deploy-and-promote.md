@@ -32,6 +32,45 @@ list_release_bindings
   component_name: my-service
 ```
 
+## Deploy the project cell (do this first)
+
+A Component only deploys into an environment once its **project's cell** exists there. The cell namespace for each environment is owned by a `ProjectReleaseBinding` — create one per environment, with the release pin left empty. Each stays pending and the controller seeds the pin with the project's latest `ProjectRelease` once it's cut, so a not-yet-existing release isn't a blocker:
+
+```yaml
+create_project_release_binding
+  namespace_name: default
+  name: my-app-development                 # convention: {project}-{environment}
+  project_name: my-app
+  environment: development
+  # project_release omitted → controller seeds it with the project's latest release
+```
+
+Verify the cell is up before deploying components into it:
+
+```yaml
+get_project_release_binding
+  namespace_name: default
+  name: my-app-development
+```
+
+`status.conditions[]` should reach `Ready=True` (`Synced`, `NamespaceReady`, `ResourcesReady` all `True`); the cell namespace shows on `status.namespace`. (Projects created through Backstage or `occ project scaffold` get one binding per pipeline environment automatically; when you `create_project` via MCP you create them yourself.)
+
+### Promote the project cell
+
+Same shape as component promotion — advance the **target** environment's binding to the release the source environment runs. Read the source pin, set it on the target:
+
+```yaml
+get_project_release_binding namespace_name: default name: my-app-development   # read spec.projectRelease
+create_project_release_binding                                                # or update_ if it exists
+  namespace_name: default
+  name: my-app-staging
+  project_name: my-app
+  environment: staging
+  project_release: my-app-a1b2c3d4          # the release running in development
+```
+
+Advance an existing binding with `update_project_release_binding` (partial — pass `project_release` and/or `environment_configs`). Rollback is the same operation pointing at an older `ProjectRelease`. Per-env project values go in `environment_configs` (validated against the ProjectType's `environmentConfigs` schema).
+
 ## Recipe — first environment
 
 If `auto_deploy: true` was set on `create_component`, the first environment's ReleaseBinding is created automatically when the ComponentRelease lands. Skip ahead to verification.

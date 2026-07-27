@@ -71,6 +71,8 @@ For each candidate, fetch the schema (`get_component_type_schema` / `get_trait_s
 
 > Environments, DeploymentPipelines, DataPlanes — assume they exist. Inspect them only when troubleshooting a stuck deploy.
 
+> **The Project and its cell.** Components live in a Project, and a Component only deploys into an environment once the project's **cell** exists there. If the Project doesn't exist, `create_project` makes it (its `spec.type` defaults to the `default` ProjectType — pass `type_name` for a richer one). Then deploy the project cell per environment with a `ProjectReleaseBinding` **before** the component's ReleaseBinding — see [`./recipes/deploy-and-promote.md`](./recipes/deploy-and-promote.md) → *Deploy the project cell*.
+
 ## 6. Pick a ComponentType
 
 Shipped defaults (verify with `list_component_types`, `scope: "cluster"`):
