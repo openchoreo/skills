@@ -1,8 +1,8 @@
 ---
 name: openchoreo-developer-gitops
-description: Application-developer GitOps work for OpenChoreo — onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
+description: Application-developer GitOps work for OpenChoreo — onboarding Projects (with a ProjectType) and deploying their cell via ProjectReleaseBindings, onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a project to the GitOps repo', 'deploy my project cell', 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
 metadata:
-  version: "1.1.4"
+  version: "1.2.0"
 ---
 
 # OpenChoreo Developer GitOps Guide
@@ -62,6 +62,7 @@ Load other references **on-demand**:
 
 ## What this skill can do
 
+- **Onboard a Project + deploy its cell** — scaffold the `Project` (with a `(Cluster)ProjectType`) and one `ProjectReleaseBinding` per env; deploy before its Components → [`recipes/deploy-project.md`](./references/recipes/deploy-project.md)
 - **Onboard a Component** — BYO image or source-build → [`recipes/onboard-component-byo.md`](./references/recipes/onboard-component-byo.md), [`recipes/onboard-component-source-build.md`](./references/recipes/onboard-component-source-build.md)
 - **Update a Workload** — edit YAML (BYO) or push + rebuild (source-build) → [`recipes/update-workload.md`](./references/recipes/update-workload.md)
 - **Configure a Workload** — endpoints, env, files, secrets → [`recipes/configure-workload.md`](./references/recipes/configure-workload.md)
@@ -77,7 +78,7 @@ Load other references **on-demand**:
 ## What this skill cannot do
 
 - **Repo scaffolding or Flux wiring.** Out of scope; assumes the repo is already scaffolded and Flux is wired.
-- **Authoring ComponentTypes / ResourceTypes / Traits / Workflows.** Platform-side. Pick from what `occ clustercomponenttype list` / `occ clusterresourcetype list` / `occ clustertrait list` / `occ clusterworkflow list` show; the developer references what the platform offers.
+- **Authoring ProjectTypes / ComponentTypes / ResourceTypes / Traits / Workflows.** Platform-side. Pick from what `occ clusterprojecttype list` / `occ clustercomponenttype list` / `occ clusterresourcetype list` / `occ clustertrait list` / `occ clusterworkflow list` show; the developer references what the platform offers (a Project sets `spec.type` to one of them).
 - **Plane registration, AuthzRole / SecretReference authoring.** Platform-side.
 - **Imperative ops** — triggering a `WorkflowRun`, runtime log tail, pod-level debugging via `kubectl exec`. `WorkflowRun` does not go in Git (per `gitops/overview.md`); trigger via the UI, webhook, or `occ component workflow run`. For pod-level runtime debugging, use `kubectl` directly against the data plane or the cluster's observability backend.
 - **Editing GitOps-managed resources via `occ apply -f` or any other direct write path** — Flux reverts them on the next reconcile. Always go through Git.

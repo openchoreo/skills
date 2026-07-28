@@ -64,14 +64,21 @@ occ trait list -n <ns>
 occ clusterworkflow list
 occ workflow list -n <ns>
 
-# Existing projects (to decide where the new component goes)
+# Project types (a Project must reference one — most installs ship a `default`)
+occ clusterprojecttype list
+occ projecttype list -n <ns>
+
+# Existing projects (to decide where the new component goes) + whether their cell is deployed
 occ project list -n <ns>
+occ projectreleasebinding list -n <ns> -p <project>     # per-env cell bindings, must be Ready
 
 # Planes for completeness
 occ clusterdataplane list
 ```
 
 If any required prereq is missing (no ComponentTypes, no Environments, no DataPlane), this is a platform-side concern and out of scope for this skill. Tell the user and stop.
+
+> **No Project yet, or its cell isn't deployed for the target environment?** A Component can't deploy into an environment until the project's cell exists there. Onboard the Project + deploy its cell first → [`./recipes/deploy-project.md`](./recipes/deploy-project.md), then come back for the Component.
 
 ## 2. Code discovery — infer the workload contract
 

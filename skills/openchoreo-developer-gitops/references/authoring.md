@@ -8,6 +8,7 @@ Hard rule. Hand-writing Components / Workloads / ComponentReleases / ReleaseBind
 
 | Resource | Command |
 | --- | --- |
+| `Project` (+ per-env `ProjectReleaseBinding`s) | `occ project scaffold` (sets `spec.type` from `--clusterprojecttype` / `--projecttype`) |
 | `Component` | `occ component scaffold` (sets `kind` from `--clustercomponenttype` / `--componenttype`) |
 | `Workload` (BYO) | `occ workload create --mode file-system --descriptor <file>` |
 | `ComponentRelease` | `occ componentrelease generate --mode file-system` |
@@ -18,6 +19,26 @@ For source-build Components, **don't** commit the Workload / ComponentRelease / 
 ## The four `occ` file-mode generators
 
 **Always pass `--mode file-system` explicitly.** The default for every `occ` generator (`workload create`, `componentrelease generate`, `releasebinding generate`) is `api-server`, which writes to the cluster — wrong for GitOps. `componentrelease generate` *only* supports file-system today and errors if you forget the flag; the other two will silently apply to the cluster. Always set it. Run `occ <command> -h` for the full flag list.
+
+### `occ project scaffold PROJECT_NAME`
+
+Generates a Project YAML (with `spec.type` + `spec.parameters` from the referenced type's schema) **plus one `ProjectReleaseBinding` per pipeline environment** — the CRs that deploy the project's cell. **Requires login** — reads the live ProjectType schema. It only prints / writes YAML (no `--mode` flag; it never applies to the cluster), so it's GitOps-safe.
+
+Flags:
+
+- `--projecttype <name>` / `--clusterprojecttype <name>` — mutually exclusive; omit both → the `default` ClusterProjectType
+- `--deployment-pipeline <name>` — defaults to `default`
+- `--no-bindings` — emit only the Project (skip the per-env ProjectReleaseBindings)
+- `-n, --namespace <ns>`, `-o, --output-file <path>`, `--skip-comments`, `--skip-optional`
+
+```bash
+occ project scaffold doclet \
+  --namespace default --clusterprojecttype default \
+  --deployment-pipeline standard \
+  -o /tmp/doclet-project.yaml
+```
+
+Split the emitted doc into `project.yaml` and one `release-bindings/<project>-<env>.yaml` per binding (paths below). Fill any placeholders under `spec.parameters`. The bindings come out with `spec.projectRelease` unset — leave it: the controller seeds each with the project's first `ProjectRelease` once it's cut. Advance the pin later to promote (see [`recipes/promote.md`](./recipes/promote.md)).
 
 ### `occ component scaffold COMPONENT_NAME`
 
@@ -120,7 +141,7 @@ When absent, paths are inferred from the repo index per the documented layout. T
 
 ## Fetching CRD shapes — `scripts/fetch-page.sh`
 
-For kinds without a file-mode generator (Project, ReleaseBinding overrides, dependency wiring on Workload), use the bundled helper. It resolves the title against `llms.txt`, picks the right version, and prints the rendered Markdown. URL paths are not stable across minors — don't compose URLs by hand.
+For kinds without a scaffolder (ReleaseBinding overrides, dependency wiring on Workload, hand-tuned `ProjectReleaseBinding` overrides), use the bundled helper. (`Project` + its `ProjectReleaseBinding`s come from `occ project scaffold` above.) It resolves the title against `llms.txt`, picks the right version, and prints the rendered Markdown. URL paths are not stable across minors — don't compose URLs by hand.
 
 ```bash
 ./scripts/fetch-page.sh --exact --title "Component"          # full schema, including optional fields
@@ -142,6 +163,7 @@ On a miss (no match / multiple matches / fetch failure), the script dumps the in
 | Kind                | Path                                                                                  |
 | ------------------- | ------------------------------------------------------------------------------------- |
 | `Project`           | `namespaces/<ns>/projects/<project>/project.yaml`                                     |
+| `ProjectReleaseBinding` | `namespaces/<ns>/projects/<project>/release-bindings/<project>-<env>.yaml`         |
 | `Component`         | `namespaces/<ns>/projects/<project>/components/<component>/component.yaml`            |
 | `Workload`          | `namespaces/<ns>/projects/<project>/components/<component>/workload.yaml`             |
 | `ComponentRelease`  | `namespaces/<ns>/projects/<project>/components/<component>/releases/<release>.yaml`   |

@@ -7,7 +7,7 @@ For BYO image, see [`onboard-component-byo.md`](./onboard-component-byo.md).
 ## Preconditions
 
 - This skill's Step 0 checks have passed.
-- The Project exists.
+- The Project exists **and its cell is deployed** for the target environment (`occ projectreleasebinding get <project>-<env> -n <ns>` → `Ready`). If not, onboard the Project + cell first → [`deploy-project.md`](./deploy-project.md).
 - A Workflow that supports source-build is installed and the target `ComponentType.allowedWorkflows[]` includes it. Discover: `occ clusterworkflow list` / `occ workflow list -n <ns>`. The sample-gitops bundle ships:
   - `docker-gitops-release` — for repos with a Dockerfile.
   - `google-cloud-buildpacks-gitops-release` — for repos without a Dockerfile (auto-detects Go / Java / Node / Python / .NET / Ruby / PHP).
