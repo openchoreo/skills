@@ -1,0 +1,259 @@
+# Detail-page body for each skill's card at https://openchoreo.dev/modules.
+#
+# This file holds ONLY the long-form body (Prerequisites / Use cases / Samples)
+# that used to live in each skill's assets/_marketplace.md. The docs site fetches
+# it at runtime and renders the entry keyed by skill slug.
+#
+# Card metadata — name, description, tags — lives in the docs repo's
+# marketplace-plugins.json and is NOT repeated here. SKILL.md stays agent-facing.
+
+skills:
+  openchoreo-developer: |
+    ## Prerequisites
+
+    - [OpenChoreo MCP server](https://openchoreo.dev/docs/ai/mcp-servers/) configured in your coding agent
+
+    ## Use cases
+
+    Use this skill for application-level work on OpenChoreo:
+
+    - Onboard simple applications to OpenChoreo using available component types and traits
+    - Deploy components from pre-built images or source builds
+    - Connect components together and configure env vars, files, and secrets
+    - Attach platform-authored traits to add capabilities to a component
+    - Trigger builds and follow their progress
+    - Promote releases across environments with per-environment overrides, undeploy, or roll back
+    - Diagnose unhealthy deploys with status, events, and pod logs
+    - Browse what the platform offers — component types, traits, workflows, environments
+
+    ## Samples
+
+    ### Onboard the GCP microservices demo app
+    Hand the agent the GCP microservices demo app and have it figure out how each service maps to OpenChoreo concepts (component types, traits, environments), then onboard each one end-to-end.
+
+    ```text
+    Deploy github.com/GoogleCloudPlatform/microservices-demo into OpenChoreo using their already-published images.
+    ```
+
+    ### Scaffold an app and deploy from source
+    Let the agent get creative: build a live audience Q&A app, push to GitHub, deploy each component to OpenChoreo from source.
+
+    ```text
+    Build a live audience Q&A app (join by code, submit + upvote questions, host moderates). Push it to my GitHub as a public repo, then deploy each component to OpenChoreo from source.
+    ```
+
+    Once the first deploy is healthy, promote it forward.
+
+    ```text
+    Promote it to the next environment.
+    ```
+
+    Make some changes and deploy them to dev.
+
+    ```text
+    Implement a dark theme and push it.
+    ```
+
+  openchoreo-platform-engineer: |
+    ## Prerequisites
+
+    - [OpenChoreo MCP server](https://openchoreo.dev/docs/ai/mcp-servers/) configured in your coding agent
+
+    ## Use cases
+
+    Use this skill for platform-level work on OpenChoreo:
+
+    - Author component types, traits, and workflows for developers to use
+    - Bootstrap new tenant namespaces with their first project and environment
+    - Create environments and wire promotion pipelines across them
+    - Configure secret stores (Vault, AWS Secrets Manager, OpenBao) that back developer secrets
+    - Diagnose platform-side failures across the control plane, data planes, and workflow runs
+    - Run day-2 Helm upgrades of the OpenChoreo control plane
+
+    ## Samples
+
+    ### Onboard a new team with its own environment shape
+    A new team with specific environment needs. Have the agent provision the environments, wire up the deployment pipeline, and attach the team's project using the platform's defaults.
+
+    ```text
+    We're onboarding a new team to the platform: orders-api. They need dev, staging, canary, and prod environments. Provision the environments, build out the deployment pipeline, and attach it to the team's project using the platform's default templates and policies.
+    ```
+
+    ### Author a CI workflow and smoke-test it
+    Register a build workflow, attach it to a ComponentType, then build + deploy a tiny service through it end-to-end. Needs the `openchoreo-developer` skill installed for the deploy step.
+
+    ```text
+    Create a CI workflow go-buildpack that runs go test ./... and builds with Buildpacks.
+    ```
+
+    Attach it to the service ComponentType's `allowedWorkflows`:
+
+    ```text
+    Add go-buildpack to the service ComponentType's allowedWorkflows.
+    ```
+
+    Smoke-test (this hop into the `openchoreo-developer` skill):
+
+    ```text
+    Scaffold a small Go greeter service, push it to my GitHub as a public repo, and deploy it through go-buildpack.
+    ```
+
+  openchoreo-setup: |
+    ## Prerequisites
+
+    - `kubectl` (≥ v1.32) and `helm` (≥ v3.12) on PATH
+    - For local k3d: Docker and `k3d` (≥ v5.8)
+    - For an existing cluster: working `kubectl` access with cluster-admin, a LoadBalancer-capable provider, and a default StorageClass
+
+    ## Use cases
+
+    Use this skill for first-time OpenChoreo installs:
+
+    - Spin up a fresh OpenChoreo install on local k3d to try it out or develop against
+    - Install OpenChoreo onto a managed Kubernetes cluster (GKE, EKS, AKS, DOKS, or self-managed)
+    - Bootstrap OpenChoreo on Rancher Desktop or k3s for a local-but-real environment
+    - Install a subset of planes (skip the workflow or observability plane) when you don't need the full stack yet
+
+    ## Samples
+
+    ### Try OpenChoreo locally
+
+    Get a working OpenChoreo install on your laptop. The agent walks the install guide end-to-end and surfaces the easy-to-miss bits (Apple Silicon Colima recommendation, `K3D_FIX_DNS=0`, Fluent Bit `machine-id`).
+
+    ```text
+    Set me up an openchoreo cluster locally using k3d
+    ```
+
+    Alternatively, install on Rancher Desktop — the agent applies the pre-install runtime / traefik tweaks for you (via `rdctl` if available, otherwise it talks you through the GUI).
+
+    ```text
+    Set me up an openchoreo cluster locally using Rancher Desktop
+    ```
+
+    Or go lean on k3d and skip the observability plane.
+
+    ```text
+    Set me up an openchoreo cluster locally using k3d, without the observability plane
+    ```
+
+    ### Install on a managed Kubernetes cluster
+
+    Prereq: you've already wired your local `kubectl` to the cluster (for EKS: `aws eks update-kubeconfig --region <region> --name <cluster>`; equivalents exist for GKE / AKS / DOKS). The agent confirms cluster-admin and that a LoadBalancer + default StorageClass are available, then walks the on-your-environment install guide and applies provider-specific workarounds (e.g. EKS LoadBalancer `internet-facing` patch) inline.
+
+    ```text
+    Install OpenChoreo on my EKS cluster using AWS CLI. I already have kubectl access to the cluster.
+    ```
+
+  openchoreo-platform-engineer-gitops: |
+    ## Prerequisites
+
+    - [`occ` CLI](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against your OpenChoreo cluster
+    - A Git host to push the GitOps repo to (GitHub / GitLab / Bitbucket / self-hosted)
+    - Other tools (`kubectl`, `flux` CLI, Flux running in the cluster) are needed only for scaffolding and verification — the skill will install / install-guide Flux when it's missing
+
+    ## Use cases
+
+    Use this skill for platform-engineer GitOps work on OpenChoreo:
+
+    - Scaffold a fresh GitOps repo, or move an already-running OpenChoreo cluster onto GitOps
+    - Wire Flux CD with the documented `Kustomization` chain
+    - Capture cluster-side platform resources into Git so Flux can own them (with optional cluster-side cleanup once reconciled)
+    - Install the GitOps-mode build-and-release Workflows (`docker-gitops-release` etc.) plus their Argo `ClusterWorkflowTemplate`s — the vanilla CI workflows aren't GitOps-compatible, the skill replaces them automatically
+    - Author ComponentTypes, Traits, Workflows, Environments, DeploymentPipelines, SecretReferences, AuthzRoles, AlertRules, NotificationChannels via Git
+    - Verify Flux reconciliation; recover from drift when the cluster and Git diverge
+
+    ## Samples
+
+    ### Scaffold a fresh GitOps repo with the standard defaults
+
+    Start a GitOps repo from scratch and bring in the shipped Project / Environments / DeploymentPipeline / ClusterComponentTypes / ClusterTraits plus the GitOps-mode build-and-release workflows.
+
+    > Needs an OpenChoreo cluster running with no default resources installed yet. If you don't have one, use the `openchoreo-setup` skill first (skip its default-resources step).
+
+    ```text
+    Scaffold a GitOps repo in this directory for my cluster, install the standard defaults, push to my GitHub, and wire Flux against it.
+    ```
+
+    Once the repo is wired, hand the agent an off-the-shelf microservices app and deploy it into the same cluster using the published images. Needs the `openchoreo-developer-gitops` skill installed for the deploy step.
+
+    ```text
+    Now deploy https://github.com/GoogleCloudPlatform/microservices-demo into this cluster using their already-published remote images.
+    ```
+
+    ### Move a running cluster onto GitOps
+
+    The agent inventories the cluster, surfaces each platform-resource category, and lets you decide per category: capture into Git, replace with defaults, or leave on the cluster.
+
+    ```text
+    Set up GitOps for this cluster. Move the platform resources and the running projects into a new GitOps repo, wire Flux against it, and replace the vanilla CI workflows with the GitOps-mode ones.
+    ```
+
+  openchoreo-developer-gitops: |
+    ## Prerequisites
+
+    - [`occ` CLI](https://openchoreo.dev/docs/getting-started/cli-installation.md) configured against the OpenChoreo cluster the GitOps repo manages
+    - An OpenChoreo GitOps repo cloned locally — run the skill from inside that repo. (If you don't have one yet, use the `openchoreo-platform-engineer-gitops` skill to scaffold one first.)
+
+    ## Use cases
+
+    Use this skill for application-developer work in an OpenChoreo GitOps repo:
+
+    - Onboard a Component using pre-built images or source builds, with the build pipeline opening pull requests against the GitOps repo
+    - Configure the runtime contract — image, environment variables, files, secrets, endpoints
+    - Attach platform-authored traits to add capabilities to a Component
+    - Connect Components together so the platform injects connection details
+    - Promote releases across Environments — single Component or bulk (project / namespace-wide)
+    - Apply per-environment overrides on a release (replicas, resources, env vars, trait config)
+    - Roll back to a previous release; soft-undeploy
+    - Verify the cluster reflects what's in Git after a merge
+
+    ## Samples
+
+    ### Onboard the GCP microservices demo app via GitOps
+    Hand the agent the GCP microservices demo and let it map each service to OpenChoreo concepts (component types, traits, dependencies), then commit Components / Workloads / Releases / Bindings to the GitOps repo and open a PR.
+
+    > Needs a scaffolded OpenChoreo GitOps repo, cloned locally, run the skill from inside it. Use the `openchoreo-platform-engineer-gitops` skill to scaffold one first.
+
+    ```text
+    Deploy github.com/GoogleCloudPlatform/microservices-demo into this GitOps repo using their already-published images.
+    ```
+
+    Once the dev deploys are healthy, promote forward as a fresh PR per environment.
+
+    ```text
+    Promote it to the next environment.
+    ```
+
+  migrate-to-openchoreo: |
+    ## Prerequisites
+
+    - `node` (≥ v18) on PATH — the skill runs a tiny local preview server for the plan
+    - A renderer for your source: `helm` (≥ v3.12) for charts, `kustomize` (or `kubectl`) for overlays, nothing extra for Docker Compose or raw Kubernetes YAML
+    - A browser to view the plan
+
+    ## Use cases
+
+    Plan how an existing application maps onto OpenChoreo. **Plans only — never applies to a cluster.**
+
+    - Migrate an app (Helm chart, Kustomize overlay, Docker Compose file, or raw Kubernetes YAML)
+    - Audit a large umbrella for "what moves first" — Components grouped into Projects, dependencies wired, out-of-scope pieces flagged
+    - Identify the CTs / RTs / Traits to author at the pattern level (reusable across many Components)
+    - Architecture map of an inherited app — cell diagram + dependency wiring + gap list
+
+    ## Samples
+
+    ### Import a Helm chart
+
+    ```text
+    Plan importing the Online Boutique helm chart into OpenChoreo.
+    ```
+
+    Try with [GoogleCloudPlatform/microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo/tree/main/helm-chart).
+
+    ### Import raw Kubernetes manifests
+
+    ```text
+    Plan importing the Bank of Anthos Kubernetes manifests into OpenChoreo.
+    ```
+
+    Try with [GoogleCloudPlatform/bank-of-anthos](https://github.com/GoogleCloudPlatform/bank-of-anthos/tree/main/kubernetes-manifests).
