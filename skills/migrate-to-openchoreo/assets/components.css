@@ -1,4 +1,4 @@
-/* OpenChoreo import — shared component library, auto-injected with tokens.css before
+/* Migrate to OpenChoreo — shared component library, auto-injected with tokens.css before
    </head> on every frame. The agent writes semantic <oc-*> tags + plain HTML; attributes
    carry label/kind, children carry the body. Authoring contract: references/frames.md. */
 

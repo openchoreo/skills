@@ -1,13 +1,13 @@
-# Shape reference for the openchoreo-import skill — shows what a
+# Shape reference for the migrate-to-openchoreo skill — shows what a
 # ComponentType can express. If applicable, recommend authoring a new CT
 # modelled on this shape. Never reference this YAML's name as if it were
 # already shipped — the skill has zero install introspection.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
-  name: service
+  name: web-application
   annotations:
-    openchoreo.dev/description: "A long-running request-serving component with one or more endpoints"
+    openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint"
 spec:
   workloadType: deployment
 
@@ -18,26 +18,14 @@ spec:
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
       name: dockerfile-builder
-    - kind: ClusterWorkflow
-      name: ballerina-buildpack-builder
 
   allowedTraits:
     - kind: ClusterTrait
       name: observability-alert-rule
 
   validations:
-    - rule: "${size(workload.endpoints) > 0}"
-      message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
-    - rule: >-
-        ${workload.endpoints.exists(name, ep, "external" in ep.visibility)
-          ? has(gateway.ingress) && has(gateway.ingress.external)
-          : true}
-      message: "Endpoints with 'external' visibility require gateway.ingress.external to be configured on the Environment or DataPlane."
-    - rule: >-
-        ${workload.endpoints.exists(name, ep, "internal" in ep.visibility)
-          ? has(gateway.ingress) && has(gateway.ingress.internal)
-          : true}
-      message: "Endpoints with 'internal' visibility require gateway.ingress.internal to be configured on the Environment or DataPlane."
+    - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
+      message: "Web-application components must have at least one HTTP endpoint."
 
   environmentConfigs:
     openAPIV3Schema:
@@ -126,6 +114,7 @@ spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
           ports: ${workload.toServicePorts()}
+
     - id: httproute-external
       forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
       var: endpoint
@@ -143,21 +132,11 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
+              .map(h, oc_dns_label(endpoint.key, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
-          - matches:
-            - path:
-                type: PathPrefix
-                value: /${metadata.componentName}-${endpoint.key}
-            filters:
-              - type: URLRewrite
-                urlRewrite:
-                  path:
-                    type: ReplacePrefixMatch
-                    replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
-            backendRefs:
-            - name: ${metadata.componentName}
-              port: ${endpoint.value.port}
+            - backendRefs:
+                - name: ${metadata.componentName}
+                  port: ${endpoint.value.port}
     - id: httproute-internal
       forEach: '${workload.endpoints.transformMap(name, ep, "internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
       var: endpoint
@@ -175,21 +154,11 @@ spec:
           hostnames: |
             ${[gateway.ingress.internal.?http, gateway.ingress.internal.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
+              .map(h, oc_dns_label(endpoint.key, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
-          - matches:
-            - path:
-                type: PathPrefix
-                value: /${metadata.componentName}-${endpoint.key}
-            filters:
-              - type: URLRewrite
-                urlRewrite:
-                  path:
-                    type: ReplacePrefixMatch
-                    replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
-            backendRefs:
-            - name: ${metadata.componentName}
-              port: ${endpoint.value.port}
+            - backendRefs:
+                - name: ${metadata.componentName}
+                  port: ${endpoint.value.port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig

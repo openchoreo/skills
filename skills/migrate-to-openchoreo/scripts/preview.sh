@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Preview server for the openchoreo-import skill.
+# Preview server for the migrate-to-openchoreo skill.
 #
-# Layout in $PWD/.openchoreo-import/:
+# Layout in $PWD/.migrate-to-openchoreo/:
 #   .gitignore                  "*"
 #   current  -> runs/<id>       symlink to the active run
 #   runs/<id>/                  one folder per plan (see below)
@@ -40,7 +40,7 @@ fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_JS="$SCRIPT_DIR/server.cjs"
-PREVIEW="$PWD_ARG/.openchoreo-import"
+PREVIEW="$PWD_ARG/.migrate-to-openchoreo"
 RUNS_DIR="$PREVIEW/runs"
 CURRENT_LINK="$PREVIEW/current"
 SERVER_STATE="$PREVIEW/server-state"

@@ -1,4 +1,4 @@
-# Shape reference for the openchoreo-import skill — shows what a
+# Shape reference for the migrate-to-openchoreo skill — shows what a
 # ResourceType can express. If applicable, recommend authoring a new RT
 # modelled on this shape. Never reference this YAML's name as if it were
 # already shipped — the skill has zero install introspection.
