@@ -1,4 +1,4 @@
-// openchoreo-import client helper — auto-injected before </body> on every HTML
+// migrate-to-openchoreo client helper — auto-injected before </body> on every HTML
 // response. Exposes window.OC = { toast, copy }.
 (function () {
   'use strict';

@@ -7,7 +7,7 @@ For the per-frame content-writing guide, see [`frames.md`](frames.md). For the O
 ## Preview directory (under the user's working dir, `$PWD`)
 
 ```text
-.openchoreo-import/
+.migrate-to-openchoreo/
 ├── .gitignore                          "*" — entire folder untracked
 ├── current -> runs/<id>                symlink — the active run
 ├── runs/
@@ -33,7 +33,7 @@ preview.sh new    [pwd] <slug>       create a new run, flip `current`; prints id
 
 `new`, `start`, and `open` are deliberately separate, and the order is **enforced**: `start` refuses to launch without `current/content/index.html`. The flow: `new $PWD <slug>` (creates the run, **no server**) → write the first `content/index.html` (the `plan` frame) → `start` (spawns the server) → `open`. Writing *before* `start` means the browser's first paint is the real plan, never the "not ready" placeholder — the guard makes that order-of-operations, not a request. A different chart later → call `preview.sh new $PWD <name>` again; same chart, more iterations → just rewrite `current/content/index.html`.
 
-**Run `preview.sh` by its absolute path; never `cd`.** The `[pwd]` argument (`$PWD`) is the **user's working directory** — the dir you were in when the skill started — *not* the skill directory and *not* the temp folder; that's where `.openchoreo-import/` is created. Don't `cd` into the skill dir to run `./scripts/…`, and don't `cd` into `.openchoreo-import/` to read or write — use absolute paths (e.g. `$PWD/.openchoreo-import/current/content/index.html`).
+**Run `preview.sh` by its absolute path; never `cd`.** The `[pwd]` argument (`$PWD`) is the **user's working directory** — the dir you were in when the skill started — *not* the skill directory and *not* the temp folder; that's where `.migrate-to-openchoreo/` is created. Don't `cd` into the skill dir to run `./scripts/…`, and don't `cd` into `.migrate-to-openchoreo/` to read or write — use absolute paths (e.g. `$PWD/.migrate-to-openchoreo/current/content/index.html`).
 
 ## What the server does
 

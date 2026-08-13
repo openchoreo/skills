@@ -133,16 +133,16 @@ For the per-frame content contract see [`frames.md`](frames.md); for the migrati
 
 **Server lifecycle** — nothing needs the server until there's a plan to show, so it spins up on the turn you first build the `plan` (not for the verdict, which is chat-only).
 
-Run `preview.sh` by its **absolute path** (`<skill-dir>/scripts/preview.sh`, where `<skill-dir>` is this skill's base directory, printed when the skill loads). Read/write the run's files by absolute path too. The script creates `.openchoreo-import/` under the directory you pass it — keep that the directory you're already in (`"$PWD"`); cd-ing drops temp state in the wrong place.
+Run `preview.sh` by its **absolute path** (`<skill-dir>/scripts/preview.sh`, where `<skill-dir>` is this skill's base directory, printed when the skill loads). Read/write the run's files by absolute path too. The script creates `.migrate-to-openchoreo/` under the directory you pass it — keep that the directory you're already in (`"$PWD"`); cd-ing drops temp state in the wrong place.
 
 **Order matters: `new` → write → `start` → `open`.** The script enforces it — `start` refuses to launch without `current/content/index.html`, so calling them out of order errors with a clear path rather than dropping the user on the server's "not ready" placeholder.
 
-1. `<skill-dir>/scripts/preview.sh new "$PWD" <slug>` — creates the run under `$PWD/.openchoreo-import/` + points `current` at it. **No server yet.** (`<slug>` = a short name, e.g. the chart name.)
-2. Write the `plan` frame to `$PWD/.openchoreo-import/current/content/index.html` (absolute path — don't cd to it).
+1. `<skill-dir>/scripts/preview.sh new "$PWD" <slug>` — creates the run under `$PWD/.migrate-to-openchoreo/` + points `current` at it. **No server yet.** (`<slug>` = a short name, e.g. the chart name.)
+2. Write the `plan` frame to `$PWD/.migrate-to-openchoreo/current/content/index.html` (absolute path — don't cd to it).
 3. `<skill-dir>/scripts/preview.sh start "$PWD"` — spawns the server, prints the URL. **Does not open the browser.**
 4. `<skill-dir>/scripts/preview.sh open "$PWD"` — opens the browser; it lands on the rendered plan.
 
-Subsequent turns: just rewrite `$PWD/.openchoreo-import/current/content/index.html` (still no cd). Server detects the change, browser refreshes via WebSocket. Don't re-run `open` unless the user explicitly closed the tab.
+Subsequent turns: just rewrite `$PWD/.migrate-to-openchoreo/current/content/index.html` (still no cd). Server detects the change, browser refreshes via WebSocket. Don't re-run `open` unless the user explicitly closed the tab.
 
 ## Iterate
 

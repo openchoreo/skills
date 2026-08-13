@@ -1,11 +1,11 @@
 ---
-name: openchoreo-import
+name: migrate-to-openchoreo
 description: Plans an OpenChoreo migration from a Helm chart, Kustomize overlay, Docker Compose file, or raw Kubernetes YAML. Triggers on "how can we migrate X into openchoreo", "onboard Y into openchoreo", "bring this app into openchoreo", "model this as openchoreo components", "what would X look like in openchoreo".
 metadata:
   version: "1.1.5"
 ---
 
-# OpenChoreo Import
+# Migrate to OpenChoreo
 
 Take an application spec (Helm chart, Kustomize overlay, Docker Compose file, or raw Kubernetes YAML) and produce a step-by-step migration plan. The plan is the deliverable; the agent iterates with the user as decisions and feedback land.
 
@@ -77,7 +77,7 @@ These apply every turn, every step — not "during planning." Treat them as sess
 
 - **Don't sample.** Read every workload, config, parameterization file, and grouping. Render before classifying — static parsing misses values-conditional shapes.
 - **Delegate sweeps to sub-agents at scale.** >5 groupings, >10 files this turn, or verdicting a large source → fan out one sub-agent per shard, each returns a summary, collapse back. Concurrent main-context Bash/Read still consumes *your* context — not sharding. (Claude Code: `Agent` tool; `ToolSearch select:Agent` if not loaded.)
-- **Never `cd`.** Absolute paths in every Bash. `cd` mutates `$PWD`; the next `preview.sh new "$PWD"` then scaffolds `.openchoreo-import/` wherever you last `cd`-ed (including inside the skill install).
+- **Never `cd`.** Absolute paths in every Bash. `cd` mutates `$PWD`; the next `preview.sh new "$PWD"` then scaffolds `.migrate-to-openchoreo/` wherever you last `cd`-ed (including inside the skill install).
 - **Don't author per-Component.** A CT / RT / Trait captures a pattern; many Components instantiate one. Visibility, replicas, sizes, env values are *parameters*, not different types.
 - **Don't ask type internals.** What a CT / RT / Trait renders is PE-side authoring. The plan recommends the pattern.
 - **Don't ask intent.** Lift-and-shift vs re-model, applying vs exploring — none of it changes the plan. Forks ask about source ambiguity, never user goals.

@@ -1,4 +1,4 @@
-// Tiny preview server for openchoreo-import. Serves <preview>/current/content/
+// Tiny preview server for migrate-to-openchoreo. Serves <preview>/current/content/
 // wrapped in a frame (../assets/frames/<NAME>.html, picked by an `oc-frame` directive),
 // auto-injecting tokens/components/helper. WebSocket pushes {type:'reload'} on change. Node stdlib only.
 
