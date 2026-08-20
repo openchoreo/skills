@@ -6,7 +6,9 @@ OpenChoreo is an open-source Internal Developer Platform (IDP) built on Kubernet
 
 ```text
 Namespace (tenant boundary)
-  ├── Project (bounded context / app domain)
+  ├── Project (bounded context / app domain; references a ProjectType)
+  │     ├── ProjectRelease (immutable snapshot of the project's type + parameters)
+  │     ├── ProjectReleaseBinding (deploys the project's cell to an environment; owns the cell namespace)
   │     ├── Component (deployable unit)
   │     │     ├── Workload (runtime spec: image, ports, env, dependencies)
   │     │     ├── ComponentRelease (immutable snapshot)
@@ -23,6 +25,7 @@ Platform-managed (read-only for developers):
   ├── DataPlane (runtime cluster)
   ├── WorkflowPlane (CI/build cluster, formerly BuildPlane)
   ├── ObservabilityPlane (logging)
+  ├── ProjectType / ClusterProjectType (cell-infrastructure templates)
   ├── ComponentType / ClusterComponentType (deployment templates)
   ├── ResourceType / ClusterResourceType (infrastructure templates)
   ├── Trait / ClusterTrait (composable capabilities)
@@ -34,7 +37,11 @@ Platform-managed (read-only for developers):
 
 ### Project
 
-A bounded context grouping related components. At runtime, each Project becomes a **Cell** with its own isolated namespace, network policies, and security controls.
+A bounded context grouping related components. At runtime, each Project × Environment becomes a **Cell** with its own isolated data-plane namespace, network policies, and security controls.
+
+A Project references a **ProjectType** via `spec.type` — a PE-authored template for the cell's infrastructure (namespace, quotas, network policy). `spec.type` is **required and immutable**; `create_project` defaults it to the `default` ProjectType when `type_name` is omitted, so you rarely set it by hand. The project follows the same release chain as components — `Project + ProjectType → ProjectRelease (auto-cut) → ProjectReleaseBinding (per env)` — and the **ProjectReleaseBinding owns the cell namespace** per environment.
+
+**A project's cell must be deployed before its components can be.** A `ProjectReleaseBinding` per environment creates the cell namespace; Component / Resource deployments wait for it. See [`recipes/deploy-and-promote.md`](./recipes/deploy-and-promote.md) → *Deploy the project cell*.
 
 Components within a project communicate freely. Cross-project reachability is governed by endpoint visibility (see below).
 

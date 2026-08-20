@@ -1,8 +1,8 @@
 ---
 name: openchoreo-platform-engineer-gitops
-description: Platform-engineer GitOps work for OpenChoreo — scaffolding a GitOps repo (pristine, platform-only, or active cluster), wiring Flux CD, and authoring platform CRDs (ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, SecretReferences, AuthzRoles, alert rules, notification channels) via Git. Use when the user says 'set up GitOps for this cluster', 'move this cluster to GitOps', 'wire Flux', 'add a ComponentType / ResourceType / Trait / Workflow via Git', or operates a platform change inside a scaffolded GitOps repo.
+description: Platform-engineer GitOps work for OpenChoreo — scaffolding a GitOps repo (pristine, platform-only, or active cluster), wiring Flux CD, and authoring platform CRDs (ProjectTypes, ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, SecretReferences, AuthzRoles, alert rules, notification channels) via Git. Use when the user says 'set up GitOps for this cluster', 'move this cluster to GitOps', 'wire Flux', 'add a ProjectType / ComponentType / ResourceType / Trait / Workflow via Git', or operates a platform change inside a scaffolded GitOps repo.
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
 ---
 
 # OpenChoreo Platform-Engineer GitOps Guide
@@ -72,6 +72,7 @@ If the heuristic doesn't fit the layout (per the docs' *Flexible Repository Stru
 - **Install the default platform resources** — project / environments / pipeline / ComponentTypes / Traits + GitOps-mode build-and-release Workflows + Argo `ClusterWorkflowTemplate`s → [`recipes/install-defaults.md`](./references/recipes/install-defaults.md)
 - **Install Flux + `git-token` / `gitops-token` secrets** when scaffolding finds them missing → [`recipes/install-flux-and-secrets.md`](./references/recipes/install-flux-and-secrets.md)
 - **Author platform resources via Git** — pick the right recipe up-front:
+  - `(Cluster)ProjectType` → [`recipes/author-projecttype.md`](./references/recipes/author-projecttype.md)
   - `(Cluster)ComponentType` → [`recipes/author-componenttype.md`](./references/recipes/author-componenttype.md)
   - `(Cluster)ResourceType` → [`recipes/author-resourcetype.md`](./references/recipes/author-resourcetype.md)
   - `(Cluster)Trait` → [`recipes/author-trait.md`](./references/recipes/author-trait.md)
@@ -84,7 +85,7 @@ If the heuristic doesn't fit the layout (per the docs' *Flexible Repository Stru
 
 ## What this skill cannot do
 
-- **Application-level GitOps** — `Project` / `Component` / `Workload` / `ComponentRelease` / `ReleaseBinding` / `Resource` / `ResourceReleaseBinding` / workload-descriptor authoring. Out of scope; tell the user when the task crosses into application territory. (PE-side: `(Cluster)ResourceType` *templates* belong here; the dev-side `Resource` instances + `ResourceReleaseBinding`s belong in the developer-gitops skill.)
+- **Application-level GitOps** — `Project` / `ProjectReleaseBinding` / `Component` / `Workload` / `ComponentRelease` / `ReleaseBinding` / `Resource` / `ResourceReleaseBinding` / workload-descriptor authoring. Out of scope; tell the user when the task crosses into application territory. (PE-side: `(Cluster)ProjectType` and `(Cluster)ResourceType` *templates* belong here; the dev-side `Project` instances + their `ProjectReleaseBinding`s / `ResourceReleaseBinding`s belong in the developer-gitops skill.)
 - **Helm install of the OpenChoreo control plane / planes.** Assumes a running control plane.
 - **Plane management in Git** — `DataPlane` / `ClusterDataPlane` / `WorkflowPlane` / `ClusterWorkflowPlane` / `ObservabilityPlane` / `ClusterObservabilityPlane` are one-time install-side setups with cert management. Out of scope by default; brief note in [`recipes/author-other-resources.md`](./references/recipes/author-other-resources.md) for users who insist.
 - **Imperative ops** — triggering a `WorkflowRun`, `kubectl exec`, runtime log tail, direct CRD edits against the API server. `WorkflowRun` does **not** belong in Git; trigger via the UI, webhook, or `occ component workflow run`.

@@ -67,6 +67,7 @@ What must exist at the cluster level before any project migrates. A standard Ope
 - **DataPlane** (or `ClusterDataPlane`) — the target Kubernetes cluster, referenced by Environments. A standard install provides a cluster-scoped `ClusterDataPlane: default` visible to all namespaces; flag a dedicated `DataPlane` only if this app needs isolation.
 - **Environment(s)** — `spec.dataPlaneRef {kind, name}`, `spec.isProduction`. A standard install provides `development` + `staging` + `production`; flag any extra (or renamed) env the app needs.
 - **DeploymentPipeline** — `spec.promotionPaths[]` of `{sourceEnvironmentRef, targetEnvironmentRefs[]}`. A standard install provides `default` (development → staging → production); flag a custom pipeline only if the app's promotion differs. Every Project pins to exactly one pipeline.
+- **A `(Cluster)ProjectType`** — every Project's `spec.type` references one. A standard install provides the `default` ClusterProjectType (provisions only the cell namespace); use it unless the app needs cell-level policy, in which case author one per §3. Flag the one this app uses.
 
 **Conditional (only if this app needs them):**
 
@@ -77,9 +78,19 @@ What must exist at the cluster level before any project migrates. A standard Ope
 
 ### 3. Shared types (cluster-scoped, authored once)
 
-The ComponentTypes / ResourceTypes / Traits the import needs, authored at cluster scope (`ClusterComponentType` / `ClusterResourceType` / `ClusterTrait`) so any namespace can reference them. Namespaced variants exist (`ComponentType` / `ResourceType` / `Trait`) if a type should be scoped to one namespace; use sparingly.
+The ProjectTypes / ComponentTypes / ResourceTypes / Traits the import needs, authored at cluster scope (`ClusterProjectType` / `ClusterComponentType` / `ClusterResourceType` / `ClusterTrait`) so any namespace can reference them. Namespaced variants exist (`ProjectType` / `ComponentType` / `ResourceType` / `Trait`) if a type should be scoped to one namespace; use sparingly.
 
-Recommend authoring at the pattern level. The plan lists the CTs / RTs / Traits the import needs, each alongside the Components / Resources that share it. List each as "to author" with enough detail to write the YAML later.
+Recommend authoring at the pattern level. The plan lists the ProjectType(s) / CTs / RTs / Traits the import needs, each alongside the Project / Components / Resources that share it. List each as "to author" with enough detail to write the YAML later.
+
+#### For each ProjectType to author (skip if the `default` covers it)
+
+Only when the source carries **cell-level policy** (a `ResourceQuota` / `LimitRange`, a namespace-wide `NetworkPolicy`, baseline `Role`/`RoleBinding`/`ServiceAccount`, `imagePullSecrets`). If it doesn't, say so and use the shipped `default` ClusterProjectType (namespace-only cell) — no ProjectType to author.
+
+- `name` and kind (`ClusterProjectType` vs `ProjectType`).
+- `spec.parameters` (OpenAPIv3 schema): project-author-facing knobs, frozen into each ProjectRelease.
+- `spec.environmentConfigs` (OpenAPIv3 schema): per-env knobs applied via the ProjectReleaseBinding (e.g. `cpuQuota`, per-env labels/policy toggles).
+- `spec.validations[]`: CEL `rule` + plain-English `message`.
+- `spec.resources[]`: **must include the mandated cell namespace** — a `v1/Namespace` with `metadata.name: ${metadata.namespace}` (else the binding reports `NamespaceMissing`). Then the namespace-scoped policy each source resource maps to (quota, network policy, RBAC, image-pull secret), targeting `${metadata.namespace}`. Note `includeWhen` / `forEach`. No `outputs` / `readyWhen` / `retainPolicy`.
 
 #### For each ComponentType to author
 
@@ -146,10 +157,14 @@ metadata:
 spec:
   deploymentPipelineRef:
     name: <pipeline-from-2>
+  type:                                    # required + immutable
+    kind: ClusterProjectType               # or ProjectType
+    name: <projecttype-from-3 | default>   # the ProjectType authored in 3, or the shipped "default"
+  # parameters: {...}                      # if the ProjectType exposes a parameters schema
 ```
 
 #### Types this project introduces (if any beyond 3)
-List any ComponentType / ResourceType / Trait specific to this project (or shared but not yet covered in 3), using the same authoring detail (parameters / environmentConfigs / resources[] / outputs[] / validations[] / creates[] / patches[]) as 3. If nothing — say so explicitly.
+List any ProjectType / ComponentType / ResourceType / Trait specific to this project (or shared but not yet covered in 3), using the same authoring detail (parameters / environmentConfigs / resources[] / outputs[] / validations[] / creates[] / patches[]) as 3. If nothing — say so explicitly.
 
 #### Secrets — seed + reference
 For each secret the project's Workloads need, **the plan covers both halves**: seeding the actual secret material in the external store (per 1.2), and declaring the `SecretReference` that points at it.
@@ -204,30 +219,33 @@ For each platform-managed dependency in this project:
 - **Resource** (`spec.type {kind, name}` — the ResourceType from 3 or *types this project introduces*; `spec.owner.projectName`; `spec.parameters` per the RT's schema).
 - Resources **live in the same Project as their consumers** — cross-project Resource consumption is not supported.
 
-#### Bindings (per env, per Component / Resource)
+#### Bindings (per env, per Project / Component / Resource)
+- **ProjectReleaseBinding** — per Environment, one per env. **Deploys the Project's cell** (owns the cell's data-plane namespace) and must be Ready before the Component / Resource bindings in that env land. Author with `spec.projectRelease` left empty — the controller seeds it with the Project's latest `ProjectRelease`; advance it to promote. Per-env values go in `spec.environmentConfigs` (the ProjectType's environmentConfigs schema).
 - **ReleaseBinding** — per Component, per Environment. Auto-created for the first env when `autoDeploy: true`; otherwise authored per env. Three override buckets (see [`concepts.md`](concepts.md) → *Per-environment overrides*):
   - `componentTypeEnvironmentConfigs` — the CT's environmentConfigs schema (replicas, resources, ports — schema-driven).
   - `traitEnvironmentConfigs` — per Trait instance, keyed by `instanceName` (e.g. `{"alert-error-rate": {threshold: 50}}`).
   - `workloadOverrides` — container env vars / file mounts (direct, not schema-driven; use for per-env URLs and the like that don't belong in the authored Workload).
   List each env's overrides for each Component.
 - **ResourceReleaseBinding** — per Resource, per Environment. **Always authored explicitly**, one per env, with `spec.resourceRelease` pinned/promoted manually. Carries `retainPolicy` (`Delete` | `Retain`) and `resourceTypeEnvironmentConfigs`. List each binding's pinned release + per-env config.
-- **`ComponentRelease` / `ResourceRelease`** are **controller-generated** immutable snapshots — reference them, never author them. (Cut automatically on Component / Workload / Resource spec change.)
+- **`ComponentRelease` / `ResourceRelease` / `ProjectRelease`** are **controller-generated** immutable snapshots — reference them, never author them. (Cut automatically on Component / Workload / Resource / Project spec change.)
 
 #### Apply sequence (this project)
 1. **Seed the secret material** in the external store for every SecretReference the project's Workloads or builds need (per 1.2).
 2. **Apply the `SecretReference` CRs**.
-3. **Apply the `Project` CR** — it owns everything below.
-4. **Apply the `Resource` CRs** (one per managed dep).
-5. **Apply Components + Workloads together** — controllers auto-cut a `ComponentRelease` (and `ResourceRelease`s).
-6. **Author `ResourceReleaseBinding`s** — one per resource per env, pinning `spec.resourceRelease` to the resource's latest release.
-7. **Deploy to the first environment** — `autoDeploy: true` auto-creates the first `ReleaseBinding`; otherwise author it.
-8. **Promote** along the DeploymentPipeline to the next envs (one `ReleaseBinding` per env; the same immutable release).
+3. **Apply the `Project` CR** — it references the ProjectType and owns everything below. The controller cuts its first `ProjectRelease`.
+4. **Deploy the Project's cell** — author one `ProjectReleaseBinding` per environment (pin left empty → seeded). Wait for `Ready` (its `status.namespace` is the cell). **Nothing below deploys into an environment until its cell exists.**
+5. **Apply the `Resource` CRs** (one per managed dep).
+6. **Apply Components + Workloads together** — controllers auto-cut a `ComponentRelease` (and `ResourceRelease`s).
+7. **Author `ResourceReleaseBinding`s** — one per resource per env, pinning `spec.resourceRelease` to the resource's latest release.
+8. **Deploy to the first environment** — `autoDeploy: true` auto-creates the first `ReleaseBinding`; otherwise author it.
+9. **Promote** along the DeploymentPipeline to the next envs (one `ReleaseBinding` per env — plus the `ProjectReleaseBinding` for that env's cell; the same immutable releases).
 
-Note **render gating**: a Component isn't deployed until its declared endpoint and resource dependencies report Ready — so Resources / ResourceReleaseBindings must precede the Components that consume them, and called-Project endpoints must be Ready before the caller is deployed.
+Note **render gating**: the Project cell must be Ready before its Components / Resources deploy into an environment; and a Component isn't deployed until its declared endpoint and resource dependencies report Ready — so the ProjectReleaseBinding precedes everything in the env, Resources / ResourceReleaseBindings precede the Components that consume them, and called-Project endpoints must be Ready before the caller is deployed.
 
 #### Definition of done
 Before starting the next project, verify:
 
+- `kubectl get projectreleasebindings -n <ns> -o wide` shows the project's cell `Ready` for every Environment (its `status.namespace` is the cell) — the prerequisite for everything below.
 - `kubectl get releasebindings -n <ns> -o wide` shows all `Ready` for every Environment this project deploys to.
 - `kubectl get resourcereleasebindings -n <ns>` shows all `Ready` for every Resource.
 - Each Component endpoint smoke-tests at its visibility-appropriate URL (the gateway URL for `external`/`internal`; the in-cluster Service for `project`/`namespace`). For a browser-facing app, exercise the **real entry path a user hits** — the app's own external URL, following its redirects — not just an internal probe; the two can diverge, so an internal check can pass while the user-facing route fails.

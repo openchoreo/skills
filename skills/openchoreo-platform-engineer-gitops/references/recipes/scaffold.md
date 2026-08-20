@@ -45,6 +45,7 @@ Always run, even for "pristine" — the user might have things they forgot about
 
 ```bash
 # Cluster-scoped
+occ clusterprojecttype list
 occ clustercomponenttype list
 occ clustertrait list
 occ clusterworkflow list
@@ -60,6 +61,7 @@ occ namespace list
 # For each NS:
 occ environment list -n "$NS"
 occ deploymentpipeline list -n "$NS"
+occ projecttype list -n "$NS"
 occ componenttype list -n "$NS"
 occ trait list -n "$NS"
 occ workflow list -n "$NS"
@@ -132,17 +134,17 @@ Categories without defaults (`SecretReference`, `AuthzRole`, `ObservabilityAlert
 
 Apply the per-category options spelled out in the recipe text only when the user wants to override the batch recommendation — not as the default flow.
 
-> **Application resources** (`Project` / `Component` / `Workload` / `ComponentRelease` / `ReleaseBinding`) are application-side and technically out of scope for this skill. Two paths: (a) capture verbatim into the GitOps repo here as a one-off — flag in the commit message that they're for follow-up application-side review, or (b) skip and have someone bring them across project-by-project later.
+> **Application resources** (`Project` — now carrying `spec.type` — plus `ProjectReleaseBinding` / `Component` / `Workload` / `ComponentRelease` / `ReleaseBinding`) are application-side and technically out of scope for this skill. Two paths: (a) capture verbatim into the GitOps repo here as a one-off — flag in the commit message that they're for follow-up application-side review, or (b) skip and have someone bring them across project-by-project later. (`(Cluster)ProjectType` itself is platform-shared and **is** in scope — capture / replace it with the other platform templates.)
 
 ## 5. Stamp the directory tree
 
 ```bash
 NS="<first-namespace from 3>"
 
-mkdir -p platform-shared/{component-types,traits,workflows}
+mkdir -p platform-shared/{project-types,component-types,traits,workflows}
 mkdir -p platform-shared/authz/{roles,role-bindings}
 mkdir -p platform-shared/cluster-workflow-templates/argo
-mkdir -p "namespaces/$NS/platform/{component-types,traits,workflows,secret-references}"
+mkdir -p "namespaces/$NS/platform/{project-types,component-types,traits,workflows,secret-references}"
 mkdir -p "namespaces/$NS/platform/infra/{deployment-pipelines,environments}"
 mkdir -p "namespaces/$NS/platform/authz/{roles,role-bindings}"
 mkdir -p "namespaces/$NS/platform/observability/{alert-rules,notification-channels}"

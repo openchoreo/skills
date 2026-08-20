@@ -5,7 +5,7 @@ Build a container image from a Git repository using a CI workflow, then deploy i
 ## Prerequisites
 
 1. The control-plane MCP server is configured and reachable (`list_namespaces` returns).
-2. A Project exists (see [Create a Project](deploy-prebuilt-image.md#variant-create-a-project)).
+2. A Project exists and its cell is deployed for the target environment (see [Create a Project](deploy-prebuilt-image.md#variant-create-a-project) and *Deploy the project cell* in [`deploy-and-promote.md`](deploy-and-promote.md)).
 3. The repo URL, branch, and the path to the app inside the repo (`appPath`) are known.
 4. The ClusterComponentType you'll use lists the workflow you want in `allowedWorkflows`. Discover with `list_component_types` (`scope: "cluster"`), then `get_component_type` (`scope: "cluster"`) to read `allowedWorkflows`.
 

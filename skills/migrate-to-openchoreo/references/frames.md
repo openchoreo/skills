@@ -54,7 +54,7 @@ Fixed structure: report header + architecture diagram + 4 tabs. Write `<div data
 | `data-fill` slot | Tab label | What goes here |
 | --- | --- | --- |
 | `architecture` | Architecture | A `<script type="application/json" data-cell-model>` with the cell model (spec below). Renders as the interactive cell diagram. |
-| `types` | ComponentTypes, ResourceTypes & Traits | One `<oc-rows>` per category (`ComponentTypes`, `ResourceTypes`, `Traits`), each row an `<oc-onboard>`. |
+| `types` | Types & Traits | One `<oc-rows>` per category (`ProjectTypes`, `ComponentTypes`, `ResourceTypes`, `Traits`), each row an `<oc-onboard>`. Include a `ProjectTypes` section only when the import authors one (source has cell-level policy); otherwise the Project uses the shipped `default` and you skip it. |
 | `projects` | Projects & Components | One `<oc-rows>` per Project. Component row: name + `<ComponentType> · <exposure>` + `<oc-uses label="uses">`. Resource instances are rows too. No ports / mounts / env rebindings — those go in the Workload CRs; exceptions to *Caveats*. |
 | `caveats` | Caveats | `<oc-facts>` of `<oc-fact>` items — things to know, verify, or install manually before applying. Capabilities that just need a new type / trait belong in *Types & Traits*. |
 
@@ -126,7 +126,7 @@ One project renders as a single expanded cell; multiple render as the collapsed 
 ```html
 
 <div data-fill="types">
-  <!-- Three sections (ComponentTypes / ResourceTypes / Traits), same shape: <h3> + <oc-count>, then an <oc-rows> of <oc-onboard> rows. All rows are authored types. -->
+  <!-- Sections (optional ProjectTypes, then ComponentTypes / ResourceTypes / Traits), same shape: <h3> + <oc-count>, then an <oc-rows> of <oc-onboard> rows. All rows are authored types. A ProjectTypes section appears only when the import authors one; otherwise the Project uses the shipped `default`. -->
   <h3>ComponentTypes <oc-count>2</oc-count></h3>
   <oc-rows>
     <oc-onboard name="web-application"><p>Renders Deployment + Service + HTTPRoute (external gateway).</p><oc-uses label="used by"><oc-use>frontend</oc-use></oc-uses></oc-onboard>

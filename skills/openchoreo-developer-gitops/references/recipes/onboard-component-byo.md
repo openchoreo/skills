@@ -7,7 +7,7 @@ For source-build (OpenChoreo builds from a Git repo), see [`onboard-component-so
 ## Preconditions
 
 - This skill's Step 0 checks have passed (`occ` configured + cwd in a scaffolded GitOps repo).
-- The Project exists (and its DeploymentPipeline + Environments). If not, author the Project file first ( *Variant: create a Project* below) — same PR.
+- The Project exists **and its cell is deployed** for the target environment (plus its DeploymentPipeline + Environments). Confirm the cell with `occ projectreleasebinding get <project>-<env> -n <ns>` (`Ready`). If the Project / cell don't exist, onboard them first — see [`deploy-project.md`](./deploy-project.md) (co-committing in the same PR is fine).
 - A `ComponentType` matching the workload shape exists. Discover both scopes: `occ clustercomponenttype list` and `occ componenttype list -n <ns>`. Pick one.
 - The image is published and pullable from the DataPlane.
 
@@ -164,7 +164,7 @@ See [`promote.md`](./promote.md).
 
 ## Variant: create a Project (first onboard in a namespace)
 
-If the Project doesn't exist yet, author `project.yaml` in the same PR.
+If the Project doesn't exist yet, onboard it **and deploy its cell** first — a Component can't deploy into an environment until the project's cell exists there. Use [`deploy-project.md`](./deploy-project.md): `occ project scaffold` emits the `Project` (with `spec.type` + `spec.parameters`) **and** one `ProjectReleaseBinding` per environment. Co-commit them with the Component in the same PR (Flux reconciles by content, not order). A minimal Project looks like:
 
 ```yaml
 # namespaces/<ns>/projects/<project>/project.yaml
@@ -180,11 +180,14 @@ spec:
   deploymentPipelineRef:
     name: standard                                  # whichever pipeline the PE authored
     # kind: DeploymentPipeline                      # optional; defaults to DeploymentPipeline
+  type:
+    kind: ClusterProjectType                        # required + immutable
+    name: default                                   # the shipped default (namespace-only cell)
 ```
 
-Add to the same PR as the Component. Flux applies based on content, not order — the Project will reconcile alongside the Component.
+…plus the per-env `ProjectReleaseBinding`s under `release-bindings/` (leave their `spec.projectRelease` empty; the controller seeds them). See [`deploy-project.md`](./deploy-project.md) for the full flow.
 
-> **`deploymentPipelineRef` is an object, not a plain string.** Easy to typo as `deploymentPipelineRef: standard` — that fails validation.
+> **`deploymentPipelineRef` is an object, not a plain string.** Easy to typo as `deploymentPipelineRef: standard` — that fails validation. **`spec.type` is required** — a Project without it is rejected.
 
 ## Variant: BYO with autoDeploy off
 

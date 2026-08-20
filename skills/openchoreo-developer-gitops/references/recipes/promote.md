@@ -4,6 +4,8 @@
 
 For promoting multiple components at once (project-wide or namespace-wide), see [`bulk-promote.md`](./bulk-promote.md).
 
+> **Promoting the project cell** follows the same immutable-release model but on the `ProjectReleaseBinding` instead of a component binding: **bump `spec.projectRelease`** on `namespaces/<ns>/projects/<project>/release-bindings/<project>-<env>.yaml` to the release the source environment runs, commit, PR (rollback = point at an older `ProjectRelease`). There's no generator — edit the field in Git. Read the source pin with `occ projectreleasebinding get <project>-<source-env> -n <ns>`; list releases with `occ projectrelease list -n <ns>`. Full flow in [`deploy-project.md`](./deploy-project.md) *Promote / roll back the cell*. The cell for the target environment must be promoted before (or with) the components you promote into it.
+
 ## Preconditions
 
 - The component has at least one ComponentRelease in the repo, and a ReleaseBinding in the source environment (typically `development`) that's `Ready=True`.

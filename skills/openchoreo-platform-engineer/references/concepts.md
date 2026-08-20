@@ -6,7 +6,9 @@ OpenChoreo is an open-source Internal Developer Platform (IDP) built on Kubernet
 
 ```text
 Namespace (tenant boundary)
-  ├── Project (bounded context / app domain)
+  ├── Project (bounded context / app domain; references a ProjectType)
+  │     ├── ProjectRelease (immutable snapshot of the project's type + parameters)
+  │     ├── ProjectReleaseBinding (deploys the project's cell to an environment; owns the cell namespace)
   │     ├── Component (deployable unit)
   │     │     ├── Workload (runtime spec: image, ports, env, dependencies)
   │     │     ├── ComponentRelease (immutable snapshot)
@@ -23,6 +25,7 @@ Platform-managed (read-only for developers):
   ├── DataPlane (runtime cluster)
   ├── WorkflowPlane (CI/build cluster, formerly BuildPlane)
   ├── ObservabilityPlane (logging)
+  ├── ProjectType / ClusterProjectType (cell-infrastructure templates)
   ├── ComponentType / ClusterComponentType (deployment templates)
   ├── ResourceType / ClusterResourceType (infrastructure templates)
   ├── Trait / ClusterTrait (composable capabilities)
@@ -34,7 +37,15 @@ Platform-managed (read-only for developers):
 
 ### Project
 
-A bounded context grouping related components. At runtime, each Project becomes a **Cell** with its own isolated namespace, network policies, and security controls.
+A bounded context grouping related components. At runtime, each Project × Environment becomes a **Cell** with its own isolated data-plane namespace, network policies, and security controls.
+
+**Key fields**:
+
+- `deploymentPipelineRef`: promotion path (object, not a plain string — see below)
+- `type`: the `(Cluster)ProjectType` that defines the cell's infrastructure — **required and immutable** (`{kind, name}`; `kind` defaults to `ProjectType`). A project cannot be re-targeted to a different type after creation.
+- `parameters`: values validated against the type's `parameters` schema, inlined into each ProjectRelease.
+
+The project follows the same release chain as components and resources — `Project + ProjectType → ProjectRelease → ProjectReleaseBinding → cell on the data plane`. The **ProjectReleaseBinding owns the cell namespace** for each environment; component and resource deployments to an environment wait for it to converge first. See **ProjectType** below and [`project-types.md`](./project-types.md).
 
 Components within a project communicate freely. Cross-project reachability is governed by endpoint visibility (see below).
 
@@ -94,6 +105,10 @@ Controls who can reach your service:
 "Namespace" here is the OpenChoreo (control-plane) namespace that holds the Project/Component resources — not a shared runtime namespace. Each Project runs in its own isolated Cell namespace at runtime; a cross-project `namespace`-visibility call still resolves because the platform routes it to the target's Cell.
 
 `project` and `namespace` reachability is resolved by the platform within the data plane: a cross-project call at `namespace` visibility gets the target's in-cluster address injected, with no extra gateway setup. `external` is exposed through the platform's ingress gateway, which a standard install usually configures. If an exposed endpoint doesn't resolve, check the DataPlane's gateway configuration rather than assuming the visibility is blocked.
+
+### ProjectType
+
+Platform-engineer-defined template for a project's **cell infrastructure** — the data-plane namespace every project runs in plus the namespace-scoped policy around it (NetworkPolicies, ResourceQuotas, baseline RBAC, image-pull secrets). A Project references one via `spec.type`. Like ResourceType, it carries `parameters` / `environmentConfigs` schemas, CEL `validations`, and a `resources[]` list — which **must** declare the cell namespace itself (a `v1/Namespace` with `metadata.name: ${metadata.namespace}`, else `NamespaceMissing`). A `default` ClusterProjectType ships (namespace only); UI / API / `occ project scaffold` default to it, but `kubectl`-applied Projects must set `spec.type`. Scope-collapsed MCP tools + full authoring → [`project-types.md`](./project-types.md).
 
 ### ComponentType
 
