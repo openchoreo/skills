@@ -16,7 +16,7 @@ Apply silent defaults unless the user opted out. Summarise resolved choices befo
 | **Cluster Gateway exposure** | LoadBalancer / TLS passthrough via kgateway | LoadBalancer; use TLS passthrough only if the user asked |
 | **Optional planes** | Workflow, Observability | install both; skip one only if the user opted out |
 | **Default platform resources** | yes / no | yes (without these no apps can deploy) |
-| **Module overrides** | only honour what the user explicitly asked for | none. Catalogue: <https://openchoreo.dev/ecosystem/modules.md>. CloudWatch — push back. |
+| **Modules** | the guide's defaults (OpenSearch logs + tracing, Prometheus metrics, OTEL collector for events, kgateway), or a module the user named. Never a module the user did not ask for. | defaults, but load and follow every module's README on each cluster, defaults included (Step 3). If the user named a plane but no module, install that plane's default module. Decide per cluster, not once for the whole install. Catalogue: <https://openchoreo.dev/ecosystem/modules.md>. |
 
 ## Step 2 — Fetch the guides
 
@@ -38,7 +38,7 @@ Rules:
 - **Per remote plane**, switch context and follow Steps 1–4 of the multi-cluster connectivity guide: install that plane's prerequisites (Gateway API + cert-manager + ESO + kgateway — WP needs only cert-manager + ESO), copy the CP CA into a ConfigMap, install the plane chart with `clusterAgent.serverUrl` pointing at the public CP-gateway URL, extract the agent CA, register the plane CRD in the CP cluster.
 - **Cross-plane links** are patched on the CP cluster, not on the remote. The `observerURL` on the `ClusterObservabilityPlane` CRD must be externally reachable from the CP (no `svc.cluster.local`); use the OP's public gateway URL.
 - **Cross-cluster telemetry**: observability collectors on the OP cluster can't scrape remote pods. On each remote DP/WP cluster install the relevant observability module(s) in push/collector-only mode, pointed at the OP's ingestion endpoints. Per-module setup lives in each module's README.
-- **Apply module overrides only if the user asked for one** (Step 1). Same rule as single-cluster — skip the default's install command, follow the module's README at `https://github.com/openchoreo/community-modules/tree/main/<module-name>` instead.
+- **Install modules per cluster, README first** (Step 1). The modules differ per cluster in every topology. Settle them cluster by cluster, never once for the whole topology. Before installing a module on a cluster, load its README at `https://github.com/openchoreo/community-modules/tree/main/<module-name>` and follow it. This includes the defaults. Always check the version the README names, and install that one. If the README gives its own install command, use it. For a user-requested non-default module, skip the default's install on that slot and use the module's README instead.
 - **Apply the platform-specific tweaks** (see [`on-your-environment.md`](./on-your-environment.md)'s "Platform-specific tweaks") per cluster as relevant.
 - **On failure, use judgment.** You have the clusters — describe / logs / events on each, condition checks. If the cause is clear and the fix is in scope, fix it and continue; otherwise surface and ask. Don't strip `kubectl wait` calls. Keep a running note of any fix or deviation per cluster for the report.
 
@@ -60,7 +60,8 @@ Multi-cluster has more easy-to-miss steps than single-cluster. Before declaring 
 - [ ] If OP was installed: `observerURL` on the `ClusterObservabilityPlane` CRD is externally reachable from the CP cluster (no `svc.cluster.local`); `curl -sfk` against it returns 200.
 - [ ] If OP was installed: DP and WP (if installed) have `observabilityPlaneRef` patched.
 - [ ] If OP was installed: the logs module's collection DaemonSet (e.g. fluent-bit) is Ready on the OP cluster *and* on each remote cluster you want logs from (DP, WP). The module must be installed on each remote cluster (push/collector-only mode) for the DS to exist there.
-- [ ] Module overrides requested by the user were applied (default install commands skipped, alt module READMEs followed) — none if the user didn't ask.
+- [ ] Module READMEs were loaded and followed for every module installed on every cluster, defaults included, not just user-requested overrides. The report names the module, the cluster and the README.
+- [ ] The version each module's README names was installed on each cluster.
 - [ ] Platform-specific tweaks applied per cluster as relevant (RD pre-install, EKS observability-plane LB).
 - [ ] Default platform resources applied to the CP (if the user didn't opt out).
 
@@ -73,7 +74,8 @@ Summarise per cluster. Drop categories that don't apply.
 - **Outcome** — success / partial (where did you stop, on which cluster?) / failed.
 - **Topology installed** — clusters and which plane(s) on each.
 - **Version installed** and which planes are registered with the CP.
-- **Choices applied** — opted-out planes, default platform resources, module overrides.
+- **Choices applied**: opted-out planes, default platform resources, module overrides, and the README followed for each.
+- **Modules installed**: per cluster, the module, the README followed, mode (full or collector-only), and any wiring applied.
 - **Workarounds applied** — per cluster, with reasons.
 - **Deviations from the guides** — per cluster.
 - **Console URL and login**, copied from the CP install. Self-signed cert acceptance per subdomain (`console`, `api`, `thunder`, observer if installed — each may sit on a different LB).

@@ -13,7 +13,7 @@ Apply silent defaults unless the user opted out. Summarise resolved choices befo
 | **OpenChoreo version** | latest stable / specific minor / bleeding edge (`main`) / pinned tag | latest stable. Allowed values are restricted to what `versions.json` lists (`./scripts/list-versions.sh`) plus `main`. Don't let the user pick a minor that's been dropped from `versions.json`. |
 | **Optional planes** | Workflow, Observability | install both; skip one only if the user opted out (control + data planes always install) |
 | **Default platform resources** | yes / no | yes (without these no apps can deploy) |
-| **Module overrides** | only honour what the user explicitly asked for | none. Catalogue: <https://openchoreo.dev/ecosystem/modules.md>. CloudWatch — push back. |
+| **Modules** | the guide's defaults (OpenSearch logs + tracing, Prometheus metrics, OTEL collector for events, kgateway), or a module the user named. Never a module the user did not ask for. | defaults, but load and follow every module's README on each cluster, defaults included (Step 3). If the user named a plane but no module, install that plane's default module. Decide per cluster, not once for the whole install. Catalogue: <https://openchoreo.dev/ecosystem/modules.md>. |
 
 ## Step 2 — Resolve the ref and ensure a local checkout
 
@@ -49,7 +49,7 @@ Then read the README from the local checkout: `install/k3d/multi-cluster/README.
 Run all commands from the repo root (so the README's relative paths resolve). Rules:
 
 - **Skip plane sections the user opted out of** (the workflow plane is sometimes called "Build Plane").
-- **Apply module overrides only if the user asked for one** (Step 1). Same rule as the other paths — skip the default's install command for that slot, follow the module's README at `https://github.com/openchoreo/community-modules/tree/main/<module-name>` instead.
+- **Install modules per cluster, README first** (Step 1). Four clusters, and the modules differ per cluster. Settle them cluster by cluster, never once for the whole topology. Before installing a module on a cluster, load its README at `https://github.com/openchoreo/community-modules/tree/main/<module-name>` and follow it. This includes the defaults. Always check the version the README names, and install that one. If the README gives its own install command, use it. For a user-requested non-default module, skip the default's install on that slot and use the module's README instead. A cluster that should ship logs/metrics/traces needs the module installed on it too, in push/collector-only mode per its README, pointed at the OP's ingestion endpoint. Without that install there is no collection DaemonSet on that cluster.
 - **On failure, use judgment.** Four clusters means four contexts (`k3d-openchoreo-cp`, `-dp`, `-wp`, `-op`) — make sure `--context` flags match the step. `kubectl describe / logs / get events` per cluster. Don't strip `kubectl wait` calls. Keep a running note of any fix or deviation per cluster for the report.
 
 ## Step 3.5 — Verify before reporting
@@ -63,6 +63,8 @@ Four clusters mean four context-scoped checks. Use `--context k3d-openchoreo-{cp
 - [ ] **WP cluster** (if installed): deployments Available; agent connected (same grep, swap namespace + context); `ClusterWorkflowPlane` `agentConnection.connected == true` on CP.
 - [ ] **OP cluster** (if installed): deployments Available; agent connected; `ClusterObservabilityPlane` `agentConnection.connected == true` on CP; Observer health: `curl -sf http://observer.openchoreo.localhost:11080/health`.
 - [ ] **Logs collection DS per cluster** (if OP installed): the logs module's DaemonSet (e.g. fluent-bit) is Ready on the OP cluster *and* on each remote cluster you want logs from (DP, WP). The module must be installed on each remote cluster (collector-only mode) for the DS to exist there.
+- [ ] **Module READMEs followed, per cluster**: every module installed on any cluster (defaults included) had its README loaded and followed. The report names the module, the cluster and the README.
+- [ ] **Module versions**: the version each module's README names was installed on each cluster.
 - [ ] **Cross-plane links** (if OP installed): `kubectl --context k3d-openchoreo-cp get clusterdataplane default -o jsonpath='{.spec.observabilityPlaneRef.name}'` is non-empty; same for `clusterworkflowplane` if WP is installed.
 - [ ] If WP installed: `kubectl --context k3d-openchoreo-wp get clusterworkflowtemplates` shows the checkout / build / publish / generate-workload templates.
 
@@ -74,7 +76,8 @@ Summarise per cluster. Drop categories that don't apply.
 
 - **Outcome** — success / partial (where did you stop, on which cluster?) / failed.
 - **Version installed** — git ref + which clusters are up and registered.
-- **Choices applied** — opted-out planes, whether default platform resources were installed, any module overrides.
+- **Choices applied**: opted-out planes, whether default platform resources were installed, any module overrides, and the README followed for each.
+- **Modules installed**: per cluster, the module, the README followed, mode (full or collector-only), and any wiring applied.
 - **Workarounds applied** — anything that wasn't a straight read of the README.
 - **Deviations from the README** — commands not run as written, extra steps added during diagnose-and-fix.
 - **Console URL and login**, copied from the README.
