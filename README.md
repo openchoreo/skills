@@ -28,3 +28,17 @@ npx skills add openchoreo/skills --list
 # Install a specific skill (e.g., openchoreo-developer).
 npx skills add openchoreo/skills --skill openchoreo-developer
 ```
+
+### Agent Plugins
+
+This repo is also an [Agent Plugins](https://agent-plugins.org/) package: a root [`plugin.json`](plugin.json) plus the skills under `skills/`. Clients that support the standard can install the whole repo as one plugin from `https://github.com/openchoreo/skills`; see your client's documentation for how.
+
+The plugin ships skills only. Skills that use the OpenChoreo MCP server still need it configured in your client, as described in [Configuring MCP Servers with AI Assistants](https://openchoreo.dev/docs/ai/mcp-servers/).
+
+## Support
+
+Report issues at [github.com/openchoreo/skills/issues](https://github.com/openchoreo/skills/issues), or ask in [#openchoreo](https://cloud-native.slack.com/channels/openchoreo) on the CNCF Slack ([join here](https://slack.cncf.io/)).
+
+## Privacy
+
+These skills are instructions and helper scripts that run locally in your coding agent. They collect no data and send nothing to OpenChoreo maintainers. Your agent talks to the OpenChoreo installation you configure, and some helper scripts download public documentation from `openchoreo.dev` and `raw.githubusercontent.com`. OpenChoreo is a CNCF project, covered by the [Linux Foundation Privacy Policy](https://www.linuxfoundation.org/legal/privacy-policy).

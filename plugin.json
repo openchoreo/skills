@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "openchoreo",
+  "displayName": "OpenChoreo",
+  "version": "1.0.0",
+  "description": "Install, deploy to, and operate OpenChoreo, the open-source internal developer platform for Kubernetes. Covers developers shipping and debugging services, platform engineers authoring types and environments, GitOps workflows, and migrating existing apps.",
+  "author": {
+    "name": "OpenChoreo",
+    "url": "https://openchoreo.dev"
+  },
+  "keywords": [
+    "openchoreo",
+    "openchoreo component",
+    "openchoreo project",
+    "openchoreo deploy",
+    "openchoreo release binding",
+    "openchoreo component type",
+    "migrate to openchoreo"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://openchoreo.dev",
+  "repository": "https://github.com/openchoreo/skills"
+}
