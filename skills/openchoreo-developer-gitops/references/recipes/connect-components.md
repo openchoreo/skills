@@ -22,6 +22,7 @@ Each entry:
 - `name` — target endpoint name on that Component (required).
 - `visibility` — only `project` or `namespace` valid here. Target endpoint must declare at least this level (target's `visibility[]` ≥ dependency's).
 - `project` — optional; defaults to the consumer's Project. Set explicitly for cross-Project (then `visibility` must be `namespace`).
+- `releaseLine` — optional, v1.4+, **Workload CR only**. It names the target's release line. Omitted, the dependency targets the target's main line and keeps doing so when lines are added. It never follows the consumer's own line. `main` is rejected; omit it instead. The `workload.yaml` descriptor has no such field and silently drops it, so a source-built consumer whose repo has a descriptor (Path A) loses it on its next build. Set it on the Workload CR in Git (BYO, or Path B).
 - `envBindings` — maps connection pieces to env-var names. Keys: `address`, `host`, `port`, `basePath`. Any combination.
 
 Up to 50 dependencies per Workload.

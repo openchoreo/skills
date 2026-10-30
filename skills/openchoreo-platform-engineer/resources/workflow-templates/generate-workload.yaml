@@ -9,6 +9,9 @@ spec:
         parameters:
           - name: image
           - name: run-name
+          # Release line being built (v1.4+); empty for the component's main line.
+          - name: release-line
+            default: ""
           # --- IDP / OAuth Configuration ---
           # Update these when changing your identity provider or its public URL.
           - name: oauth-token-url
@@ -35,6 +38,7 @@ spec:
 
             IMAGE={{inputs.parameters.image}}
             RUN_NAME={{inputs.parameters.run-name}}
+            RELEASE_LINE="{{inputs.parameters.release-line}}"
             PROJECT_NAME={{workflow.parameters.project-name}}
             COMPONENT_NAME={{workflow.parameters.component-name}}
             NAMESPACE_NAME={{workflow.parameters.namespace-name}}
@@ -46,6 +50,7 @@ spec:
             echo ">> Image: ${IMAGE}"
             echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
             echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
+            echo ">> Release line: ${RELEASE_LINE:-main}"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               echo ">> Workload descriptor: found (${DESCRIPTOR_PATH}/workload.yaml)"
             else
@@ -71,6 +76,7 @@ spec:
             EOF
 
             # --- Step 1: Generate workload CR using occ ---
+            # A run of a release line publishes that line's Workload, not the main line's.
             WORKLOAD_FROM_SOURCE="false"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               WORKLOAD_FROM_SOURCE="true"
@@ -82,6 +88,7 @@ spec:
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
+                ${RELEASE_LINE:+--release-line "${RELEASE_LINE}"} \
                 --image "${IMAGE}" \
                 --descriptor "workload.yaml" \
                 -o "workload-cr.yaml"
@@ -94,6 +101,7 @@ spec:
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
+                ${RELEASE_LINE:+--release-line "${RELEASE_LINE}"} \
                 --image "${IMAGE}" \
                 -o "workload-cr.yaml"
             fi

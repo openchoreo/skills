@@ -20,6 +20,8 @@ occ releasebinding generate \
 
 Generates one ReleaseBinding per component in the project, each pointing at that component's latest ComponentRelease. Files land under `namespaces/<ns>/projects/<project>/components/*/release-bindings/<component>-staging.yaml`.
 
+> **Release lines are included (v1.4+).** `--project` and `--all` bind **every line** of each component: the main line plus each ReleaseLine, each to the release that line runs in the previous environment (`<component>-<line>-<hash>-staging.yaml`). Before a bulk promotion, run `occ component releaseline list <component> -n <ns>` for components with lines, and drop from the PR any line binding the user didn't mean to promote. To promote just one line, use [`release-lines.md`](./release-lines.md) *Promote a line*.
+
 `--use-pipeline` is **required** with `--project` (same as `--all`). Without it the command errors.
 
 ### Everything across all projects in the namespace

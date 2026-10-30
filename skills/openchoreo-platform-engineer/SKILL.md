@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer
 description: Platform-level OpenChoreo work via the control-plane MCP server (plus `kubectl` and Helm) — authoring ProjectTypes / ComponentTypes / ResourceTypes / Traits / Workflows, creating Environments and DeploymentPipelines, registering Planes, configuring secret stores and authorization. Use when the user says 'set up a new environment', 'create a deployment pipeline', 'add a ProjectType', 'add a ComponentType', 'add a ResourceType', 'register a data plane', 'configure auth', or 'install OpenChoreo'.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # OpenChoreo Platform Engineer Guide
@@ -81,6 +81,7 @@ The full per-task discovery flow is in `concepts.md` (loaded at *Step 1*). Durab
 - **Prefer reversible, inspectable changes** over broad edits across many planes or namespaces.
 - **A handed-over migration plan is the spec.** When the user supplies a migration/onboarding plan, take namespace, type names, author-vs-reuse decisions, and per-env overrides from it. Deviate only out loud — state what you're changing and why (cluster reality differs, simplification) *before* acting, never silently substitute.
 - **Never mutate a shared type to fit one app.** `update_component_type` / `update_trait` / `update_workflow` on an existing shared (especially cluster-scoped) type is full-spec replacement visible to every consumer. To fit one app's needs, author a new type modelled on the existing shape instead.
+- **Author types release-line-safe (v1.4+).** A component's release lines render through the same ComponentType and Traits into one namespace. Name objects from `metadata.name` / `metadata.componentLineName`, never `metadata.componentName` alone, and label pods with `metadata.podSelectors` only. Otherwise adding a line fails with `ReleaseLineNameCollision` / `ReleaseLinePodLabelOverlap`. CI Workflows must forward the run's `openchoreo.dev/release-line` label so a line's build writes the line's Workload. See [`component-types-and-traits.md`](./references/component-types-and-traits.md) *Release-line-safe names and pod labels* and [`recipes/author-a-ci-workflow.md`](./references/recipes/author-a-ci-workflow.md) *Forward the release line*.
 - **A missing tool means version skew, not absence.** When a documented MCP tool or `occ` subcommand isn't found, check the installed CLI / server version against the cluster before concluding the surface doesn't exist — report the mismatch to the user, then fall back.
 
 ## Anti-patterns

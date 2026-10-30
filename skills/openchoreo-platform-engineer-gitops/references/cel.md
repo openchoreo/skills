@@ -266,8 +266,8 @@ Like `oc_generate_name`, but produces an RFC 1123 DNS label suitable for hostnam
 hostnames: |
   ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
     .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-    .map(h, oc_dns_label(endpoint, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
-# → "api-my-service-dev-default-a1b2c3d4.apps.example.com"
+    .map(h, oc_dns_label(endpoint, metadata.componentLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+# → "api-my-service-dev-default-a1b2c3d4.apps.example.com"  (metadata.componentLineName is v1.4+; metadata.componentName before)
 ```
 
 ### `oc_hash(string)`
@@ -312,6 +312,8 @@ Different surfaces expose different variables.
 | `metadata.name` | string | Generated resource base name (e.g. `my-service-dev-a1b2c3d4`) |
 | `metadata.namespace` | string | Target namespace for resources |
 | `metadata.componentName` | string | Component name |
+| `metadata.releaseLineName` | string | v1.4+. Release line being rendered; `""` for the component's main line |
+| `metadata.componentLineName` | string | v1.4+. Component name on the main line, `{component}-{line}-{hash}` on a release line. Name component-level objects (Service, HTTPRoutes, route paths, `backendRefs`) from it |
 | `metadata.componentNamespace` | string | Component's namespace |
 | `metadata.componentUID` | string | Component UID |
 | `metadata.projectName` | string | Project name |
@@ -321,7 +323,9 @@ Different surfaces expose different variables.
 | `metadata.dataPlaneName` / `dataPlaneUID` | string | Data plane identity |
 | `metadata.labels` | map | Common labels for all generated resources |
 | `metadata.annotations` | map | Common annotations |
-| `metadata.podSelectors` | map | Platform-injected pod identity selectors |
+| `metadata.podSelectors` | map | Platform-injected pod identity selectors. The pod template's labels: never merge `metadata.labels` into them |
+
+`metadata.name` is unique per release line and environment. A component's release lines (v1.4+) render into the same namespace, so build object names from `metadata.name` or `metadata.componentLineName`, never `metadata.componentName` alone, and label pods with `metadata.podSelectors` only. See [`recipes/author-componenttype.md`](./recipes/author-componenttype.md) *Release-line-safe names and pod labels*.
 
 ### `metadata` (ResourceType)
 
@@ -477,7 +481,7 @@ outputs:
 | `metadata.workflowRunName` | WorkflowRun CR name |
 | `metadata.namespaceName` | WorkflowRun namespace |
 | `metadata.namespace` | Enforced workflow plane namespace (e.g. `workflows-default`) |
-| `metadata.labels` | WorkflowRun labels (`openchoreo.dev/component`, `openchoreo.dev/project`) |
+| `metadata.labels` | WorkflowRun labels (`openchoreo.dev/component`, `openchoreo.dev/project`, plus `openchoreo.dev/release-line` on a release line's build, v1.4+) |
 | `parameters.*` | From `WorkflowRun.spec.workflow.parameters`, schema defaults applied |
 | `workflowplane.secretStore` | ClusterSecretStore from the referenced WorkflowPlane |
 | `externalRefs[id]` | Resolved external CR specs, keyed by `Workflow.spec.externalRefs[].id` |
@@ -599,7 +603,7 @@ Converts `workload.endpoints` to Kubernetes Service `ports[]` — handles port n
     apiVersion: v1
     kind: Service
     metadata:
-      name: ${metadata.componentName}
+      name: ${metadata.componentLineName}    # v1.4+; metadata.componentName before
     spec:
       selector: ${metadata.podSelectors}
       ports: ${workload.toServicePorts()}
@@ -631,7 +635,7 @@ spec:
             matchLabels: ${metadata.podSelectors}
           template:
             metadata:
-              labels: ${oc_merge(metadata.labels, metadata.podSelectors)}
+              labels: ${metadata.podSelectors}
             spec:
               containers:
                 - name: main
@@ -653,7 +657,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: ${metadata.componentName}
+          name: ${metadata.componentLineName}    # v1.4+; metadata.componentName before
           namespace: ${metadata.namespace}
         spec:
           selector: ${metadata.podSelectors}

@@ -128,4 +128,5 @@ Each generates its own PVC and patches the Deployment; the trait's CEL uses `${t
 - **`patches[].target` matches by group/version/kind.** `where` narrows further; without it, every matching resource gets patched.
 - **`ClusterTrait` schema has no `validations` field.** For platform-wide rules, embed them in the `ComponentType` that opts in via `allowedTraits`.
 - **`creates[].template` must not hardcode `metadata.namespace`** — use `${metadata.namespace}`.
+- **Keep trait objects release-line-safe.** Name created objects from `${metadata.name}` (plus `${trait.instanceName}`), never `metadata.componentName` alone, and never patch `metadata.labels` into a pod template. A component's release lines (v1.4+) render the same trait into one namespace. See [`author-componenttype.md`](./author-componenttype.md) *Release-line-safe names and pod labels*.
 - **`instanceName` collisions are per-component.** Two attachments sharing an `instanceName` fails Component-level validation.

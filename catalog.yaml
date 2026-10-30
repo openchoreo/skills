@@ -23,6 +23,7 @@ skills:
     - Attach platform-authored traits to add capabilities to a component
     - Trigger builds and follow their progress
     - Promote releases across environments with per-environment overrides, undeploy, or roll back
+    - Run a second version of a component side by side with release lines (OpenChoreo v1.4+)
     - Diagnose unhealthy deploys with status, events, and pod logs
     - Browse what the platform offers — component types, traits, workflows, environments
 
@@ -203,6 +204,7 @@ skills:
     - Attach platform-authored traits to add capabilities to a Component
     - Connect Components together so the platform injects connection details
     - Promote releases across Environments — single Component or bulk (project / namespace-wide)
+    - Run a second version of a Component side by side as a release line, all through Git (OpenChoreo v1.4+)
     - Apply per-environment overrides on a release (replicas, resources, env vars, trait config)
     - Roll back to a previous release; soft-undeploy
     - Verify the cluster reflects what's in Git after a merge

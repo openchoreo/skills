@@ -13,6 +13,7 @@ Hard rule. Hand-writing Components / Workloads / ComponentReleases / ReleaseBind
 | `Workload` (BYO) | `occ workload create --mode file-system --descriptor <file>` |
 | `ComponentRelease` | `occ componentrelease generate --mode file-system` |
 | `ReleaseBinding` | `occ releasebinding generate --mode file-system` |
+| `ReleaseLine` (v1.4+) | Hand-authored — see [`recipes/release-lines.md`](./recipes/release-lines.md). The three generators above take `--release-line <line>` to act on it. |
 
 For source-build Components, **don't** commit the Workload / ComponentRelease / ReleaseBinding by hand — the build pipeline produces them via a PR.
 
@@ -78,6 +79,7 @@ Flags:
 - `-n, --namespace <ns>`, `-p, --project <p>`, `-c, --component <c>`
 - `--mode file-system`, `--root-dir <gitops-repo>`
 - `--name <name>` — defaults to `{component}-workload`
+- `--release-line <line>` (v1.4+) — write a release line's Workload instead: `{component}-{line}-{hash}-workload`, in `workload-<line>.yaml` next to the component
 - `-o yaml`, `--dry-run`
 
 ```bash
@@ -98,6 +100,7 @@ Flags:
 
 - `--all` / `--project <p>` / `--component <c>` (require `--project`) — one of these
 - `--name <release-name>` — only with `--component`; otherwise auto-generated (`<component>-<date>-<n>`)
+- `--release-line <line>` (v1.4+) — only with `--component`; releases that line (`<component>-<line>-<hash>-<date>-<n>`), applying the ReleaseLine's overrides. **`--all` / `--project` release every line of each component**, not just the main line
 - `--mode file-system`, `--root-dir`, `--output-path` (override default)
 - `--dry-run`
 
@@ -119,6 +122,7 @@ Flags:
 - `-e, --target-env <env>` — required
 - `--use-pipeline <pipeline>` — required with `--all`; optional with `--project` / `--component` (defaults to the Project's pipeline)
 - `--component-release <name>` — only valid with `--project` + `--component`; otherwise defaults to the latest
+- `--release-line <line>` (v1.4+) — only with `--component`; binds that line (`<component>-<line>-<hash>-<env>`). **`--all` / `--project` bind every line of each component**
 - `--mode file-system`, `--root-dir`, `--output-path`, `--dry-run`
 
 ```bash

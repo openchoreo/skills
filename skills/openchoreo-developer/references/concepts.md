@@ -9,10 +9,11 @@ Namespace (tenant boundary)
   ├── Project (bounded context / app domain; references a ProjectType)
   │     ├── ProjectRelease (immutable snapshot of the project's type + parameters)
   │     ├── ProjectReleaseBinding (deploys the project's cell to an environment; owns the cell namespace)
-  │     ├── Component (deployable unit)
+  │     ├── Component (deployable unit; its own config is the implicit `main` line)
   │     │     ├── Workload (runtime spec: image, ports, env, dependencies)
   │     │     ├── ComponentRelease (immutable snapshot)
-  │     │     └── ReleaseBinding (deploys release to environment)
+  │     │     ├── ReleaseBinding (deploys release to environment)
+  │     │     └── ReleaseLine (v1.4+: another line of the component, with its own Workload, releases, bindings)
   │     ├── Resource (managed infrastructure: database, queue, cache)
   │     │     ├── ResourceRelease (immutable snapshot)
   │     │     └── ResourceReleaseBinding (deploys resource to environment)
@@ -69,7 +70,7 @@ The runtime contract. Defines what image to run, what ports to expose, and what 
 **How it gets created**:
 
 - **BYO image** (Component has no `spec.workflow`): the developer creates it explicitly via `create_workload`.
-- **Source build** (Component has `spec.workflow`): the build's `generate-workload` step **auto-generates it**. The workload is always named `{component}-workload` — the build overrides any `metadata.name` from the descriptor. The build inlines `workload.yaml` from the source repo if present; otherwise the workload contains only the container image.
+- **Source build** (Component has `spec.workflow`): the build's `generate-workload` step **auto-generates it**. The workload is always named `{component}-workload` (a release line's: `{component}-{line}-{hash}-workload`) — the build overrides any `metadata.name` from the descriptor. The build inlines `workload.yaml` from the source repo if present; otherwise the workload contains only the container image.
 
 **Key fields**:
 
@@ -172,6 +173,17 @@ Binds a ComponentRelease to an Environment. This is what triggers actual deploym
 - `workloadOverrides`: Extra env vars, files for specific environments
 - `state`: `Active` (running) or `Undeploy` (removed)
 
+### ReleaseLine (v1.4+)
+
+A named line of one Component that runs **side by side** with it in the same environments, for example `next` built from another branch. Every Component has an implicit **`main`** line, which is the Component itself. Its Workload, releases and bindings carry no `releaseLine` and don't change when lines are added. A `ReleaseLine` adds another line:
+
+- It **inherits the Component's spec** and overrides `parameters` (deep-merged), `traits` (merged by kind + name + instanceName), `workflow.parameters` (deep-merged, typically a branch or commit) and `autoDeploy`. The ComponentType and workflow are shared.
+- It has its **own Workload, ComponentReleases and one ReleaseBinding per environment**, named from `{component}-{line}-{hash}`. It does not inherit the main line's Workload.
+- Its line name is a namespaced object name, unique across all components in the namespace. `main` and `default` are reserved.
+- A `dependencies.endpoints[]` entry targets the provider's main line unless it names `releaseLine`. It never follows the consumer's own line.
+
+Release lines exist on v1.4+ (the MCP server lists `list_release_lines`). Full flow → [`recipes/release-lines.md`](./recipes/release-lines.md).
+
 ### Resource
 
 A managed-infrastructure dependency for the project — database, message queue, cache, object storage. References a ResourceType the way a Component references a ComponentType. Lives under a Project as a sibling of Component, not nested inside one. Same Resource is shared across all consumers in the same Project + Environment.
@@ -247,6 +259,8 @@ Component side:
 5. Platform renders templates, creates Kubernetes resources
 
 For `autoDeploy: true` components, steps 3–4 happen automatically when the Workload changes.
+
+Each release line (v1.4+) runs the same chain on its own: its Workload → its ComponentReleases → its ReleaseBinding per environment, alongside the main line's.
 
 Resource side (mirrors the component flow without the Workload step):
 

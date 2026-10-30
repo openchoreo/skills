@@ -1,8 +1,8 @@
 ---
 name: openchoreo-developer
-description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', or 'why is my pod crashing'.
+description: Application-level OpenChoreo work via the control-plane MCP server — deploying services, configuring workloads, consuming managed-infrastructure Resources, promoting releases, managing secret references, inspecting runtime. Use when the user says 'deploy my service', 'add a component', 'rebuild from source', 'use a database', 'promote to staging', 'rollback', 'run a second version side by side', or 'why is my pod crashing'.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # OpenChoreo Developer Guide
@@ -38,9 +38,10 @@ If the request touches `ProjectType` / `ComponentType` / `ResourceType` / `Trait
 - **Consume Resources** — managed-infrastructure dependencies (databases, queues, caches); platform injects outputs as env vars and file mounts via `dependencies.resources[]` → [`use-a-resource.md`](./references/recipes/use-a-resource.md)
 - **SecretReferences** — CRUD + `secretKeyRef` consumption → [`manage-secrets.md`](./references/recipes/manage-secrets.md). The `ClusterSecretStore` is PE-owned.
 - **Deploy and promote** — deploy the project cell per env (`create_project_release_binding`, pin seeded by the controller), then bind a `ComponentRelease` to an Environment and promote both along the DeploymentPipeline → [`deploy-and-promote.md`](./references/recipes/deploy-and-promote.md)
+- **Release lines** (v1.4+) — run another version of a Component side by side with it (e.g. a `next` line from another branch): create / patch / delete a `ReleaseLine`, build or set its own Workload, deploy, promote and roll it back independently → [`release-lines.md`](./references/recipes/release-lines.md)
 - **Per-environment overrides** — replicas, resources, env vars, trait config on the ReleaseBinding → [`override-per-environment.md`](./references/recipes/override-per-environment.md)
 - **Soft-undeploy / rollback** — `update_release_binding release_state: Undeploy`, or rebind to a prior `ComponentRelease`.
-- **Hard-delete developer resources** — `delete_component`, `delete_workload`, `delete_release_binding`, `delete_project`, `delete_component_release`. Destructive; confirm first. **No `delete_namespace`** — PE-side.
+- **Hard-delete developer resources** — `delete_component`, `delete_workload`, `delete_release_binding`, `delete_project`, `delete_component_release`, `delete_release_line`. Destructive; confirm first. **No `delete_namespace`** — PE-side.
 - **Inspect runtime** — Component / ReleaseBinding `status.conditions[]` and `status.endpoints[]`; `get_resource_tree` to map a binding to its rendered K8s resources; `get_resource_events` / `get_resource_logs` for pod-level evidence; WorkflowRun logs and events → [`inspect-and-debug.md`](./references/recipes/inspect-and-debug.md)
 - **Discover platform resources** (read-only) — ProjectTypes, ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, planes.
 
@@ -57,6 +58,8 @@ One MCP server: `openchoreo-cp`. Throughout this skill, tools are referenced by 
 ComponentType / ResourceType / Trait / Workflow and the plane tools are **scope-collapsed**: one tool with a `scope` arg — `"namespace"` (default) or `"cluster"` for the platform-wide `Cluster*` resource. This skill always uses the canonical name + `scope`. The old `*_cluster_*` names still exist as deprecated aliases (banner in v1.1, hidden in v1.2, removed in v1.3) and can be used alternatively against a v1.1 server — but prefer the canonical form.
 
 The `resource` toolset (dev-facing, enabled by default) covers `Resource` CRUD plus scope-collapsed reads on `(Cluster)ResourceType`. `ResourceReleaseBinding` and `ProjectReleaseBinding` CRUD both sit in the `deployment` toolset alongside `ReleaseBinding`. The `resource_release_binding` create/update calls are how a Resource gets deployed into an env (or promoted); `project_release_binding` create/update are the same for a project's cell. `(Cluster)ProjectType` is read-only here (`list_project_types` / `get_project_type` / `get_project_type_schema`, `scope`-aware) — authoring it is PE-side.
+
+**Release lines (v1.4+).** The `component` toolset has `list_release_lines` / `get_release_line` / `create_release_line` / `patch_release_line` / `delete_release_line`. `trigger_workflow_run`, `create_workload` and `create_release_binding` take an optional `release_line`; omitted or `main`, they act on the Component itself. Existing objects of a line (Workload, binding) are read and updated by name with the usual tools. If `list_release_lines` isn't listed, the server predates release lines.
 
 ## Working style
 

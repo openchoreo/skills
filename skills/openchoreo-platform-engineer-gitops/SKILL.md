@@ -2,7 +2,7 @@
 name: openchoreo-platform-engineer-gitops
 description: Platform-engineer GitOps work for OpenChoreo — scaffolding a GitOps repo (pristine, platform-only, or active cluster), wiring Flux CD, and authoring platform CRDs (ProjectTypes, ComponentTypes, ResourceTypes, Traits, Workflows, Environments, DeploymentPipelines, SecretReferences, AuthzRoles, alert rules, notification channels) via Git. Use when the user says 'set up GitOps for this cluster', 'move this cluster to GitOps', 'wire Flux', 'add a ProjectType / ComponentType / ResourceType / Trait / Workflow via Git', or operates a platform change inside a scaffolded GitOps repo.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # OpenChoreo Platform-Engineer GitOps Guide
@@ -107,6 +107,7 @@ If the heuristic doesn't fit the layout (per the docs' *Flexible Repository Stru
 - **No plaintext secrets in Git** — use `SecretReference` resources backed by a `ClusterSecretStore`.
 - **Protect `platform-shared/` with CODEOWNERS** — cluster-scoped changes affect every namespace. Sample at [`assets/codeowners-platform-shared`](./assets/codeowners-platform-shared).
 - **Cluster ↔ namespace scope is interchangeable** for ComponentType / ResourceType / Trait / Workflow. Convert by swapping the `kind:` and adding/removing `metadata.namespace:`. Update referrers' `allowedWorkflows[].kind` accordingly; for ResourceTypes, update consumer `Resource.spec.type.kind`. See [`authoring.md`](./references/authoring.md).
+- **Author types release-line-safe (v1.4+).** A component's release lines render through the same ComponentType and Traits into one namespace. Name objects from `metadata.name` / `metadata.componentLineName`, never `metadata.componentName` alone, and label pods with `metadata.podSelectors` only. Otherwise adding a line fails with `ReleaseLineNameCollision` / `ReleaseLinePodLabelOverlap`. CI Workflows must forward the run's `openchoreo.dev/release-line` label so a line's build writes the line's Workload. See [`recipes/author-componenttype.md`](./references/recipes/author-componenttype.md) *Release-line-safe names and pod labels* and [`recipes/author-workflow.md`](./references/recipes/author-workflow.md) *Build a release line's files*.
 - **Vanilla CI workflows aren't GitOps-compatible.** The four `ClusterWorkflow`s shipped by the platform install — `dockerfile-builder` / `paketo-buildpacks-builder` / `gcp-buildpacks-builder` / `ballerina-buildpack-builder` — write the `Workload` CR directly to the cluster API, so Flux reverts them. `extract-resources.sh defaults` refuses to extract them by default; use `extract-resources.sh gitops-workflows` for the GitOps equivalents (`docker-gitops-release` etc.). When in doubt about any other Workflow, inspect it (`occ clusterworkflow get <name>` / `occ workflow get <name> -n <ns>`) and check whether the pipeline ends with `git-commit-push-pr` (GitOps-compatible) or `generate-workload-cr` (not). Full write-up in [`authoring.md`](./references/authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 
 ## Anti-patterns

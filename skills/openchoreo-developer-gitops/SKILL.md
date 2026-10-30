@@ -1,8 +1,8 @@
 ---
 name: openchoreo-developer-gitops
-description: Application-developer GitOps work for OpenChoreo — onboarding Projects (with a ProjectType) and deploying their cell via ProjectReleaseBindings, onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a project to the GitOps repo', 'deploy my project cell', 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', or operates a developer-side change from inside a scaffolded GitOps repo.
+description: Application-developer GitOps work for OpenChoreo — onboarding Projects (with a ProjectType) and deploying their cell via ProjectReleaseBindings, onboarding Components (BYO image or source-build), authoring Workloads and `workload.yaml` descriptors, attaching PE-authored Traits, wiring component and Resource dependencies, generating ComponentReleases and ReleaseBindings via `occ` file-mode, authoring Resources + ResourceReleaseBindings by hand, promoting releases across Environments (single, project-wide, bulk), applying per-environment overrides, opening PRs upstream, and verifying Flux reconciliation. Use when the user says 'add a project to the GitOps repo', 'deploy my project cell', 'add a component to the GitOps repo', 'release my service via Git', 'use a database from my service', 'open a PR for this Workload change', 'promote to staging via Git', 'bulk-promote my project', 'roll back a release', 'run a second version side by side via Git', or operates a developer-side change from inside a scaffolded GitOps repo.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # OpenChoreo Developer GitOps Guide
@@ -70,6 +70,7 @@ Load other references **on-demand**:
 - **Wire component dependencies** — `dependencies.endpoints[]` with env-var injection → [`recipes/connect-components.md`](./references/recipes/connect-components.md)
 - **Use a Resource** — managed-infrastructure dependency (databases, queues, caches); author `Resource` + `ResourceReleaseBinding` YAML, wire `dependencies.resources[]` on a Workload → [`recipes/use-a-resource.md`](./references/recipes/use-a-resource.md)
 - **Generate ComponentReleases / ReleaseBindings via `occ` file-mode** — produced through the onboard recipes.
+- **Release lines** (v1.4+) — run another version of a Component side by side: author the `ReleaseLine`, its Workload, releases and bindings, and promote, roll back or delete the line on its own → [`recipes/release-lines.md`](./references/recipes/release-lines.md)
 - **Promote releases** — single component or bulk (project / all) → [`recipes/promote.md`](./references/recipes/promote.md), [`recipes/bulk-promote.md`](./references/recipes/bulk-promote.md)
 - **Per-environment overrides** — replicas, resources, env vars, trait config → [`recipes/override-per-environment.md`](./references/recipes/override-per-environment.md)
 - **Soft-undeploy / rollback** — flip `spec.state: Undeploy` or repoint at a prior `ComponentRelease` → [`recipes/promote.md`](./references/recipes/promote.md) *Rollback*
@@ -98,7 +99,8 @@ Load other references **on-demand**:
 
 - **`ComponentRelease` is immutable.** Regenerate with `occ componentrelease generate`; never hand-edit.
 - **`ResourceRelease` is auto-cut and never in Git.** The Resource controller hashes `Resource.spec + ResourceType.spec` and cuts a new release on every change. Promote a binding by advancing `ResourceReleaseBinding.spec.resourceRelease` in Git — do not use `occ resource promote` against a GitOps-managed cluster (it patches the binding imperatively and Flux reverts).
-- **`Workload.spec.owner` (projectName + componentName) is immutable** after creation. Pick names carefully.
+- **`Workload.spec.owner` (projectName + componentName) is immutable** after creation. Pick names carefully. The same holds for `releaseLine` on a line's Workload, and for a `ReleaseLine`'s `spec.owner`.
+- **Bulk generators cover every release line** (v1.4+). `--all` / `--project` on `componentrelease generate` / `releasebinding generate` include each component's lines, not just the main line.
 - **`Component.spec.componentType` and `spec.workflow` kinds default to cluster-scoped** when omitted. Set `kind: ComponentType` / `kind: Workflow` explicitly when referencing namespace-scoped variants.
 - **`Project.spec.deploymentPipelineRef` is an object** (since v1.0.0), not a plain string. `kind` defaults to `DeploymentPipeline`.
 - **For third-party / public apps: default to BYO image, not source build.** Multi-platform Dockerfiles (`ARG BUILDPLATFORM`) commonly fail in the buildah-based builder. If you see exit-125 `BUILDPLATFORM` errors, switch to BYO.

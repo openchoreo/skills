@@ -102,6 +102,23 @@ dependencies:
 
 The target's `endpoints.http.visibility` must include `namespace` (or broader).
 
+### Target a release line
+
+v1.4+. A dependency without `releaseLine` targets the provider's **main line**, and keeps doing so after the provider adds lines. It never follows the consumer's own line, so a consumer's `next` line still calls the provider's main line. To call another line, name it on the dependency (`list_release_lines` on the provider gives the names):
+
+```yaml
+dependencies:
+  endpoints:
+    - component: greeter
+      releaseLine: greeter-next        # omit for the main line ("main" is rejected here)
+      name: greeter-api
+      visibility: project
+      envBindings:
+        address: GREETER_URL
+```
+
+`releaseLine` lives on the **Workload**, so set it through `create_workload` / `update_workload`. The `workload.yaml` descriptor has no `releaseLine` field and silently drops it. If a source-built consumer's repo has a `workload.yaml`, each build replaces the Workload from it and drops the field. Without a descriptor, builds only update the image and keep it. For a durable line-targeted dependency, the consumer must be BYO or have no descriptor. Otherwise, tell the user about this limitation. To point one consumer line at one provider line, set it on that consumer line's own Workload.
+
 ### Multiple dependencies
 
 ```yaml
@@ -200,6 +217,7 @@ The right side of each `envBindings` entry is the env var name in the consumer.
 - **Cross-project dependencies require both `visibility: namespace` and `project: <target-project>`.** Missing `project` defaults to the same project — the binding fails with "endpoint not found" because the controller looks in the wrong project.
 - **Dependency entry's `visibility` is `project` or `namespace` only.** The API rejects `internal` and `external` here. Cross-namespace dependencies are not supported via this mechanism — escalate to PE for a gateway-based approach.
 - **Consumer's visibility request must be ≤ what the target declares.** Asking for `namespace` against a target whose endpoint visibility is `[project]` fails reconciliation. Either lower the consumer's visibility (only `project` works for a project-only target) or have the target add `namespace` to its endpoint visibility list.
+- **A dependency targets the provider's main line by default (v1.4+).** Name `releaseLine` to reach another line. See *Target a release line*. A line that doesn't exist leaves the dependency pending.
 - **Max 50 endpoint dependencies per Workload.** A consumer pulling from more than 50 components is a design smell — split it.
 - **Connection refused after deploy?** Confirm the target's endpoint visibility list includes the level the consumer is asking for. Most "it deployed but can't connect" issues trace to this.
 - **The injected `address` already includes the scheme (HTTP/WS).** Don't prepend `http://` in the consumer's code when using `address`. If you need just the host, use `envBindings.host` instead.

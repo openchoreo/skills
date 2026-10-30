@@ -98,7 +98,8 @@ Putting these on the Workload puts them everywhere; the override paths above let
 ## Gotchas
 
 - **Forgetting to regenerate the ComponentRelease after a Workload edit.** Flux applies the Workload change, but if no new ComponentRelease points at the new Workload state, the existing ReleaseBindings still bind to the old snapshot. Always regenerate the release after a Workload change in GitOps mode.
-- **Updating an immutable field** — `Workload.spec.owner` (projectName + componentName), `Component.spec.componentType.name` after a release was generated. The admission webhook rejects.
+- **A component with release lines has one Workload per line** (v1.4+): `workload.yaml` is the main line's, `workload-<line>.yaml` each line's. An edit to one doesn't reach the others. Regenerate the release for the line you changed with `--release-line <line>`.
+- **Updating an immutable field** — `Workload.spec.owner` (projectName + componentName, and `releaseLine`), `Component.spec.componentType.name` after a release was generated. The admission webhook rejects.
 - **PR conflict on the GitOps repo** when two concurrent rebuilds run for the same component on Path A. Merge or rebase in order.
 - **Image tag reuse.** If `container.image` is the same tag as before, the Workload diff is empty and no new ComponentRelease should be needed. Force-regenerate only if the underlying registry pushed a new manifest under the same tag (treat that as an anti-pattern though — pin tags to immutable references).
 

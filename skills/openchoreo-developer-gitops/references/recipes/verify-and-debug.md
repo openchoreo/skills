@@ -88,13 +88,17 @@ Common causes:
 
 - **`ResourceSyncFailed`** — the RenderedRelease couldn't apply. Often a CEL eval error in the ComponentType template, or a referenced resource (Trait, Secret) missing. Cross-reference with the component-type / trait listed in the ComponentRelease.
 - **`ResourcesNotReady`** — the K8s resources rendered but pods aren't healthy. Container crash, image pull failure, OOMKilled, scheduling failure.
+- **`ReleaseLineNameCollision` / `ReleaseLinePodLabelOverlap`** (on `ReleaseSynced`, v1.4+) — a release line's binding would render objects the main line (or another line) already owns, because the ComponentType or a Trait isn't release-line-safe. The main line keeps running, and the line is held back. Platform-side fix; escalate.
+- **`ReleaseLineNotFound`** — the binding's `spec.owner.releaseLine` names a ReleaseLine that isn't in the cluster (not merged yet, or misspelled). A line that belongs to another component gives `InvalidReleaseConfiguration` instead.
 
-The latter needs runtime evidence. Prefer **`occ component logs`** — it routes to the right data plane automatically and falls back to the observer for archived logs:
+`ResourcesNotReady` needs runtime evidence. Prefer **`occ component logs`** — it routes to the right data plane automatically and falls back to the observer for archived logs:
 
 ```bash
 occ component logs <component> -n <ns> --env <env>           # latest pod, current env
 occ component logs <component> -n <ns> --env <env> -f        # follow
 occ component logs <component> -n <ns> --env <env> --tail 200 --since 30m
+occ component logs <component> -n <ns> --env <env> --release-line <line>   # v1.4+: a release line (default: main line)
+occ component logs <component> -n <ns> --env <env> --all-release-lines        # v1.4+: every line of the component
 ```
 
 Drop to `kubectl` against the data plane only when you need shape `occ component logs` doesn't expose — `kubectl describe pod` for events / image-pull state, `kubectl get pod -n <runtime-ns> -l <selector>` for restart counts. The data plane may be the same cluster as the control plane (single-cluster installs) or a separate cluster (multi-cluster); get its kubeconfig from your platform team or the `DataPlane` CR.
@@ -189,7 +193,7 @@ diff <(git -C <repo> show HEAD:<path>) <(occ <kind> get <name> -n <ns> | grep -v
 
 For runtime questions — container crash-looping, OOM, app log output — reach for the most-`occ`-shaped tool first:
 
-- **`occ component logs <component> -n <ns> --env <env>`** — pod logs. Routes to the right data plane, falls back to the observer for archived logs.
+- **`occ component logs <component> -n <ns> --env <env>`** — pod logs. Routes to the right data plane, falls back to the observer for archived logs. Covers the **main line only** when the component has release lines (v1.4+). Add `--release-line <line>` or `--all-release-lines`. `occ component exec` takes `--release-line` the same way.
 - **`occ component workflowrun logs <component> -n <ns>`** — build / workflow run logs.
 - **`kubectl`** against the data plane only when `occ` doesn't cover the shape — pod events (`describe pod`), restart counts (`get pod`), namespaced controller logs.
 - **The observability backend** (Grafana, OpenSearch, Loki, Prometheus, Tempo) for historical logs / metrics / traces.
