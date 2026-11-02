@@ -87,6 +87,8 @@ trigger_workflow_run
 
 This uses the workflow already configured on the Component. For a one-off build with different parameters, `create_workflow_run` lets you supply a `parameters` object directly.
 
+To build a **release line** (v1.4+) instead, for example a second branch running next to this one, pass `release_line`. The line's workflow parameters are merged onto the component's, and the build writes the line's own Workload. See [`release-lines.md`](release-lines.md).
+
 ### 5. Monitor the build
 
 ```yaml
@@ -144,7 +146,7 @@ What triggers a build:
 2. Branch matches `repository.revision.branch`
 3. The push includes a change inside `appPath`
 
-If all three match, the platform creates a WorkflowRun automatically with the commit SHA.
+If all three match, the platform creates a WorkflowRun automatically with the commit SHA. The check runs per release line too (v1.4+), with each line's merged parameters. A push to a line's branch builds that line, and a line pinned to a `commit` is never moved by pushes.
 
 > **PE setup required.** Auto-build needs a webhook receiver and webhook secret configured in the platform. If pushes don't trigger builds, escalate to `openchoreo-platform-engineer` to verify the webhook setup.
 

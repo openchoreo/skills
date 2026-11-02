@@ -102,6 +102,38 @@ spec:
 
 Component-bound build-workflow shape adds: `componentName` / `projectName` as required parameters, a `workloadDescriptorPath` parameter, and hard-coded `gitops-repo-url` / `registry-url` / `image-name` / `image-tag` in `runTemplate.spec.arguments.parameters` (PE-controlled). For the canonical example, run `./scripts/extract-resources.sh gitops-workflows --name docker-gitops-release`.
 
+#### Build a release line's files (v1.4+)
+
+A build of a component's release line (`occ component workflow run <component> --release-line <line>`, or a Git push to the line's branch) runs the same Workflow. The run carries the label `openchoreo.dev/release-line`, and the line's workflow parameters are already merged in. The build must write that line's Workload, ComponentRelease and ReleaseBinding. The GitOps workflows in `sample-gitops` (as of its 2026-09-29 head) don't do this yet: their `occ` calls omit the line, and they name the release `<component>-<git-revision>`. A line's build then overwrites the main line's `<component>-workload` file, and a main-line build of the same commit gets the same release name. Forward the label as a run argument:
+
+```yaml
+runTemplate:
+  spec:
+    arguments:
+      parameters:
+        - name: release-line
+          value: "${'openchoreo.dev/release-line' in metadata.labels ? metadata.labels['openchoreo.dev/release-line'] : ''}"
+```
+
+In the `ClusterWorkflowTemplate`, declare `release-line` under `spec.arguments.parameters` with `value: ""`, so a Workflow that doesn't pass it still validates. Then branch on it. For a release line, let `occ` name the release (`<component>-<line>-<hash>-<date>-<n>`) and bind the line's latest release:
+
+```sh
+RELEASE_LINE="{{workflow.parameters.release-line}}"
+if [ -n "$RELEASE_LINE" ]; then
+  occ workload create --mode file-system --root-dir /mnt/vol/gitops \
+    --project "$PROJECT_NAME" --component "$COMPONENT_NAME" --release-line "$RELEASE_LINE" \
+    --image "$CONTAINER_IMAGE" --descriptor /tmp/workload-descriptor.yaml   # drop --descriptor when none
+  occ componentrelease generate --mode file-system --root-dir /mnt/vol/gitops \
+    --project "$PROJECT_NAME" --component "$COMPONENT_NAME" --release-line "$RELEASE_LINE"
+  occ releasebinding generate --mode file-system --root-dir /mnt/vol/gitops \
+    --project "$PROJECT_NAME" --component "$COMPONENT_NAME" --release-line "$RELEASE_LINE"
+else
+  : # the existing main-line commands, unchanged
+fi
+```
+
+The label check is safe on older clusters (it's just absent there). Put the line in the PR branch name too. Read `{{workflow.parameters.release-line}}` in the step that creates the branch as well, since each step is its own container, and use something like `release/${COMPONENT_NAME}${RELEASE_LINE:+-$RELEASE_LINE}-${TIMESTAMP}`. One Git push can build the main line and a line that tracks the same branch at the same moment, and their branches mustn't collide.
+
 ### 3. Argo `ClusterWorkflowTemplate`
 
 If `runTemplate.spec.workflowTemplateRef` references one, the template must exist on the workflow plane. Options:
@@ -140,4 +172,4 @@ Use `occ workflowrun list/get/logs` — don't reach for `kubectl get workflow.ar
 - **`workflowplane.secretStore`** is the CEL accessor for the `ClusterSecretStore` on the referenced WorkflowPlane. Use this instead of hardcoding.
 - **Build workflows need git tokens** — `git-token` (source clone), `gitops-token` (GitOps repo writes). See [`install-flux-and-secrets.md`](./install-flux-and-secrets.md).
 - **`workflowTemplateRef.clusterScope: true`** required to reach a `ClusterWorkflowTemplate`. Without it the lookup is in the workflow plane's namespace and fails.
-- **The build's `generate-workload` step is opinionated** — names the Workload CR `<component>-workload` regardless of the descriptor's `metadata.name`. Without a `workload.yaml` at `<appPath>`, the generated Workload carries only `container.image`.
+- **The build's `generate-workload` step is opinionated** — names the Workload CR `<component>-workload` regardless of the descriptor's `metadata.name` (`<component>-<line>-<hash>-workload` for a release line, v1.4+, when the build passes `--release-line`). Without a `workload.yaml` at `<appPath>`, the generated Workload carries only `container.image`.

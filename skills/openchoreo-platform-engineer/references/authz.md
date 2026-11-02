@@ -162,6 +162,7 @@ actions:
 ```yaml
 actions:
   - "component:*"
+  - "releaseline:*"                       # v1.4+
   - "componentrelease:*"
   - "releasebinding:*"
   - "workload:*"
@@ -183,6 +184,7 @@ actions:
 ```yaml
 actions:
   - "component:view"
+  - "releaseline:view"                    # v1.4+
   - "componentrelease:view"
   - "releasebinding:view"
   - "workload:view"
@@ -390,6 +392,7 @@ These are the actions defined in the system. Use exact strings in role `spec.act
 | Namespace | `namespace:view`, `namespace:create`, `namespace:update`, `namespace:delete` |
 | Project | `project:view`, `project:create`, `project:update`, `project:delete` |
 | Component | `component:view`, `component:create`, `component:update`, `component:delete` |
+| ReleaseLine (v1.4+) | `releaseline:view`, `releaseline:create`, `releaseline:update`, `releaseline:delete` |
 | ComponentRelease | `componentrelease:view`, `componentrelease:create` |
 | ReleaseBinding | `releasebinding:view`, `releasebinding:create`, `releasebinding:update`, `releasebinding:delete` |
 | Workload | `workload:view`, `workload:create`, `workload:update`, `workload:delete` |
@@ -398,6 +401,8 @@ These are the actions defined in the system. Use exact strings in role `spec.act
 | ResourceRelease | `resourcerelease:view`, `resourcerelease:create`, `resourcerelease:delete` |
 | ResourceReleaseBinding | `resourcereleasebinding:view`, `resourcereleasebinding:create`, `resourcereleasebinding:update`, `resourcereleasebinding:delete` |
 | Secrets | `secretreference:view`, `secretreference:create`, `secretreference:update`, `secretreference:delete` |
+
+`releaseline:*` evaluates at `ScopeComponent`. A release line's Workload, ComponentReleases and ReleaseBindings are authorized as the component's own: the `workload:*` / `componentrelease:*` / `releasebinding:*` actions and a `scope.component` binding cover every line of the component. Only the built-in roles in the Helm chart gained these actions on upgrade to v1.4. `developer` and `platform-engineer` got all four. `sre` and the system readers (`backstage-catalog-reader`, `rca-agent`, `observer-resource-reader`) got `releaseline:view`. Add them to custom roles, and to any of those roles you manage outside the chart, or their holders can't list, create or delete a component's lines.
 
 `resource:create` evaluates at `ScopeProject` (the Resource doesn't exist yet at create time, same pattern as `component:create`). View / Update / Delete on `Resource`, and all actions on `ResourceRelease` / `ResourceReleaseBinding`, evaluate at `ScopeResource` — bindings can scope down via `scope.resource: <name>`.
 

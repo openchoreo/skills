@@ -4,6 +4,8 @@
 
 For promoting multiple components at once (project-wide or namespace-wide), see [`bulk-promote.md`](./bulk-promote.md).
 
+This recipe acts on a component's **main line**. To promote or roll back a release line (v1.4+), add `--release-line <line>` to the same commands. See [`release-lines.md`](./release-lines.md).
+
 > **Promoting the project cell** follows the same immutable-release model but on the `ProjectReleaseBinding` instead of a component binding: **bump `spec.projectRelease`** on `namespaces/<ns>/projects/<project>/release-bindings/<project>-<env>.yaml` to the release the source environment runs, commit, PR (rollback = point at an older `ProjectRelease`). There's no generator — edit the field in Git. Read the source pin with `occ projectreleasebinding get <project>-<source-env> -n <ns>`; list releases with `occ projectrelease list -n <ns>`. Full flow in [`deploy-project.md`](./deploy-project.md) *Promote / roll back the cell*. The cell for the target environment must be promoted before (or with) the components you promote into it.
 
 ## Preconditions
@@ -152,6 +154,7 @@ For sandboxes / dev work, bundling many promotions in one PR is fine — pick pe
 ## Related
 
 - [`bulk-promote.md`](./bulk-promote.md) — promote many components at once
+- [`release-lines.md`](./release-lines.md) — promote one release line of a component
 - [`override-per-environment.md`](./override-per-environment.md) — per-env replicas, resources, env vars
 - [`onboard-component-byo.md`](./onboard-component-byo.md), [`onboard-component-source-build.md`](./onboard-component-source-build.md)
 - [`../concepts.md`](../concepts.md) *ReleaseBinding*, *ComponentRelease*

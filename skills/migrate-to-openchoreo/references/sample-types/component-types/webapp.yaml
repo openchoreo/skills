@@ -2,6 +2,11 @@
 # ComponentType can express. If applicable, recommend authoring a new CT
 # modelled on this shape. Never reference this YAML's name as if it were
 # already shipped — the skill has zero install introspection.
+#
+# Component-level names (Service, HTTPRoutes, paths, backendRefs, hostnames) use
+# metadata.componentLineName (OpenChoreo v1.4+) so a component's release lines never
+# collide; it is the component name on the main line. Before v1.4 the same spots use
+# metadata.componentName. Pod labels are metadata.podSelectors only, on every version.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
@@ -107,7 +112,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: ${metadata.componentName}
+          name: ${metadata.componentLineName}
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
@@ -122,7 +127,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: ${oc_generate_name(metadata.componentName, endpoint.key)}
+          name: ${oc_generate_name(metadata.componentLineName, endpoint.key)}
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
         spec:
@@ -132,10 +137,10 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint.key, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, oc_dns_label(endpoint.key, metadata.componentLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             - backendRefs:
-                - name: ${metadata.componentName}
+                - name: ${metadata.componentLineName}
                   port: ${endpoint.value.port}
     - id: httproute-internal
       forEach: '${workload.endpoints.transformMap(name, ep, "internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"], ep)}'
@@ -144,7 +149,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: '${oc_generate_name(metadata.componentName, endpoint.key, "internal")}'
+          name: '${oc_generate_name(metadata.componentLineName, endpoint.key, "internal")}'
           namespace: ${metadata.namespace}
           labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "internal"})}'
         spec:
@@ -154,10 +159,10 @@ spec:
           hostnames: |
             ${[gateway.ingress.internal.?http, gateway.ingress.internal.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint.key, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, oc_dns_label(endpoint.key, metadata.componentLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             - backendRefs:
-                - name: ${metadata.componentName}
+                - name: ${metadata.componentLineName}
                   port: ${endpoint.value.port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}

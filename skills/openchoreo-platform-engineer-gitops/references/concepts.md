@@ -13,7 +13,8 @@ Namespace (tenant boundary)
     │   ├── Workload                  (runtime contract: image, ports, env, deps, files)
     │   ├── ComponentRelease          (immutable snapshot of Component+Workload+Type+Traits)
     │   ├── WorkflowRun               (build executions — IMPERATIVE; never in Git)
-    │   └── ReleaseBinding            (binds a release to an Environment, with per-env overrides)
+    │   ├── ReleaseBinding            (binds a release to an Environment, with per-env overrides)
+    │   └── ReleaseLine               (v1.4+: another line of the component — own Workload, releases, bindings)
     ├── Resource                      (managed infrastructure: database, queue, cache)
     │   ├── ResourceRelease           (immutable snapshot — auto-cut by controller; never in Git)
     │   └── ResourceReleaseBinding    (binds a resource release to an Environment)
@@ -30,7 +31,7 @@ Platform-shared (cluster-scoped; lives under platform-shared/):
 └── ClusterAuthzRole / AuthzRole (and bindings)
 ```
 
-This skill owns everything from `Environment` outward and the platform-shared layer — including `(Cluster)ProjectType` and `(Cluster)ResourceType` templates. Application resources (`Project`, `ProjectReleaseBinding`, `Component`, `Workload`, `ComponentRelease`, `ReleaseBinding`, `Resource`, `ResourceReleaseBinding`) are application-side and out of scope. (`ProjectRelease` is controller-cut and never in Git, like `ComponentRelease` / `ResourceRelease`.) Plane resources (`DataPlane` / `WorkflowPlane` / `ObservabilityPlane` and their `Cluster*` variants) are install-side one-time setups and out of scope by default — see [`recipes/author-other-resources.md`](./recipes/author-other-resources.md).
+This skill owns everything from `Environment` outward and the platform-shared layer — including `(Cluster)ProjectType` and `(Cluster)ResourceType` templates. Application resources (`Project`, `ProjectReleaseBinding`, `Component`, `ReleaseLine`, `Workload`, `ComponentRelease`, `ReleaseBinding`, `Resource`, `ResourceReleaseBinding`) are application-side and out of scope. The PE side of release lines (v1.4+) is to keep ComponentTypes / Traits release-line-safe, make build Workflows write a line's own files, and grant `releaseline:*` in authz roles. (`ProjectRelease` is controller-cut and never in Git, like `ComponentRelease` / `ResourceRelease`.) Plane resources (`DataPlane` / `WorkflowPlane` / `ObservabilityPlane` and their `Cluster*` variants) are install-side one-time setups and out of scope by default — see [`recipes/author-other-resources.md`](./recipes/author-other-resources.md).
 
 ## Repo layout (mono-repo default)
 
@@ -151,6 +152,7 @@ After a PR merges:
 - **`Kustomization` failing** — usually a malformed manifest or missing dependency (cluster-scoped resource not yet in `platform-shared/`). `flux events --for kustomization/<name>`.
 - **`Ready=False` on a PE resource** — controller validation failed. `occ <kind> get <name>` → `status.conditions[]` carries the message. Common causes: scope mismatch (e.g., `ClusterComponentType` referencing a namespace-scoped `Trait`), missing `default` on a required schema field, CEL referencing a context variable not available in that surface (see [`cel.md`](./cel.md)).
 - **`WorkflowNotAllowed` on a Component** — the ComponentType's `allowedWorkflows[]` doesn't list the workflow the Component references. Often shows up after `Replace with defaults` if the vanilla CCT's `allowedWorkflows[]` wasn't rewritten to point at the GitOps Workflow names. See [`authoring.md`](./authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
+- **`ReleaseLineNameCollision` / `ReleaseLinePodLabelOverlap` on a release line's ReleaseBinding** (v1.4+) — the ComponentType or a Trait isn't release-line-safe. See [`recipes/author-componenttype.md`](./recipes/author-componenttype.md) *Release-line-safe names and pod labels*. The main line keeps running meanwhile.
 - **Cluster diverged from Git after a clean reconcile** — see drift recovery below.
 
 ## Drift recovery

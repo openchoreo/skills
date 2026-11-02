@@ -126,6 +126,9 @@ Common causes:
 - Missing image pull secrets
 - Resource quota exceeded
 - Gateway not configured for the endpoint visibility level
+- **A release line's binding (v1.4+) has `ReleaseSynced=False` with reason `ReleaseLineNameCollision`.** The ComponentType or a Trait names an object the same on every line (built from `metadata.componentName` alone), so the line would overwrite the main line's. The condition message names the object. Fix the template to use `metadata.name` / `metadata.componentLineName` (see [`component-types-and-traits.md`](./component-types-and-traits.md) *Release-line-safe names and pod labels*). The main line is unaffected meanwhile.
+- **`ReleaseLinePodLabelOverlap`** — the line's pods carry `openchoreo.dev/component-uid`, so the main line's Service / Deployment selectors would match them. Some template or Trait patch puts `metadata.labels` on the pod template. Use `metadata.podSelectors` only.
+- **A line's build updated the main line's Workload** — the CI Workflow doesn't forward the `openchoreo.dev/release-line` run label to `occ workload create --release-line`. See [`recipes/author-a-ci-workflow.md`](./recipes/author-a-ci-workflow.md). Typical after upgrading to v1.4: the default Workflows and ComponentTypes come from `samples/getting-started`, not the Helm chart, so they stay pre-1.4 until re-applied.
 
 ### Endpoints not accessible
 

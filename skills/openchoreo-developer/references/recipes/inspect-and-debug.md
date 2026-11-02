@@ -105,6 +105,8 @@ App-side cause → developer fix. Plane-side cause → escalate to PE.
 | Pod `Pending` long time | `get_resource_events` (Pod); cluster-pressure → PE |
 | Endpoint URL not reachable | `get_release_binding.status.endpoints[]`; missing → gateway / PE |
 | No binding for a component | `list_release_bindings`; if empty → `recipes/deploy-and-promote.md` |
+| A release line's binding: `ReleaseSynced=False`, reason `ReleaseLineNameCollision` or `ReleaseLinePodLabelOverlap` (v1.4+) | The ComponentType / a Trait isn't release-line-safe: same object names, or `metadata.labels` on pods. The main line keeps running. → PE |
+| `ReleaseSynced=False`, reason `ReleaseLineNotFound` | The binding names a release line that doesn't exist → `list_release_lines`; see `recipes/release-lines.md`. A line of another component gives `InvalidReleaseConfiguration` instead |
 
 ## Gotchas
 
@@ -115,6 +117,7 @@ App-side cause → developer fix. Plane-side cause → escalate to PE.
 - **Rendered resource names ≠ component name.** `get_resource_events` matches `(group, version, kind, name)` exactly — passing the component name fails. Always `get_resource_tree` first.
 - **`get_resource_logs` is current-container only.** Previous-container logs (after a restart) aren't retrievable — escalate to PE for `kubectl logs --previous`.
 - **Promotion preserves the failure.** A broken release in dev stays broken in staging. Roll back first.
+- **Components with release lines have one binding per line per environment** (v1.4+). Pick the line's binding (`get_release_line` → `environments[].releaseBinding`, or `releaseLine` in `list_release_bindings` output) before `get_resource_tree`. The main line's binding is the one without `releaseLine`.
 
 ## Out of scope
 

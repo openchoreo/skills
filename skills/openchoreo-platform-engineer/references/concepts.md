@@ -12,7 +12,8 @@ Namespace (tenant boundary)
   │     ├── Component (deployable unit)
   │     │     ├── Workload (runtime spec: image, ports, env, dependencies)
   │     │     ├── ComponentRelease (immutable snapshot)
-  │     │     └── ReleaseBinding (deploys release to environment)
+  │     │     ├── ReleaseBinding (deploys release to environment)
+  │     │     └── ReleaseLine (v1.4+: another line of the component, with its own Workload, releases, bindings)
   │     ├── Resource (managed infrastructure: database, queue, cache)
   │     │     ├── ResourceRelease (immutable snapshot)
   │     │     └── ResourceReleaseBinding (deploys resource to environment)
@@ -158,7 +159,17 @@ deploymentPipelineRef: default
 
 ### ComponentRelease
 
-Immutable snapshot of Component + Workload + ComponentType + Traits at a point in time. Like a lock file for deployments. Created automatically when `autoDeploy: true`, or manually with `create_component_release`. Discoverable via `list_component_releases`.
+Immutable snapshot of Component + Workload + ComponentType + Traits at a point in time. Like a lock file for deployments. Created automatically when `autoDeploy: true`, or manually with `create_component_release` (pass `release_line` for a release line). Discoverable via `list_component_releases`.
+
+### ReleaseLine (v1.4+)
+
+A named line of one Component that runs side by side with it in the same environments, for example `next` built from another branch. The Component itself is the implicit `main` line. A `ReleaseLine` overrides the Component's `parameters`, `traits`, `workflow.parameters` and `autoDeploy`, and has its own Workload, ComponentReleases and one ReleaseBinding per environment, named from `{component}-{line}-{hash}`. Developer-owned (the developer skill's `release-lines.md`). The PE side has three jobs:
+
+- **Types render every line.** All of a component's lines go through the same ComponentType and Traits into the same project namespace. Templates must name objects per line and keep `metadata.labels` off pods. See [`component-types-and-traits.md`](./component-types-and-traits.md) *Release-line-safe names and pod labels*.
+- **CI Workflows build lines.** A line's WorkflowRun carries `openchoreo.dev/release-line` and the line's merged parameters. The Workflow must pass the line to `occ workload create --release-line`. See [`recipes/author-a-ci-workflow.md`](./recipes/author-a-ci-workflow.md).
+- **Authz.** `releaseline:view|create|update|delete` gate the lines. See [`authz.md`](./authz.md).
+
+On a cluster **upgraded** to v1.4, the default ComponentTypes and CI Workflows are whatever was applied at install, from `samples/getting-started`. They aren't part of the Helm chart, so the upgrade doesn't touch them. Pre-1.4 defaults name objects from `metadata.componentName` and don't forward the release line. Re-apply the v1.4 defaults, or patch the installed ones, before developers add lines.
 
 ### ReleaseBinding
 

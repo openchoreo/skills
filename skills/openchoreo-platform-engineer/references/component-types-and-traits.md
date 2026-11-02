@@ -128,6 +128,16 @@ Each entry produces zero or more Kubernetes resources, generated from a CEL-temp
 
 > **Admission rule (v1.0.0-rc.2+)**: resource templates **must not** hardcode `metadata.namespace`. Use `${metadata.namespace}` (the platform-resolved target namespace) instead. The webhook rejects literal namespace strings in `resources[].template.metadata.namespace`.
 
+### Release-line-safe names and pod labels
+
+A component's **release lines** (v1.4+, see [`concepts.md`](./concepts.md) *ReleaseLine*) all render into the same project namespace through the same ComponentType and Traits. Author every type so that each line gets its own objects. Otherwise, adding a line fails its ReleaseBinding with `ReleaseLineNameCollision` or `ReleaseLinePodLabelOverlap`, and the line doesn't deploy:
+
+- **Per-environment objects** (Deployment, ConfigMaps, PVCs, anything in a `forEach`): name from `${metadata.name}`. It's already unique per line and environment.
+- **Component-level names** (Service, HTTPRoute names, route path prefixes, `backendRefs`, the component part of gateway hostnames): use `${metadata.componentLineName}`. On the main line it's the component name, so existing components keep their names. On a release line it's `{component}-{line}-{hash}`. The shipped defaults write it as `metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName`, which renders the same.
+- **Pod template labels** are `${metadata.podSelectors}` and nothing from `metadata.labels`, whether in the ComponentType or in a Trait patch. `metadata.labels` carries `openchoreo.dev/component-uid` on every line, and that's the label the main line's selectors match. Add custom pod labels with `oc_merge(metadata.podSelectors, {...})`.
+
+**Version gate:** `metadata.componentLineName` and `metadata.releaseLineName` exist on v1.4+ only, which has the `releaselines.openchoreo.dev` CRD (`kubectl get crd releaselines.openchoreo.dev`). Against an older cluster, use `metadata.componentName` wherever the examples below use `metadata.componentLineName`. The `metadata.name` and pod-label rules hold on every version.
+
 ### Complete ComponentType example
 
 ```yaml
@@ -183,7 +193,7 @@ spec:
         apiVersion: apps/v1
         kind: Deployment
         metadata:
-          name: ${metadata.componentName}
+          name: ${metadata.name}
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
@@ -212,7 +222,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: ${metadata.componentName}
+          name: ${metadata.componentLineName}       # v1.4+; metadata.componentName before
           namespace: ${metadata.namespace}
         spec:
           selector: ${metadata.podSelectors}
@@ -228,7 +238,7 @@ spec:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: ${oc_generate_name(metadata.componentName, endpoint)}
+          name: ${oc_generate_name(metadata.componentLineName, endpoint)}
           namespace: ${metadata.namespace}
           labels: ${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint})}
         spec:
@@ -238,12 +248,12 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, oc_dns_label(endpoint, metadata.componentLineName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             - matches:
                 - path:
                     type: PathPrefix
-                    value: /${metadata.componentName}-${endpoint}
+                    value: /${metadata.componentLineName}-${endpoint}
               filters:
                 - type: URLRewrite
                   urlRewrite:
@@ -251,7 +261,7 @@ spec:
                       type: ReplacePrefixMatch
                       replacePrefixMatch: ${workload.endpoints[endpoint].?basePath.orValue("/")}
               backendRefs:
-                - name: ${metadata.componentName}
+                - name: ${metadata.componentLineName}
                   port: ${workload.endpoints[endpoint].port}
 ```
 
@@ -927,14 +937,14 @@ patches:
     apiVersion: gateway.networking.k8s.io/v1
     kind: HTTPRoute
     metadata:
-      name: ${oc_generate_name(metadata.componentName, endpoint, "internal")}
+      name: ${oc_generate_name(metadata.componentLineName, endpoint, "internal")}
     spec:
       parentRefs:
         - name: ${gateway.ingress.internal.name}
           namespace: ${gateway.ingress.internal.namespace}
       rules:
         - backendRefs:
-            - name: ${metadata.componentName}
+            - name: ${metadata.componentLineName}
               port: ${workload.endpoints[endpoint].port}
 ```
 
@@ -1001,8 +1011,10 @@ For any resource generated in a `forEach` loop, name it with `oc_generate_name(.
 
 ```yaml
 metadata:
-  name: ${oc_generate_name(metadata.componentName, item.name, "config")}
+  name: ${oc_generate_name(metadata.name, item.name, "config")}
 ```
+
+Build names from `metadata.name` or `metadata.componentLineName`, never `metadata.componentName` alone. A component's release lines share the namespace, so a name made only from `metadata.componentName` collides as soon as a line is added (see *Release-line-safe names and pod labels* above).
 
 For trait-created resources, include `${trait.instanceName}` so multiple attachments of the same trait don't collide:
 

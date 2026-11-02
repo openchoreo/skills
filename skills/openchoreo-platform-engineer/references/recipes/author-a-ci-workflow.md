@@ -161,6 +161,31 @@ Pass this through the MCP `create_workflow` call (`scope: "cluster"`; the tool a
 
 For the full body — including the registry-push ExternalSecret, the per-step CEL expressions, and the proper `runTemplate.spec.arguments.parameters`-to-CWT-arg wiring — inspect a Workflow already on the cluster: `get_workflow scope: cluster, name: dockerfile-builder` (the platform usually ships this and the three buildpack alternatives). Adapt the returned spec.
 
+#### Forward the release line (v1.4+)
+
+A build of a component's release line (`trigger_workflow_run` with `release_line`, or a Git push to a line's branch) runs the same Workflow. The run carries the label `openchoreo.dev/release-line`, and the line's workflow parameters are already merged in. The `generate-workload` step must publish to that line's Workload. If the label isn't forwarded, `occ workload create` writes the main line's `<component>-workload`, and building a line overwrites what the main line runs. Wire it through the run arguments to the step. The shipped [`generate-workload.yaml`](../../resources/workflow-templates/generate-workload.yaml) takes a `release-line` input, defaulting to `""` for the main line:
+
+```yaml
+runTemplate:
+  spec:
+    arguments:
+      parameters:
+        - name: release-line
+          value: "${'openchoreo.dev/release-line' in metadata.labels ? metadata.labels['openchoreo.dev/release-line'] : ''}"
+    templates:
+      - name: build-workflow
+        steps:
+          # ...
+          - - name: generate-workload-cr
+              templateRef: { name: generate-workload, clusterScope: true, template: generate-workload-cr }
+              arguments:
+                parameters:
+                  - name: release-line
+                    value: "{{workflow.parameters.release-line}}"
+```
+
+The label check is safe on older clusters (it's just absent there). Apply the updated `generate-workload` ClusterWorkflowTemplate together with a Workflow that passes the argument. If the image tag doesn't include the commit, make it line-specific too. The shipped builders tag `v1-<line>` for a release line: `"${'openchoreo.dev/release-line' in metadata.labels ? 'v1-' + metadata.labels['openchoreo.dev/release-line'] : 'v1'}"`.
+
 ### Step 4 — Allow the workflow on at least one ComponentType
 
 A CI workflow is unusable until a ComponentType lists it in `allowedWorkflows`. Either author a new type via [`./author-a-componenttype.md`](./author-a-componenttype.md) with this workflow allowed, or update an existing one.

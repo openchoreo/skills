@@ -2,6 +2,8 @@
 
 Deploy a Component release to its first environment and promote it through the pipeline (e.g. `development → staging → production`). Also: rollback to an older release, undeploy, and redeploy an undeployed binding.
 
+Everything here acts on the Component's **main line**. For a release line (v1.4+), the same calls take `release_line` and bind that line's releases. See [`release-lines.md`](release-lines.md).
+
 ## How releases and bindings relate
 
 ```text
@@ -191,6 +193,7 @@ When the binding is no longer needed (not just temporarily down), `delete_releas
 
 ## Related recipes
 
+- [`release-lines.md`](release-lines.md) — deploy, promote and roll back a release line of the component
 - [`override-per-environment.md`](override-per-environment.md) — overrides applied at promotion time
 - [`inspect-and-debug.md`](inspect-and-debug.md) — verify the new release deployed cleanly
 - [`configure-workload.md`](configure-workload.md) — changing the base Workload generates a new release

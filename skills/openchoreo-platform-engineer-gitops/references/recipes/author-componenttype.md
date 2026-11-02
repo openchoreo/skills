@@ -97,7 +97,7 @@ spec:
       template: { ... }
 ```
 
-For the full `resources[]` body — HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patches — start from a default extracted via `./scripts/extract-resources.sh defaults --kind ClusterComponentType --name <service|web-application|worker|scheduled-task>` and adapt.
+For the full `resources[]` body — HTTPRoute fan-out, ConfigMap-per-container, ExternalSecret patches — start from a default extracted via `./scripts/extract-resources.sh defaults --kind ClusterComponentType --name <service|web-application|worker|scheduled-task>` and adapt. Whatever you author, name objects and label pods per *Release-line-safe names and pod labels* below.
 
 ### 4. Commit + verify
 
@@ -127,6 +127,29 @@ spec:
 
 Flux re-applies the full file every reconcile. **Anything not in the file is removed.** Don't half-edit.
 
+## Release-line-safe names and pod labels
+
+A component's **release lines** (v1.4+; the `ReleaseLine` in [`../concepts.md`](../concepts.md) *Resource hierarchy*) all render into the same project namespace through the same ComponentType and Traits. Author every type so that each line gets its own objects. Otherwise, adding a line fails its ReleaseBinding with `ReleaseLineNameCollision` or `ReleaseLinePodLabelOverlap`, and the line doesn't deploy:
+
+- **Per-environment objects** (Deployment, ConfigMaps, PVCs, anything in a `forEach`): name from `${metadata.name}`. It's already unique per line and environment.
+- **Component-level names** (Service, HTTPRoute names, route path prefixes, `backendRefs`, the component part of gateway hostnames): use `${metadata.componentLineName}`. On the main line it's the component name, so existing components keep their names. On a release line it's `{component}-{line}-{hash}`. The shipped defaults write it as `metadata.releaseLineName == "" ? metadata.componentName : metadata.componentLineName`, which renders the same.
+- **Pod template labels** are `${metadata.podSelectors}` and nothing from `metadata.labels`, whether in the ComponentType or in a Trait patch. `metadata.labels` carries `openchoreo.dev/component-uid` on every line, and that's the label the main line's selectors match. Add custom pod labels with `oc_merge(metadata.podSelectors, {...})`.
+
+```yaml
+- id: service
+  template:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${metadata.componentLineName}
+      namespace: ${metadata.namespace}
+    spec:
+      selector: ${metadata.podSelectors}
+      ports: ${workload.toServicePorts()}
+```
+
+**Version gate:** `metadata.componentLineName` and `metadata.releaseLineName` exist on v1.4+ only, which has the `releaselines.openchoreo.dev` CRD (`kubectl get crd releaselines.openchoreo.dev`). Against an older cluster, use `metadata.componentName` instead. A default extracted with `OCC_TAG` pinned to an older tag already does. The `metadata.name` and pod-label rules hold on every version.
+
 ## Variants
 
 **Namespace-scoped tenancy** — same shape, `kind: ComponentType`, set `metadata.namespace`, path `namespaces/<ns>/platform/component-types/`. Component references it with `componentType.kind: ComponentType`.
@@ -138,6 +161,7 @@ Flux re-applies the full file every reconcile. **Anything not in the file is rem
 - **`workloadType` is immutable.** Delete + recreate to change.
 - **`resources[].id` of the primary workload must equal `workloadType`.** `workloadType: deployment` → exactly one `id: deployment`.
 - **Don't hardcode `metadata.namespace` in templates.** Use `${metadata.namespace}` (CEL). Webhook rejects literal namespace strings.
+- **Names built only from `metadata.componentName` break release lines.** They collide as soon as a component adds a line (`ReleaseLineNameCollision`). Use `metadata.name` / `metadata.componentLineName`, and label pods with `metadata.podSelectors` only. See *Release-line-safe names and pod labels*.
 - **`ClusterComponentType` may only reference `ClusterTrait` / `ClusterWorkflow`.** Mixing scopes fails validation.
 - **`allowedWorkflows[]` must point at GitOps-compatible Workflows.** The vanilla CI workflows in `samples/getting-started/all.yaml` (`dockerfile-builder` etc.) write the `Workload` to the cluster directly — Flux reverts. Use the GitOps variants (`docker-gitops-release` etc.) discoverable via `./scripts/extract-resources.sh gitops-workflows --list`. See [`../authoring.md`](../authoring.md) *Vanilla CI workflows aren't GitOps-compatible*.
 - **Required-by-default in JSON Schema.** Every property is required unless it has `default`. Use object-level `default: {}` on container objects so adding a required nested field doesn't silently break every existing Component.

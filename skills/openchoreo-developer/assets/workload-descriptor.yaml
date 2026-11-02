@@ -1,6 +1,6 @@
 # OpenChoreo workload descriptor — lives at <appPath>/workload.yaml, alongside your source.
 # Converted to a Workload CR: the top-level fields here move under spec:, and the workload
-# is named <component>-workload.
+# is named <component>-workload (<component>-<line>-<hash>-workload when a release line builds it).
 
 apiVersion: openchoreo.dev/v1alpha1
 
@@ -24,6 +24,7 @@ dependencies:
       name: api                # +required target endpoint
       visibility: project      # +required project | namespace
       # project: other-project # +optional cross-project (with visibility: namespace)
+      # releaseLine is NOT a descriptor field (it is dropped); set it on the Workload CR instead.
       envBindings:             # +required keys: address | host | port | basePath
         address: BACKEND_URL
   resources:
