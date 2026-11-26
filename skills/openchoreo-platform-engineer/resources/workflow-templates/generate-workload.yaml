@@ -28,7 +28,7 @@ spec:
           - name: api-server-url
             default: "http://host.k3d.internal:8080"
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner:v1.3
         command:
           - sh
           - -c
